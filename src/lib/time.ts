@@ -62,3 +62,7 @@ export function fmtHours(h: number): string {
   const r = Math.round(h * 100) / 100;
   return `${r} ${Math.abs(r) === 1 ? "hour" : "hours"}`;
 }
+
+export function isPast(d: Date | string): boolean {
+  return new Date(d).getTime() < Date.now();
+}

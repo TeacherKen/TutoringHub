@@ -1,26 +1,122 @@
 @import "tailwindcss";
 
+/* Calm, minimal colours with one accent (deep teal). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #f6f6f3;
+  --surface: #ffffff;
+  --surface-2: #f0f0ec;
+  --border: #e2e1dc;
+  --text: #1d1f1e;
+  --muted: #6b6f6c;
+  --accent: #0f6b62;
+  --accent-soft: #e3f0ee;
+  --accent-text: #ffffff;
+  --warn: #9a5b00;
+  --warn-soft: #fbf0dc;
+  --danger: #a33a2e;
+  --danger-soft: #f8e5e2;
+  --ok: #2f6b2f;
+  --ok-soft: #e6f1e3;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --bg: #121413;
+    --surface: #1a1d1c;
+    --surface-2: #222624;
+    --border: #2e3330;
+    --text: #ecefed;
+    --muted: #9aa19d;
+    --accent: #4fb3a7;
+    --accent-soft: #1d3330;
+    --accent-text: #0b1513;
+    --warn: #e2b35c;
+    --warn-soft: #33291a;
+    --danger: #ec8a7e;
+    --danger-soft: #3a2220;
+    --ok: #8fcb8a;
+    --ok-soft: #1f2e1e;
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --font-sans: var(--font-geist-sans);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+@utility card {
+  @apply rounded-2xl border border-line bg-surface p-4;
+}
+@utility btn {
+  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 text-base font-medium transition-colors disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-accent text-accent-text hover:opacity-90;
+}
+@utility btn-secondary {
+  @apply btn border border-line bg-surface text-ink hover:bg-surface-2;
+}
+@utility btn-quiet {
+  @apply btn min-h-10 px-3 text-accent hover:bg-accent-soft;
+}
+@utility btn-danger {
+  @apply btn border border-line bg-surface text-danger hover:bg-danger-soft;
+}
+@utility input {
+  @apply min-h-12 w-full rounded-xl border border-line bg-surface px-3 py-2 text-base text-ink outline-none placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent-soft;
+}
+@utility label {
+  @apply mb-1 block text-sm font-medium text-muted;
+}
+@utility chip {
+  @apply inline-flex items-center rounded-full bg-surface-2 px-2.5 py-0.5 text-sm text-muted;
+}
+@utility chip-accent {
+  @apply chip bg-accent-soft text-accent;
+}
+@utility chip-warn {
+  @apply chip bg-warn-soft text-warn;
+}
+@utility chip-danger {
+  @apply chip bg-danger-soft text-danger;
+}
+@utility chip-ok {
+  @apply chip bg-ok-soft text-ok;
+}
+@utility h1 {
+  @apply text-2xl font-semibold tracking-tight;
+}
+@utility h2 {
+  @apply text-lg font-semibold;
+}
+
+textarea.input {
+  min-height: 6rem;
+  line-height: 1.35;
 }
