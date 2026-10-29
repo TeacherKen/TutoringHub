@@ -49,7 +49,7 @@ beforeAll(async () => {
     "",
   );
   await db.exec(sql);
-  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql"]) {
+  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql"]) {
     await db.exec(readFileSync(join(__dirname, "../supabase/migrations", f), "utf8"));
   }
   // Supabase gives these grants by default; RLS does the real protection.
@@ -111,6 +111,17 @@ describe("viewer (family member)", () => {
   it("cannot read the calendar links", async () => {
     expect(await as(VIEWER, "select * from private_settings")).toEqual([]);
     await expect(as(VIEWER, "select * from calendar_sources")).rejects.toThrow(/permission denied/);
+  });
+  it("cannot see students' game screens", async () => {
+    await as(TUTOR, "insert into room_screens (student_id, game, html) values ('00000000-0000-0000-0000-000000000001', 'tt', '<p>x</p>')");
+    expect((await as(TUTOR, "select * from room_screens")).length).toBe(1);
+    expect(await as(VIEWER, "select * from room_screens")).toEqual([]);
+    expect(await as(PARENT, "select * from room_screens")).toEqual([]);
+  });
+  it("closing games clears the game screen", async () => {
+    await as(TUTOR, "update students set games_open = true");
+    await as(TUTOR, "update students set games_open = false");
+    expect(await as(TUTOR, "select * from room_screens")).toEqual([]);
   });
   it("cannot see any student's room link", async () => {
     await as(TUTOR, "update students set room_token = 'secret-room-token-abcdefghijkl'");

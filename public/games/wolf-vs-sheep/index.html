@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wolf vs Sheep</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game-shell">
+    <button id="soundToggleButton" class="sound-toggle" type="button" aria-label="Toggle sound">Sound On</button>
+
+    <section id="startScreen" class="screen start-screen is-active" aria-labelledby="startTitle">
+      <div class="menu-card">
+        <div class="menu-icons" aria-hidden="true">
+          <span>🐺</span>
+          <span>🐑</span>
+        </div>
+        <h1 id="startTitle">Wolf vs Sheep</h1>
+        <p>Strategy. Capture. Survive.</p>
+        <div class="menu-actions">
+          <button id="localModeButton" class="primary-button" type="button">Local 2 Player</button>
+          <button id="singlePlayerButton" class="secondary-button" type="button">Single Player</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="sideSelectionScreen" class="screen side-selection-screen" aria-labelledby="sideSelectionTitle">
+      <div class="menu-card">
+        <div class="menu-icons" aria-hidden="true">
+          <span>🐺</span>
+          <span>🐑</span>
+        </div>
+        <h1 id="sideSelectionTitle">Choose Your Side</h1>
+        <p>Pick the side you want to play against the AI.</p>
+        <div class="menu-actions">
+          <button id="playWolfButton" class="primary-button" type="button">Play as Wolf</button>
+          <button id="playSheepButton" class="secondary-button" type="button">Play as Sheep</button>
+        </div>
+        <button id="sideBackButton" class="text-button" type="button">Back to Main Menu</button>
+      </div>
+    </section>
+
+    <section id="difficultyScreen" class="screen difficulty-screen" aria-labelledby="difficultyTitle">
+      <div class="menu-card">
+        <div class="menu-icons" aria-hidden="true">
+          <span>🐺</span>
+          <span>🐑</span>
+        </div>
+        <h1 id="difficultyTitle">Choose Difficulty</h1>
+        <p>Easy reacts now. Normal and Hard plan ahead with minimax.</p>
+        <div class="menu-actions">
+          <button id="easyButton" class="secondary-button" type="button">Easy</button>
+          <button id="normalButton" class="primary-button" type="button">Normal</button>
+          <button id="hardButton" class="secondary-button" type="button">Hard</button>
+        </div>
+        <button id="difficultyBackButton" class="text-button" type="button">Back to Side Selection</button>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="screen game-screen" aria-label="Wolf vs Sheep match">
+      <header class="game-header">
+        <div class="brand-lockup" aria-label="Wolf vs Sheep">
+          <span class="brand-icon" aria-hidden="true">🐺</span>
+          <div>
+            <h1>Wolf vs Sheep</h1>
+            <p>Strategy. Capture. Survive.</p>
+          </div>
+          <span class="brand-icon" aria-hidden="true">🐑</span>
+        </div>
+      </header>
+
+    <section class="game-layout">
+      <aside class="sidebar left-sidebar" aria-label="Game controls and rules">
+        <article class="card mode-card" aria-live="polite">
+          <span class="card-label">Mode</span>
+          <strong id="modeLabel">Local 2 Player</strong>
+          <p id="humanSideLabel" class="human-side-label"></p>
+          <p id="difficultyLabel" class="difficulty-label"></p>
+        </article>
+
+        <article id="turnCard" class="card turn-card wolf-turn" aria-live="polite">
+          <span class="card-label">Turn</span>
+          <div class="turn-heading">
+            <span id="turnIcon" class="turn-icon" aria-hidden="true">🐺</span>
+            <strong id="turnLabel">Wolf</strong>
+          </div>
+          <p id="turnHelper">Capture sheep or reposition.</p>
+        </article>
+
+        <article class="card rules-card">
+          <h2>How to Play</h2>
+          <ul>
+            <li>Sheep move one step to an adjacent empty node.</li>
+            <li>Wolf moves one step to an adjacent empty node.</li>
+            <li>Wolf can jump over adjacent sheep to capture.</li>
+            <li>Sheep win by trapping the wolf.</li>
+            <li>Wolf wins by capturing 7 sheep.</li>
+          </ul>
+        </article>
+
+        <div class="match-actions">
+          <button id="mainMenuButton" class="secondary-action-button" type="button">Main Menu</button>
+          <button id="restartButton" class="restart-button" type="button" aria-label="Restart Match">Restart Match</button>
+          <button id="undoButton" class="secondary-action-button" type="button">Undo Last Move</button>
+          <button id="exportButton" class="secondary-action-button" type="button">Export Match</button>
+          <button id="exportAnalyticsButton" class="secondary-action-button" type="button">Export All Analytics</button>
+          <button id="replayButton" class="secondary-action-button" type="button">Replay Match</button>
+        </div>
+
+        <details class="card move-history-card" open>
+          <summary>Move History</summary>
+          <ol id="moveHistoryList" class="move-history-list" aria-live="polite"></ol>
+        </details>
+      </aside>
+
+      <section class="board-column" aria-label="Wolf vs Sheep board area">
+        <div id="aiBanner" class="ai-banner" hidden>Single Player: AI enabled</div>
+        <div class="board-panel">
+          <div id="board" class="board" role="group" aria-label="5 by 5 graph board"></div>
+        </div>
+        <p id="feedbackMessage" class="feedback-message" aria-live="polite">
+          Click one of your pieces, then click a highlighted spot to move.
+        </p>
+      </section>
+
+      <aside class="sidebar right-sidebar" aria-label="Game status and legend">
+        <article class="card captured-card">
+          <span class="card-label">Captured Sheep</span>
+          <div class="captured-count">
+            <span aria-hidden="true">🐑</span>
+            <strong><span id="capturedCount">0</span> / 7</strong>
+          </div>
+        </article>
+
+        <article class="card status-card" aria-live="polite">
+          <h2>Game Status</h2>
+          <p><span aria-hidden="true">🐺</span> Capture 7 sheep to win.</p>
+          <p><span aria-hidden="true">🐑</span> Trap the wolf so it has no legal moves.</p>
+          <strong id="winnerMessage">Game in progress</strong>
+        </article>
+
+        <article class="card legend-card">
+          <h2>Legend</h2>
+          <div class="legend-row">
+            <span class="legend-dot legal-dot" aria-hidden="true"></span>
+            <span>Legal move</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-dot capture-dot" aria-hidden="true"></span>
+            <span>Capture move</span>
+          </div>
+        </article>
+
+        <article id="aiStatsCard" class="card ai-stats-card" hidden>
+          <h2>AI Stats</h2>
+          <p>Last AI Move: <strong id="lastAIMoveLabel">None</strong></p>
+          <p>Nodes Evaluated: <strong id="nodesEvaluatedLabel">0</strong></p>
+          <p>Search Depth: <strong id="searchDepthLabel">0</strong></p>
+          <p>Evaluation Score: <strong id="evaluationScoreLabel">0</strong></p>
+          <p>Avg Move Time: <strong id="currentAIMoveTimeLabel">0ms</strong></p>
+          <p>Lifetime Nodes: <strong id="lifetimeAINodesLabel">0</strong></p>
+          <p>Lifetime Depth: <strong id="lifetimeAIDepthLabel">0</strong></p>
+          <p>Lifetime Move Time: <strong id="lifetimeAIMoveTimeLabel">0ms</strong></p>
+        </article>
+
+        <article class="card match-stats-card">
+          <h2>Match Statistics</h2>
+          <p>Total Moves: <strong id="totalMovesLabel">0</strong></p>
+          <p>Captures: <strong id="capturesLabel">0</strong></p>
+          <p>Match Length: <strong id="matchLengthLabel">0:00</strong></p>
+          <p>Winner: <strong id="winnerStatLabel">None</strong></p>
+        </article>
+
+        <article class="card balance-card">
+          <h2>Live Balance</h2>
+          <p>Wolf Mobility: <strong id="wolfMobilityLabel">0</strong></p>
+          <p>Remaining Sheep: <strong id="remainingSheepLabel">12</strong></p>
+          <p>Captured Sheep: <strong id="balanceCapturedLabel">0</strong></p>
+        </article>
+
+        <article class="card analytics-card">
+          <h2>Balance Dashboard</h2>
+          <p>Total Matches: <strong id="historyTotalMatchesLabel">0</strong></p>
+          <p>Wolf Wins: <strong id="historyWolfWinsLabel">0</strong></p>
+          <p>Sheep Wins: <strong id="historySheepWinsLabel">0</strong></p>
+          <p>Wolf Win Rate: <strong id="historyWolfRateLabel">0%</strong></p>
+          <p>Sheep Win Rate: <strong id="historySheepRateLabel">0%</strong></p>
+          <p>Average Match Length: <strong id="averageMatchLengthLabel">0:00</strong></p>
+          <p>Average Captures: <strong id="averageCapturesLabel">0</strong></p>
+        </article>
+
+        <article class="card difficulty-stats-card">
+          <h2>Difficulty Stats</h2>
+          <div id="difficultyStatsList" class="stats-list"></div>
+        </article>
+
+        <article class="card length-analysis-card">
+          <h2>Match Length Analysis</h2>
+          <p>Short (&lt;20): <strong id="shortMatchRateLabel">0%</strong></p>
+          <p>Medium (20-50): <strong id="mediumMatchRateLabel">0%</strong></p>
+          <p>Long (50+): <strong id="longMatchRateLabel">0%</strong></p>
+        </article>
+
+        <article class="card opening-analysis-card">
+          <h2>Opening Analysis</h2>
+          <p>Most Common: <strong id="commonOpeningLabel">None</strong></p>
+          <p>Most Successful: <strong id="successfulOpeningLabel">None</strong></p>
+        </article>
+
+        <article class="card recommendations-card">
+          <h2>Balance Insights</h2>
+          <ul id="balanceInsightsList" class="insights-list"></ul>
+        </article>
+
+        <article class="card simulation-card">
+          <h2>Simulation Mode</h2>
+          <p id="simulationStatusLabel">Run AI vs AI with the selected difficulty.</p>
+          <div class="simulation-controls">
+            <button id="simulate10Button" class="secondary-action-button" type="button">10 Matches</button>
+            <button id="simulate50Button" class="secondary-action-button" type="button">50 Matches</button>
+            <button id="simulate100Button" class="secondary-action-button" type="button">100 Matches</button>
+          </div>
+          <p>Wolf Wins: <strong id="simulationWolfWinsLabel">0</strong></p>
+          <p>Sheep Wins: <strong id="simulationSheepWinsLabel">0</strong></p>
+          <p>Average Length: <strong id="simulationAverageLengthLabel">0 moves</strong></p>
+          <p>Wolf Win Rate: <strong id="simulationWolfRateLabel">0%</strong></p>
+          <ul id="simulationRecommendationsList" class="insights-list"></ul>
+        </article>
+
+        <article class="card replay-card">
+          <h2>Replay Controls</h2>
+          <p id="replayStatusLabel">Replay available after game ends.</p>
+          <div class="replay-controls">
+            <button id="firstReplayButton" class="secondary-action-button" type="button">First Move</button>
+            <button id="previousReplayButton" class="secondary-action-button" type="button">Previous</button>
+            <button id="nextReplayButton" class="secondary-action-button" type="button">Next</button>
+            <button id="lastReplayButton" class="secondary-action-button" type="button">Last Move</button>
+          </div>
+        </article>
+
+        <article class="card debug-card">
+          <label class="debug-toggle">
+            <input id="debugToggle" type="checkbox">
+            <span>Debug Mode</span>
+          </label>
+        </article>
+
+        <article id="developerPanel" class="card developer-card" hidden>
+          <h2>Developer Testing</h2>
+          <div class="developer-controls">
+            <button id="forceWolfWinButton" class="secondary-action-button" type="button">Force Wolf Win</button>
+            <button id="forceSheepWinButton" class="secondary-action-button" type="button">Force Sheep Win</button>
+            <button id="addCaptureButton" class="secondary-action-button" type="button">Add Capture</button>
+            <button id="resetAnalyticsButton" class="secondary-action-button danger-action" type="button">Reset Analytics</button>
+            <button id="generateTestMatchButton" class="secondary-action-button" type="button">Generate Test Match</button>
+          </div>
+        </article>
+
+        <article class="card achievements-card">
+          <h2>Achievements</h2>
+          <ul id="achievementList" class="achievement-list"></ul>
+        </article>
+      </aside>
+    </section>
+    </section>
+  </main>
+
+  <section id="tutorialOverlay" class="overlay tutorial-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="tutorialTitle">
+    <div class="overlay-card">
+      <span id="tutorialStepLabel" class="card-label">Step 1 of 3</span>
+      <h2 id="tutorialTitle">Select a piece.</h2>
+      <p id="tutorialText">Click one of your current side's tokens to see its legal moves.</p>
+      <div class="overlay-actions">
+        <button id="tutorialSkipButton" class="secondary-action-button" type="button">Skip</button>
+        <button id="tutorialNextButton" class="restart-button" type="button">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="winOverlay" class="overlay win-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="winTitle">
+    <div class="overlay-card">
+      <div id="winIcon" class="win-icon" aria-hidden="true">🐺</div>
+      <h2 id="winTitle">Wolf Wins</h2>
+      <p id="winReason">Captured enough sheep.</p>
+      <div id="achievementToast" class="achievement-toast" hidden></div>
+      <div class="overlay-actions">
+        <button id="playAgainButton" class="restart-button" type="button">Play Again</button>
+        <button id="winMenuButton" class="secondary-action-button" type="button">Main Menu</button>
+        <button id="watchReplayButton" class="secondary-action-button" type="button">Watch Replay</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="script.js"></script>
+</body>
+</html>

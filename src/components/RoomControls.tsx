@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { ensureRoomToken, resetRoomToken, setGamesOpen } from "@/app/actions/rooms";
+import { WatchScreen } from "./WatchScreen";
 
 type S = { id: string; first_name: string; room_token: string | null; games_open: boolean };
 
@@ -20,6 +21,7 @@ export function RoomControls({ students, showGames = true }: { students: S[]; sh
   );
   const [open, setOpen] = useState(students.some((s) => s.games_open));
   const [msg, setMsg] = useState<string | null>(null);
+  const [watching, setWatching] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const linkFor = (token: string) => `${window.location.origin}/room/${token}`;
@@ -88,7 +90,11 @@ export function RoomControls({ students, showGames = true }: { students: S[]; sh
                   students.map((s) => s.id),
                   !open,
                 );
-                if (r.ok) setOpen(!open);
+                if (r.ok) {
+                  setOpen(!open);
+                  if (open) setWatching(null);
+                  else if (students.length === 1) setWatching(students[0].id);
+                }
               })
             }
             className={open ? "btn-danger min-h-11" : "btn-primary min-h-11"}
@@ -99,27 +105,41 @@ export function RoomControls({ students, showGames = true }: { students: S[]; sh
       </div>
       <p className="text-sm text-muted">
         Each student has one private link. It always shows the slides for their current or next lesson.
-        {showGames ? " Games stay locked until you open them, and close by themselves after 45 minutes." : ""}
+        {showGames
+          ? " Games stay locked until you open them, and close by themselves after 45 minutes. While they're open, tap Watch to see their game screen."
+          : ""}
       </p>
       {students.map((s) => (
-        <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 p-3">
-          <span className="font-medium">{s.first_name}</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="btn-primary min-h-10 px-3 text-sm" onClick={() => share(s)}>
-              Send link
-            </button>
-            <button type="button" className="btn-secondary min-h-10 px-3 text-sm" onClick={() => copy(s)}>
-              Copy
-            </button>
-            <button type="button" className="btn-secondary min-h-10 px-3 text-sm" onClick={() => preview(s)}>
-              Preview
-            </button>
-            {tokens[s.id] ? (
-              <button type="button" className="text-xs text-muted underline" onClick={() => reset(s)}>
-                New link
+        <div key={s.id} className="space-y-3 rounded-xl bg-surface-2 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-medium">{s.first_name}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {showGames && open ? (
+                <button
+                  type="button"
+                  className={watching === s.id ? "btn-secondary min-h-10 px-3 text-sm" : "btn-primary min-h-10 px-3 text-sm"}
+                  onClick={() => setWatching(watching === s.id ? null : s.id)}
+                >
+                  {watching === s.id ? "Stop watching" : "Watch"}
+                </button>
+              ) : null}
+              <button type="button" className="btn-primary min-h-10 px-3 text-sm" onClick={() => share(s)}>
+                Send link
               </button>
-            ) : null}
+              <button type="button" className="btn-secondary min-h-10 px-3 text-sm" onClick={() => copy(s)}>
+                Copy
+              </button>
+              <button type="button" className="btn-secondary min-h-10 px-3 text-sm" onClick={() => preview(s)}>
+                Preview
+              </button>
+              {tokens[s.id] ? (
+                <button type="button" className="text-xs text-muted underline" onClick={() => reset(s)}>
+                  New link
+                </button>
+              ) : null}
+            </div>
           </div>
+          {showGames && open && watching === s.id ? <WatchScreen studentId={s.id} name={s.first_name} /> : null}
         </div>
       ))}
       {msg ? (

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magic Square Academy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Spectral:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=11.0.0">
+</head>
+<body>
+  <div id="loadingScreen" class="loading-screen" aria-label="Loading Magic Square Academy">
+    <div class="loading-crest">MS</div>
+    <h1>Magic Square Academy</h1>
+    <div class="loading-runes"><i></i><i></i><i></i></div>
+    <p>Opening the rune gates...</p>
+  </div>
+  <div id="sceneTransition" class="scene-transition" aria-hidden="true"><i></i></div>
+  <div id="realmAtmosphere" class="realm-atmosphere" aria-hidden="true">
+    <i class="mist"></i><i class="veil"></i><i class="weather"></i><i class="runes"></i>
+  </div>
+  <div class="aurora"></div>
+  <canvas id="particles" aria-hidden="true"></canvas>
+  <div id="fxLayer" class="fx-layer" aria-hidden="true"></div>
+  <div id="impactFlash" class="impact-flash" aria-hidden="true"></div>
+
+  <main class="app-shell">
+    <section class="side-rail glass-panel">
+      <div class="brand-lockup">
+        <div class="crest">MS</div>
+        <div>
+          <h1>Magic Square<br>Academy</h1>
+          <p>Rune Arithmetic Trials</p>
+        </div>
+      </div>
+
+      <nav class="nav-tabs" aria-label="Primary">
+        <button class="nav-tab active" data-tab="world" type="button"><span>✦</span> World Map</button>
+        <button class="nav-tab" data-tab="trial" type="button"><span>▣</span> Trial</button>
+        <button class="nav-tab" data-tab="achievements" type="button"><span>★</span> Achievements</button>
+        <button class="nav-tab" data-tab="profile" type="button"><span>◈</span> Profile</button>
+        <button class="nav-tab" data-tab="teacher" type="button"><span>✎</span> Teacher</button>
+        <button class="nav-tab" data-tab="settings" type="button"><span>⚙</span> Settings</button>
+      </nav>
+
+      <article class="player-card">
+        <div class="avatar">🧙</div>
+        <div class="player-meta">
+          <span>Apprentice</span>
+          <strong id="playerLevel">Level 1</strong>
+          <div class="xp-bar"><i id="xpFill"></i></div>
+          <small id="xpText">0 / 100 XP</small>
+        </div>
+      </article>
+
+      <div class="stat-stack">
+        <div><span>Stars</span><strong id="playerStars">0</strong></div>
+        <div><span>Best Time</span><strong id="bestTime">--:--</strong></div>
+        <div><span>Rank</span><strong id="playerRank">Novice</strong></div>
+        <div><span>Solved</span><strong id="puzzlesSolved">0</strong></div>
+      </div>
+
+      <article class="companion-mini">
+        <div id="companionAvatar">🦉</div>
+        <div>
+          <span>Familiar</span>
+          <strong id="companionName">Owl Familiar</strong>
+          <small id="companionBonus">+5% XP from trials</small>
+        </div>
+      </article>
+    </section>
+
+    <section class="content-stage">
+      <section id="worldView" class="view active">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Choose a realm</p>
+            <h2>World Map</h2>
+          </div>
+          <button id="quickTrial" class="icon-button" type="button" title="Start latest trial">➜</button>
+        </div>
+
+        <div class="academy-brief glass-panel">
+          <div>
+            <p class="eyebrow">Academy Training Board</p>
+            <h3>The ancient rune towers are unstable. Restore each realm by solving its magic square trials.</h3>
+          </div>
+          <div class="academy-actions">
+            <button id="storyButton" class="gold-button" type="button">Story</button>
+            <button id="academyStart" class="primary-button" type="button">Begin Training</button>
+          </div>
+        </div>
+
+        <article class="daily-card glass-panel" id="dailyCard">
+          <div>
+            <p class="eyebrow">Daily Challenge</p>
+            <h3>Today's Rune Trial</h3>
+            <p id="dailyStatus">Reward: bonus XP and stars</p>
+          </div>
+          <div class="daily-stats">
+            <span>Streak <b id="dailyStreak">0</b></span>
+            <span id="dailyCompleted">Not completed</span>
+          </div>
+          <button id="dailyChallengeButton" class="gold-button" type="button">Enter Daily</button>
+        </article>
+
+        <article class="challenge-import glass-panel">
+          <div>
+            <p class="eyebrow">Class Challenge</p>
+            <h3>Enter an Academy Code</h3>
+            <p>Paste a teacher-generated code to load the exact offline assignment.</p>
+          </div>
+          <div class="challenge-code-row">
+            <input id="challengeCodeInput" type="text" placeholder="Paste challenge code">
+            <button id="importChallengeButton" class="primary-button" type="button">Import</button>
+          </div>
+        </article>
+
+        <section class="mode-rack glass-panel">
+          <div>
+            <p class="eyebrow">Challenge Modes</p>
+            <h3>Choose a Training Variant</h3>
+          </div>
+          <div class="mode-buttons">
+            <button data-mode="gauntlet" class="primary-button" type="button">Puzzle Gauntlet</button>
+            <button data-mode="speed" class="gold-button" type="button">Speed Trial</button>
+            <button data-mode="noHints" class="blue-button" type="button">No Hint Challenge</button>
+            <button data-mode="endless" class="teal-button" type="button">Endless Mode</button>
+            <button id="dailyEliteButton" class="danger-button" type="button">Daily Elite</button>
+          </div>
+        </section>
+
+        <div class="world-map" id="realmGrid" aria-label="Magical realms"></div>
+
+        <article class="boss-card glass-panel">
+          <div>
+            <p class="eyebrow">Boss Adventure</p>
+            <h3>Rune Tower Guardians</h3>
+            <p>Select a guardian and restore its arena through a sequence of magic square battles.</p>
+          </div>
+          <div id="bossRoster" class="boss-roster"></div>
+        </article>
+
+        <div class="feature-strip">
+          <article><b>Multiple Sizes</b><span>3x3, 4x4, 5x5</span></article>
+          <article><b>Dynamic Puzzles</b><span>New layouts every run</span></article>
+          <article><b>Hint System</b><span>Reveal up to 3 cells</span></article>
+          <article><b>Earn & Upgrade</b><span>XP, stars, titles</span></article>
+        </div>
+      </section>
+
+      <section id="trialView" class="view">
+        <div class="trial-header">
+          <button id="backToWorld" class="icon-button" type="button" title="Back to world map">←</button>
+          <div>
+            <p class="eyebrow" id="realmSubtitle">Apprentice Hall</p>
+            <h2 id="trialTitle">Magic Square Trial</h2>
+          </div>
+          <div class="resource-pills">
+            <span>★ <b id="trialStars">0</b></span>
+            <span>XP <b id="trialXp">0</b></span>
+            <span id="timer">00:00</span>
+          </div>
+        </div>
+
+        <div class="trial-layout">
+          <aside class="goal-panel glass-panel">
+            <h3>Current Goal</h3>
+            <p>Complete the magic square.</p>
+            <article id="combatHud" class="combat-hud" hidden>
+              <div class="fighter player-fighter">
+                <span>You</span>
+                <strong id="playerHpText">100 / 100 HP</strong>
+                <div class="combat-bar player"><i id="playerHpFill"></i></div>
+              </div>
+              <div class="fighter">
+                <span>Combo</span>
+                <strong id="comboText">x0</strong>
+                <small id="phaseText">Phase 1</small>
+              </div>
+            </article>
+            <div class="trial-controls">
+              <label>
+                <span>Size</span>
+                <select id="sizeSelect">
+                  <option value="3">3x3</option>
+                  <option value="4">4x4</option>
+                  <option value="5">5x5</option>
+                </select>
+              </label>
+              <label>
+                <span>Difficulty</span>
+                <select id="difficultySelect">
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </label>
+            </div>
+            <div class="magic-sum">
+              <span>Magic Sum</span>
+              <strong id="magicSum">15</strong>
+            </div>
+            <div class="hints-left">
+              <span>Hints</span>
+              <strong id="hintsLeft">3</strong>
+            </div>
+            <div class="boss-status" id="bossStatus" hidden>
+              <div id="bossPortrait" class="boss-portrait"></div>
+              <span id="bossName">Boss</span>
+              <div class="boss-hp"><i id="bossHpFill"></i></div>
+              <strong id="bossHpText">100 / 100 HP</strong>
+              <small id="bossModifier">Cursed cells active</small>
+            </div>
+          </aside>
+
+          <section class="board-panel glass-panel">
+            <div id="bossDialogue" class="boss-dialogue" hidden></div>
+            <div id="spellBar" class="spell-bar" aria-label="Spell abilities"></div>
+            <div id="boardWrap" class="board-wrap"></div>
+            <p class="board-help">Tap a rune then a cell, drag runes, or tap your placed number to remove it.</p>
+            <div id="numberBank" class="number-bank" aria-label="Number bank"></div>
+          </section>
+
+          <aside class="totals-panel glass-panel">
+            <h3>Live Totals</h3>
+            <div id="totalsList" class="totals-list"></div>
+            <section class="actions-panel" aria-label="Puzzle actions">
+              <h3>Primary Actions</h3>
+              <div class="primary-actions">
+                <button id="checkAnswer" class="primary-button check-button" type="button">Check Answer</button>
+                <button id="hintButton" class="gold-button" type="button">Hint</button>
+                <button id="resetButton" class="blue-button" type="button">Reset</button>
+                <button id="newPuzzleButton" class="teal-button" type="button">New Puzzle</button>
+              </div>
+              <h3>Secondary</h3>
+              <div class="secondary-actions">
+                <button id="undoButton" class="blue-button" type="button">Undo</button>
+                <button id="clearBoardButton" class="danger-button" type="button">Clear Board</button>
+                <button id="tutorialButton" class="teal-button" type="button">How to Play</button>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section id="achievementsView" class="view">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Trophy room</p>
+            <h2>Achievements</h2>
+          </div>
+          <span id="achievementCount" class="pill">0 / 4 Unlocked</span>
+        </div>
+        <div id="achievementList" class="achievement-list"></div>
+      </section>
+
+      <section id="settingsView" class="view">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Spellbook</p>
+            <h2>Settings</h2>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <label class="setting-row glass-panel">
+            <span>Magical sounds</span>
+            <input id="muteToggle" type="checkbox">
+          </label>
+          <label class="setting-row glass-panel">
+            <span>High contrast</span>
+            <input id="contrastToggle" type="checkbox">
+          </label>
+          <label class="setting-row glass-panel">
+            <span>Reduced motion</span>
+            <input id="motionToggle" type="checkbox">
+          </label>
+          <label class="setting-row glass-panel">
+            <span>Animation intensity <b id="animationValue">Full</b></span>
+            <input id="animationIntensity" type="range" min="0" max="100" value="100">
+          </label>
+          <label class="setting-row glass-panel">
+            <span>Particle density <b id="particleValue">Full</b></span>
+            <input id="particleIntensity" type="range" min="0" max="100" value="75">
+          </label>
+          <label class="setting-row glass-panel">
+            <span>Text size <b id="fontScaleValue">100%</b></span>
+            <input id="fontScale" type="range" min="90" max="120" value="100">
+          </label>
+          <label class="setting-row glass-panel">
+            <span>Color-friendly indicators</span>
+            <input id="colorblindToggle" type="checkbox">
+          </label>
+          <label class="setting-row glass-panel">
+            <span>Music volume</span>
+            <input id="musicVolume" type="range" min="0" max="100" value="45">
+          </label>
+          <label class="setting-row glass-panel">
+            <span>Sound volume</span>
+            <input id="soundVolume" type="range" min="0" max="100" value="70">
+          </label>
+          <button id="runTests" class="primary-button" type="button">Run Generator Tests</button>
+          <button id="resetProgress" class="danger-button" type="button">Reset Local Progress</button>
+        </div>
+        <pre id="testOutput" class="test-output"></pre>
+      </section>
+
+      <section id="profileView" class="view">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Wizard profile</p>
+            <h2>Arcane Record</h2>
+          </div>
+          <span id="profileTitle" class="pill">Apprentice</span>
+        </div>
+        <div class="profile-grid">
+          <article class="profile-panel glass-panel">
+            <p class="eyebrow">Progression</p>
+            <h3 id="profileRank">Novice</h3>
+            <label class="title-select-row">
+              <span>Selected Title</span>
+              <select id="titleSelect"></select>
+            </label>
+            <div class="xp-bar large"><i id="profileXpFill"></i></div>
+            <p id="profileXpText">0 / 100 XP</p>
+            <div id="realmUnlockList" class="realm-unlocks"></div>
+            <div id="badgeList" class="badge-list"></div>
+          </article>
+          <article class="profile-panel glass-panel">
+            <p class="eyebrow">Companion</p>
+            <div id="companionPanel" class="companion-panel"></div>
+          </article>
+          <article class="profile-panel glass-panel">
+            <p class="eyebrow">Spell Inventory</p>
+            <div id="spellInventory" class="spell-inventory"></div>
+          </article>
+          <article class="profile-panel glass-panel battle-record-panel">
+            <p class="eyebrow">Battle Record</p>
+            <div id="battleStats" class="battle-stats"></div>
+            <div id="battleHistory" class="battle-history"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="teacherView" class="view">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Academy Master</p>
+            <h2>Teacher Mode</h2>
+          </div>
+          <span class="pill">Offline classroom tools</span>
+        </div>
+
+        <div class="teacher-grid">
+          <form id="assignmentForm" class="teacher-panel parchment-panel">
+            <p class="eyebrow">Assignment Builder</p>
+            <h3>Create Rune Assignment</h3>
+            <label>
+              <span>Assignment Title</span>
+              <input id="assignmentTitle" type="text" value="Academy Rune Practice">
+            </label>
+            <div class="form-pair">
+              <label>
+                <span>Puzzle Size</span>
+                <select id="assignmentSize">
+                  <option value="3">3x3</option>
+                  <option value="4">4x4</option>
+                  <option value="5">5x5</option>
+                </select>
+              </label>
+              <label>
+                <span>Difficulty</span>
+                <select id="assignmentDifficulty">
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-pair">
+              <label>
+                <span>Puzzles</span>
+                <select id="assignmentCount">
+                  <option value="1">1</option>
+                  <option value="3">3</option>
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                </select>
+              </label>
+              <label>
+                <span>Student Name</span>
+                <input id="studentNameInput" type="text" placeholder="Optional">
+              </label>
+            </div>
+            <div class="toggle-row">
+              <label><input id="assignmentHints" type="checkbox" checked> Hints allowed</label>
+              <label><input id="assignmentTimed" type="checkbox"> Time challenge</label>
+            </div>
+            <button class="primary-button" type="submit">Generate Assignment</button>
+          </form>
+
+          <article class="teacher-panel glass-panel">
+            <p class="eyebrow">Class Challenge Code</p>
+            <h3 id="assignmentPreviewTitle">No assignment yet</h3>
+            <textarea id="challengeCodeOutput" readonly placeholder="Generated code appears here"></textarea>
+            <div class="teacher-actions">
+              <button id="copyChallengeCode" class="gold-button" type="button">Copy Code</button>
+              <button id="printWorksheetButton" class="blue-button" type="button">Print Worksheet</button>
+              <button id="printAnswerKeyButton" class="teal-button" type="button">Print Answer Key</button>
+            </div>
+            <div id="assignmentSummary" class="assignment-summary">Choose options and generate an offline assignment.</div>
+          </article>
+
+          <article class="teacher-panel glass-panel">
+            <p class="eyebrow">Student Progress Report</p>
+            <h3>Local Report</h3>
+            <div id="progressReport" class="progress-report"></div>
+            <div class="teacher-actions">
+              <button id="exportTextReport" class="blue-button" type="button">Export Text</button>
+              <button id="exportCsvReport" class="gold-button" type="button">Export CSV</button>
+            </div>
+          </article>
+        </div>
+
+        <div class="teacher-preview glass-panel">
+          <p class="eyebrow">Print Preview</p>
+          <div id="worksheetPreview" class="worksheet-preview">Generated worksheets and answer keys will preview here.</div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <section id="printArea" class="print-area" aria-hidden="true"></section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="winDialog" class="win-dialog">
+    <div class="win-card">
+      <p class="eyebrow">Puzzle Complete</p>
+      <h2 id="winTitle">Stars Earned!</h2>
+      <div class="starburst" id="winStars">★★★</div>
+      <p id="winSummary">You completed the trial.</p>
+      <div id="winStats" class="win-stats"></div>
+      <div class="win-actions">
+        <button id="playAgainButton" class="primary-button" type="button">Play Again</button>
+        <button id="nextRealmButton" class="gold-button" type="button">Next Realm</button>
+        <button id="continueButton" class="teal-button" type="button">Return to Map</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="tutorialDialog" class="tutorial-dialog">
+    <div class="tutorial-card">
+      <p class="eyebrow">How to Play</p>
+      <h2>Balance the Square</h2>
+      <ol>
+        <li>Tap a rune, then tap an empty cell to place it.</li>
+        <li>Drag a rune from the bank into a cell, or drag your own placed rune to move it.</li>
+        <li>Tap a student-placed number to remove it. Locked starting numbers stay fixed.</li>
+        <li>Watch the totals: every row, column, and diagonal must match the magic sum.</li>
+        <li>Hints start as guidance, then become stronger, and only the final hint reveals a rune.</li>
+      </ol>
+      <button id="closeTutorialButton" class="primary-button" type="button">Start Practicing</button>
+    </div>
+  </dialog>
+
+  <dialog id="storyDialog" class="tutorial-dialog">
+    <div class="tutorial-card story-card">
+      <p class="eyebrow" id="storyEyebrow">Academy Chronicle</p>
+      <h2 id="storyTitle">The Towers Have Fallen</h2>
+      <p id="storyText">The ancient rune towers have fallen into chaos. Each balanced square restores a little order to the academy map.</p>
+      <button id="closeStoryButton" class="primary-button" type="button">Continue</button>
+    </div>
+  </dialog>
+
+  <dialog id="bossIntroDialog" class="boss-intro-dialog">
+    <div class="boss-intro-card">
+      <div id="introPortrait" class="boss-portrait large"></div>
+      <p class="eyebrow">Boss Encounter</p>
+      <h2 id="introBossName">Frost Queen</h2>
+      <p id="introDialogue">The northern towers bow to winter.</p>
+      <div class="intro-actions">
+        <button id="startBossButton" class="danger-button" type="button">Begin Battle</button>
+        <button id="skipBossButton" class="blue-button" type="button">Skip Intro</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="defeatDialog" class="boss-intro-dialog">
+    <div class="boss-intro-card defeat-card">
+      <p class="eyebrow">Encounter Lost</p>
+      <h2>The Runes Falter</h2>
+      <p id="defeatSummary">Recover and challenge the guardian once more.</p>
+      <div class="intro-actions">
+        <button id="retryBossButton" class="danger-button" type="button">Retry Battle</button>
+        <button id="retreatButton" class="blue-button" type="button">Return to Map</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="resumeDialog" class="tutorial-dialog">
+    <div class="tutorial-card">
+      <p class="eyebrow">Saved Trial</p>
+      <h2>Continue Previous Puzzle?</h2>
+      <p>Your current board, timer, moves, size, and difficulty were saved locally.</p>
+      <div class="win-actions">
+        <button id="resumePuzzleButton" class="primary-button" type="button">Continue</button>
+        <button id="discardPuzzleButton" class="danger-button" type="button">Start Fresh</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="js/storage.js?v=11.0.0"></script>
+  <script src="js/generator.js?v=11.0.0"></script>
+  <script src="js/effects.js?v=11.0.0"></script>
+  <script src="js/ui.js?v=11.0.0"></script>
+  <script src="js/game.js?v=11.0.0"></script>
+</body>
+</html>

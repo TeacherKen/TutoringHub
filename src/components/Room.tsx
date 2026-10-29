@@ -4,13 +4,18 @@ import type { RoomData } from "@/lib/room";
 import { TimesTables } from "./games/TimesTables";
 import { QuickMaths } from "./games/QuickMaths";
 import { MiniSudoku } from "./games/MiniSudoku";
+import { snapshotDocument, snapshotElement } from "@/lib/snapshot";
 
+// Games with a `src` are Mr Ken's own games, copied into /public/games.
 const GAMES = [
+  { id: "magic-square", name: "Magic Square Academy", blurb: "Mr Ken's magic square adventure", src: "/games/magic-square/index.html" },
+  { id: "wolf-vs-sheep", name: "Wolf vs Sheep", blurb: "Mr Ken's strategy game", src: "/games/wolf-vs-sheep/index.html" },
   { id: "tt", name: "Times Tables Sprint", blurb: "How many in 60 seconds?" },
   { id: "qm", name: "Quick Maths", blurb: "10 questions, beat your time" },
   { id: "sd", name: "Mini Sudoku", blurb: "Fill the grid with 1 to 4 (or 6)" },
 ] as const;
 type GameId = (typeof GAMES)[number]["id"];
+const SCREEN_EVERY_MS = 2000;
 
 const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("en-GB", { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...opts }).format(new Date(iso));
@@ -21,6 +26,42 @@ export function Room({ token, initial }: { token: string; initial: RoomData }) {
   const [game, setGame] = useState<GameId | null>(null);
   const [slide, setSlide] = useState(0);
   const openRef = useRef(initial.gamesOpen);
+  const gameBox = useRef<HTMLDivElement>(null);
+  const gameFrame = useRef<HTMLIFrameElement>(null);
+  const gameInfo = GAMES.find((g) => g.id === game);
+
+  // While games are open, send Mr Ken a picture of the game screen every 2 seconds.
+  useEffect(() => {
+    if (!room.gamesOpen || !game) return;
+    let last = "";
+    const send = async () => {
+      try {
+        let html = "";
+        const frameDoc = gameFrame.current?.contentDocument;
+        if (frameDoc?.documentElement) {
+          html = snapshotDocument(frameDoc, new URL(gameFrame.current!.src, location.href).href.replace(/[^/]*$/, ""));
+        } else if (gameBox.current) {
+          html = snapshotElement(gameBox.current);
+        }
+        if (!html || html === last || html.length > 400_000) return;
+        last = html;
+        await fetch(`/api/room/${token}/screen`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ game, html }),
+          keepalive: false,
+        });
+      } catch {
+        /* skip this one */
+      }
+    };
+    const id = setInterval(send, SCREEN_EVERY_MS);
+    const first = setTimeout(send, 500);
+    return () => {
+      clearInterval(id);
+      clearTimeout(first);
+    };
+  }, [room.gamesOpen, game, token]);
 
   // Check every few seconds whether Mr Ken has opened or closed games, or added slides.
   useEffect(() => {
@@ -161,13 +202,33 @@ export function Room({ token, initial }: { token: string; initial: RoomData }) {
           <h2 className="mt-3 text-xl font-semibold">Games open at break time</h2>
           <p className="mt-1 text-muted">Mr Ken will unlock them. This page will update by itself.</p>
         </section>
+      ) : game && gameInfo && "src" in gameInfo ? (
+        <section className="flex flex-1 flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <button className="btn-quiet px-0" onClick={() => setGame(null)}>
+              ‹ All games
+            </button>
+            <span className="text-xs text-muted">Mr Ken can see your game screen during break.</span>
+          </div>
+          <iframe
+            ref={gameFrame}
+            key={gameInfo.id}
+            src={gameInfo.src}
+            title={gameInfo.name}
+            className="w-full flex-1 rounded-2xl border border-line bg-surface"
+            style={{ minHeight: "75dvh" }}
+          />
+        </section>
       ) : game ? (
         <section className="mx-auto w-full max-w-lg space-y-4">
-          <button className="btn-quiet px-0" onClick={() => setGame(null)}>
-            ‹ All games
-          </button>
-          <div className="card">
-            <h2 className="mb-4 text-xl font-semibold">{GAMES.find((g) => g.id === game)?.name}</h2>
+          <div className="flex items-center justify-between">
+            <button className="btn-quiet px-0" onClick={() => setGame(null)}>
+              ‹ All games
+            </button>
+            <span className="text-xs text-muted">Mr Ken can see your game screen during break.</span>
+          </div>
+          <div ref={gameBox} className="card">
+            <h2 className="mb-4 text-xl font-semibold">{gameInfo?.name}</h2>
             {game === "tt" ? <TimesTables /> : game === "qm" ? <QuickMaths /> : <MiniSudoku />}
           </div>
         </section>
