@@ -27,17 +27,20 @@ const HOW = [
   { value: "needs_practice", label: "Needs more practice" },
 ];
 
-function readDraft(key: string): Partial<NoteInput> | null {
+type Draft = { v: NoteInput; t: number };
+
+function readDraft(key: string): Draft | null {
   try {
     const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as Partial<NoteInput>) : null;
+    const d = raw ? (JSON.parse(raw) as Draft) : null;
+    return d && d.v && typeof d.t === "number" ? d : null;
   } catch {
     return null;
   }
 }
 function writeDraft(key: string, v: NoteInput | null) {
   try {
-    if (v) window.localStorage.setItem(key, JSON.stringify(v));
+    if (v) window.localStorage.setItem(key, JSON.stringify({ v, t: Date.now() }));
     else window.localStorage.removeItem(key);
   } catch {
     /* storage not available — the server save still works */
@@ -80,16 +83,22 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, topic
   const [flash, setFlash] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const first = useRef(true);
-  const pendingNote = useRef<NoteInput | null>(null);
+  // What the server already has. Autosave only runs when the note differs from this.
+  const lastSaved = useRef(JSON.stringify(note));
+  const latest = useRef(note);
 
-  // Restore an unsaved draft from this device (e.g. phone lost signal).
+  // Restore an unsaved draft from this device (e.g. phone lost signal),
+  // but only if it is newer than what the server has.
   useEffect(() => {
     const d = readDraft(draftKey);
-    if (d && JSON.stringify(d) !== JSON.stringify(note)) {
+    const serverTime = initial.updated_at ? new Date(initial.updated_at).getTime() : 0;
+    if (!d) return;
+    if (d.t > serverTime && JSON.stringify(d.v) !== lastSaved.current) {
       // Reading this device's saved draft can only happen after the page loads.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setNote((n) => ({ ...n, ...d }));
+       
+      setNote(d.v);
+    } else {
+      writeDraft(draftKey, null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -100,8 +109,12 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, topic
       try {
         const r = await saveLessonNote(lessonId, v);
         if (r.ok) {
-          setSaveState("saved");
-          if (pendingNote.current === v) writeDraft(draftKey, null);
+          lastSaved.current = JSON.stringify(v);
+          // Only clear the backup if nothing new was typed while saving.
+          if (latest.current === v) {
+            setSaveState("saved");
+            writeDraft(draftKey, null);
+          }
         } else setSaveState("error");
       } catch {
         setSaveState("error");
@@ -112,12 +125,10 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, topic
 
   // Autosave 1 second after you stop typing.
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+    latest.current = note;
+    if (JSON.stringify(note) === lastSaved.current) return;
     writeDraft(draftKey, note);
-    pendingNote.current = note;
+    setSaveState("saving");
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => startTransition(() => save(note)), 1000);
     return () => {
