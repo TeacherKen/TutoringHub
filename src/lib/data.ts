@@ -144,13 +144,21 @@ export async function getAccountSummaries(): Promise<AccountSummary[]> {
   let lessons: HoursLesson[] = [];
   if (earliest) {
     const fromIso = new Date(new Date(`${earliest}T00:00:00Z`).getTime() - 7 * 3_600_000).toISOString();
-    const { data } = await supabase
-      .from("lessons")
-      .select("id, start_at, end_at, status, length_hours, lesson_students(student_id, uses_hours)")
-      .gte("start_at", fromIso)
-      .in("status", [...CHARGED_STATUSES])
-      .eq("ignored", false);
-    lessons = (data ?? []).map((l) => ({
+    // Page through in blocks of 1,000 (the database's maximum per request).
+    const data: { id: string; start_at: string; end_at: string; status: string; length_hours: number | null; lesson_students: unknown }[] = [];
+    for (let fromRow = 0; ; fromRow += 1000) {
+      const { data: page } = await supabase
+        .from("lessons")
+        .select("id, start_at, end_at, status, length_hours, lesson_students(student_id, uses_hours)")
+        .gte("start_at", fromIso)
+        .in("status", [...CHARGED_STATUSES])
+        .eq("ignored", false)
+        .order("start_at")
+        .range(fromRow, fromRow + 999);
+      data.push(...(page ?? []));
+      if (!page || page.length < 1000) break;
+    }
+    lessons = data.map((l) => ({
       id: l.id,
       start_at: l.start_at,
       end_at: l.end_at,

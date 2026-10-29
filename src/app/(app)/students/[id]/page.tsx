@@ -27,7 +27,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
     .select("lessons(id, start_at, end_at, status, length_hours, learned, next_time, homework, topics, ignored, in_calendar, sent_at)")
     .eq("student_id", id);
   const lessons = ((links ?? []).map((l) => l.lessons) as unknown as Lesson[])
-    .filter((l) => l && !l.ignored && l.in_calendar)
+    .filter((l) => l && !l.ignored && (l.in_calendar || l.status !== "scheduled"))
     .sort((a, b) => b.start_at.localeCompare(a.start_at));
   const past = lessons.filter((l) => isPast(l.start_at));
   const upcoming = lessons.filter((l) => !isPast(l.start_at)).reverse();

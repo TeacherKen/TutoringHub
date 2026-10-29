@@ -13,9 +13,16 @@ const PARENT = "parent@example.com";
 
 let db: PGlite;
 
-async function as<T = Record<string, unknown>>(email: string | null, sql: string, params: unknown[] = []) {
+async function as<T = Record<string, unknown>>(
+  email: string | null,
+  sql: string,
+  params: unknown[] = [],
+  opts: { provider?: string } = {},
+) {
   await db.exec("reset role;");
-  const claims = email ? JSON.stringify({ email, role: "authenticated" }) : "{}";
+  const claims = email
+    ? JSON.stringify({ email, role: "authenticated", app_metadata: { provider: opts.provider ?? "google" } })
+    : "{}";
   await db.query("select set_config('request.jwt.claims', $1, false)", [claims]);
   await db.exec(email ? "set role authenticated;" : "set role anon;");
   try {
@@ -128,12 +135,20 @@ describe("viewer (family member)", () => {
     );
     expect(rows[0].students).toBe("Jaian");
     expect(rows[0].place).toBe("Nana");
+    expect(JSON.stringify(rows)).not.toContain("Jaian maths"); // raw calendar title never shown
     expect(JSON.stringify(rows)).not.toContain("secret note");
     expect(JSON.stringify(rows)).not.toContain("fractions");
   });
 });
 
 describe("other people", () => {
+  it("someone using the tutor's email WITHOUT Google sign-in gets nothing", async () => {
+    expect(await as(TUTOR, "select * from students", [], { provider: "email" })).toEqual([]);
+    expect(await as(TUTOR, "select * from app_users", [], { provider: "email" })).toEqual([]);
+    await expect(
+      as(TUTOR, "select * from viewer_schedule(now(), now() + interval '1 day')", [], { provider: "email" }),
+    ).rejects.toThrow(/not allowed/);
+  });
   it("a stranger cannot read anything or use the schedule", async () => {
     for (const table of privateTables) {
       expect(await as(STRANGER, `select * from ${table}`)).toEqual([]);

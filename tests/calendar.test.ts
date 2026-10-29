@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseOccurrences } from "@/lib/calendar/parse";
 import { matchStudents, isPreplyTitle } from "@/lib/calendar/match";
 import { fmtTime, bkkDateKey } from "@/lib/time";
+import { validateCalendarUrl } from "@/lib/calendar/sync";
 
 // Weekly Wednesday 17:00–18:00 Bangkok lesson, starting Wed 7 Oct 2026.
 // - 14 Oct is deleted (EXDATE)
@@ -117,5 +118,25 @@ describe("matching lessons to students", () => {
   it("finds Preply lessons", () => {
     expect(isPreplyTitle("Lesson with Alice - Preply")).toBe(true);
     expect(isPreplyTitle("Alice maths")).toBe(false);
+  });
+});
+
+
+describe("calendar link check", () => {
+  it("accepts Google's secret iCal address", () => {
+    expect(validateCalendarUrl("https://calendar.google.com/calendar/ical/abc%40gmail.com/private-123/basic.ics")).toBeTruthy();
+    expect(validateCalendarUrl("webcal://calendar.google.com/calendar/ical/abc/private-1/basic.ics")).toMatch(/^https:/);
+  });
+  it("rejects anything else", () => {
+    for (const bad of [
+      "https://evil.com/calendar/ical/x/basic.ics",
+      "https://calendar.google.com.evil.com/calendar/ical/x/basic.ics",
+      "https://www.google.com/url?q=https://evil.com/a.ics",
+      "http://calendar.google.com/calendar/ical/x/basic.ics",
+      "https://calendar.google.com/calendar/embed?src=x",
+      "not a link",
+    ]) {
+      expect(validateCalendarUrl(bad)).toBeNull();
+    }
   });
 });

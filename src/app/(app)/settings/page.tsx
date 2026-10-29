@@ -5,6 +5,7 @@ import { getSettings } from "@/lib/data";
 import { fmtDate, fmtTime } from "@/lib/time";
 import { AddPersonForm, CalendarForm, FeedbackSettingsForm } from "@/components/SettingsForms";
 import { RefreshButton } from "@/components/RefreshButton";
+import { SignOutButton } from "@/components/SignOutButton";
 import { removeCalendarLink } from "@/app/actions/calendar";
 import { removePerson } from "@/app/actions/settings";
 
@@ -117,10 +118,10 @@ export default async function SettingsPage() {
         </ul>
       </section>
 
-      <form action="/signout" method="post" className="pb-6">
+      <div className="pb-6">
         <p className="mb-2 text-sm text-muted">Signed in as {me.email}</p>
-        <button className="btn-secondary w-full">Sign out</button>
-      </form>
+        <SignOutButton className="btn-secondary w-full" />
+      </div>
     </div>
   );
 }

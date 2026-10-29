@@ -1,4 +1,5 @@
 import { getMe } from "@/lib/auth";
+import { SignOutButton } from "@/components/SignOutButton";
 
 export default async function NoAccess() {
   const me = await getMe();
@@ -15,9 +16,9 @@ export default async function NoAccess() {
           "Please sign in first."
         )}
       </p>
-      <form action="/signout" method="post" className="mt-6">
-        <button className="btn-secondary w-full">Sign out</button>
-      </form>
+      <div className="mt-6">
+        <SignOutButton className="btn-secondary w-full" />
+      </div>
     </main>
   );
 }

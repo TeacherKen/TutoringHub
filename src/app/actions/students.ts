@@ -109,10 +109,18 @@ export async function setHourSharing(form: FormData): Promise<void> {
     const old = me.hour_account_id as string | null;
     await supabase.from("students").update({ hour_account_id: target }).eq("id", id);
     if (old && old !== target) {
-      // Move any packages and adjustments to the shared account.
-      await supabase.from("packages").update({ hour_account_id: target }).eq("hour_account_id", old);
-      await supabase.from("hour_adjustments").update({ hour_account_id: target }).eq("hour_account_id", old);
-      await supabase.from("hour_accounts").delete().eq("id", old);
+      const { count: stillUsed } = await supabase
+        .from("students")
+        .select("id", { count: "exact", head: true })
+        .eq("hour_account_id", old);
+      if (!stillUsed) {
+        // Nobody else uses the old hours: move its packages and adjustments over.
+        await supabase.from("packages").update({ hour_account_id: target }).eq("hour_account_id", old);
+        await supabase.from("hour_adjustments").update({ hour_account_id: target }).eq("hour_account_id", old);
+        await supabase.from("hour_accounts").delete().eq("id", old);
+      } else {
+        await renameAccount(old);
+      }
     }
     await renameAccount(target!);
   } else {

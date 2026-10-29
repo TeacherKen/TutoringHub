@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { assertTutor, getMe } from "@/lib/auth";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { syncCalendar, validateCalendarUrl } from "@/lib/calendar/sync";
+import { refreshedJustNow, syncCalendar, validateCalendarUrl } from "@/lib/calendar/sync";
 
 export type ActionState = { ok?: boolean; message?: string } | null;
 
@@ -10,6 +10,7 @@ export type ActionState = { ok?: boolean; message?: string } | null;
 export async function refreshCalendar(): Promise<ActionState> {
   const me = await getMe();
   if (!me || (me.role !== "tutor" && me.role !== "viewer")) return { ok: false, message: "Not allowed." };
+  if (await refreshedJustNow()) return { ok: true, message: "Already up to date." };
   const r = await syncCalendar();
   revalidatePath("/", "layout");
   return r.ok ? { ok: true, message: `Updated — ${r.count} calendar events read.` } : { ok: false, message: r.error };
@@ -27,7 +28,7 @@ export async function saveCalendarLink(_: ActionState, form: FormData): Promise<
   }
   const admin = createAdminClient();
   await admin.from("private_settings").update({ ical_url: url }).eq("id", 1);
-  await admin.from("settings").update({ calendar_connected: true, last_synced_at: null }).eq("id", 1);
+  await admin.from("settings").update({ calendar_connected: true, last_synced_at: null, last_attempt_at: null }).eq("id", 1);
   const r = await syncCalendar();
   revalidatePath("/", "layout");
   return r.ok

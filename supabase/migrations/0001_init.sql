@@ -28,8 +28,10 @@ returns text
 language sql stable security definer
 set search_path = public
 as $$
+  -- Only trust emails that came from Google sign-in (not email/password sign-up).
   select role from public.app_users
   where email = lower(coalesce(auth.jwt() ->> 'email', ''))
+    and coalesce(auth.jwt() -> 'app_metadata' ->> 'provider', '') = 'google'
 $$;
 
 create or replace function public.is_tutor()
@@ -157,6 +159,7 @@ create table public.settings (
   low_hours_threshold numeric(5, 2) not null default 2,
   calendar_connected  boolean not null default false,
   last_synced_at      timestamptz,
+  last_attempt_at     timestamptz,
   last_sync_error     text
 );
 insert into public.settings (id) values (1);
@@ -222,7 +225,10 @@ alter table public.quiz_results     enable row level security;
 -- Everyone signed in can see their own access row (to know their role).
 create policy app_users_self_read on public.app_users
   for select to authenticated
-  using (email = lower(coalesce(auth.jwt() ->> 'email', '')));
+  using (
+    email = lower(coalesce(auth.jwt() ->> 'email', ''))
+    and coalesce(auth.jwt() -> 'app_metadata' ->> 'provider', '') = 'google'
+  );
 
 -- Tutor-only access to everything else.
 create policy tutor_all on public.app_users        for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
@@ -278,7 +284,7 @@ begin
     end as mode,
     case
       when l.is_preply or bool_and(s.mode = 'online') then null
-      else coalesce(min(s.place), l.location)
+      else min(s.place)  -- never the raw calendar location (could hold addresses or meeting links)
     end as place,
     l.is_preply
   from public.lessons l
@@ -297,5 +303,7 @@ $$;
 
 revoke all on function public.viewer_schedule(timestamptz, timestamptz) from public, anon;
 grant execute on function public.viewer_schedule(timestamptz, timestamptz) to authenticated;
-revoke all on function public.current_app_role() from anon;
-revoke all on function public.is_tutor() from anon;
+revoke all on function public.current_app_role() from public, anon;
+grant execute on function public.current_app_role() to authenticated;
+revoke all on function public.is_tutor() from public, anon;
+grant execute on function public.is_tutor() to authenticated;

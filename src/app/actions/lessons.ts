@@ -42,7 +42,6 @@ export async function saveLessonNote(lessonId: string, input: NoteInput): Promis
     })
     .eq("id", lessonId);
   if (error) return { ok: false };
-  revalidatePath("/", "layout");
   return { ok: true, at };
 }
 
@@ -53,7 +52,6 @@ export async function saveFinalMessage(lessonId: string, message: string): Promi
     .from("lessons")
     .update({ final_message: clip(message, 6000) })
     .eq("id", lessonId);
-  revalidatePath("/", "layout");
   return { ok: !error };
 }
 
@@ -62,7 +60,6 @@ export async function setSent(lessonId: string, sent: boolean): Promise<{ ok: bo
   const sent_at = sent ? new Date().toISOString() : null;
   const supabase = await createClient();
   const { error } = await supabase.from("lessons").update({ sent_at }).eq("id", lessonId);
-  revalidatePath("/", "layout");
   return { ok: !error, sent_at };
 }
 
@@ -123,15 +120,18 @@ export async function addMaterialLink(form: FormData): Promise<{ error?: string 
     url,
     label: String(form.get("label") ?? "").trim().slice(0, 120) || (kind === "canva" ? "Canva" : host),
   });
-  revalidatePath("/", "layout");
+  revalidatePath(`/lessons/${String(form.get("lesson_id"))}`);
   return error ? { error: "Couldn't save the link." } : {};
 }
+
+const EXT_FOR_KIND = { pdf: ["pdf"], photo: ["jpg", "png", "heic", "heif", "webp"] } as const;
 
 /** Called after the browser has uploaded a file to private storage. */
 export async function addMaterialFile(lessonId: string, path: string, kind: "pdf" | "photo", label: string) {
   await assertTutor();
-  if (!path.startsWith(`${lessonId}/`) || path.includes("..") || !/^[\w-]+\/[\w-]+\.\w{2,5}$/.test(path)) {
-    return { error: "Bad file path." };
+  const m = /^([0-9a-f-]{36})\/([0-9a-f-]{36})\.([a-z]{3,4})$/.exec(path);
+  if (!m || m[1] !== lessonId || !(EXT_FOR_KIND[kind] as readonly string[]).includes(m[3])) {
+    return { error: "Bad file." };
   }
   const supabase = await createClient();
   const { error } = await supabase.from("lesson_materials").insert({
@@ -140,7 +140,7 @@ export async function addMaterialFile(lessonId: string, path: string, kind: "pdf
     storage_path: path,
     label: label.trim().slice(0, 120) || (kind === "pdf" ? "Worksheet" : "Photo of work"),
   });
-  revalidatePath("/", "layout");
+  revalidatePath(`/lessons/${lessonId}`);
   return error ? { error: "Couldn't save the file." } : {};
 }
 

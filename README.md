@@ -21,6 +21,7 @@ Phase 1 of 3. Phase 2 adds parent sign-in. Phase 3 adds student practice and gam
 2. **Authorised redirect URI**: `https://<your-project>.supabase.co/auth/v1/callback`
 3. Copy the Client ID and Client secret.
 4. In Supabase: **Authentication → Sign In / Providers → Google** → turn on, paste both → Save.
+5. Still in **Sign In / Providers**: turn **Email** **off** (and **Allow new users to sign up** off for email). Only Google sign-in is used — the app ignores any other kind of sign-in, but switching Email off keeps things tidy.
 
 ### 3. Vercel (the website)
 1. **vercel.com → Add New → Project** → import `TeacherKen/TutoringHub`.

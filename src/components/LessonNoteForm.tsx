@@ -84,7 +84,8 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, topic
   const [, startTransition] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // What the server already has. Autosave only runs when the note differs from this.
-  const lastSaved = useRef(JSON.stringify(note));
+  // (Built from the server's status, so a past lesson defaulting to "Done" is saved.)
+  const lastSaved = useRef(JSON.stringify({ ...note, status: initial.status }));
   const latest = useRef(note);
 
   // Restore an unsaved draft from this device (e.g. phone lost signal),
@@ -95,7 +96,6 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, topic
     if (!d) return;
     if (d.t > serverTime && JSON.stringify(d.v) !== lastSaved.current) {
       // Reading this device's saved draft can only happen after the page loads.
-       
       setNote(d.v);
     } else {
       writeDraft(draftKey, null);
@@ -135,6 +135,25 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, topic
       if (timer.current) clearTimeout(timer.current);
     };
   }, [note, save, draftKey]);
+
+  // Save straight away if you leave the page or switch apps before the 1-second wait.
+  useEffect(() => {
+    const flush = () => {
+      if (JSON.stringify(latest.current) === lastSaved.current) return;
+      if (timer.current) clearTimeout(timer.current);
+      void save(latest.current);
+    };
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+      flush();
+    };
+  }, [save]);
 
   const set = <K extends keyof NoteInput>(k: K, v: NoteInput[K]) => setNote((n) => ({ ...n, [k]: v }));
 

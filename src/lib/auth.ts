@@ -13,6 +13,9 @@ export const getMe = cache(async (): Promise<Me | null> => {
   const { data } = await supabase.auth.getClaims();
   const email = (data?.claims?.email as string | undefined)?.toLowerCase();
   if (!email) return null;
+  // Only Google sign-ins are trusted (the database checks this too).
+  const provider = (data?.claims?.app_metadata as { provider?: string } | undefined)?.provider;
+  if (provider !== "google") return { email, role: null };
 
   const { data: row } = await supabase.from("app_users").select("role").eq("email", email).maybeSingle();
   let role = (row?.role as Role | undefined) ?? null;

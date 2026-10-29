@@ -6,23 +6,22 @@ import { isPreplyTitle, matchStudents } from "./match";
 const PAST_DAYS = 14;
 const FUTURE_DAYS = 42;
 const STALE_MINUTES = 10;
+const MIN_REFRESH_SECONDS = 30;
 
 export type SyncResult = { ok: true; count: number } | { ok: false; error: string };
 
-function isAllowedCalendarUrl(raw: string): boolean {
-  try {
-    const u = new URL(raw.trim());
-    return u.protocol === "https:" && (u.hostname === "calendar.google.com" || u.hostname.endsWith(".google.com"));
-  } catch {
-    return false;
-  }
-}
-
+/** Only Google Calendar's own iCal addresses are accepted. */
 export function validateCalendarUrl(raw: string): string | null {
   const s = raw.trim().replace(/^webcal:\/\//i, "https://");
-  if (!isAllowedCalendarUrl(s)) return null;
-  if (!s.includes(".ics")) return null;
-  return s;
+  try {
+    const u = new URL(s);
+    if (u.protocol !== "https:" || u.hostname !== "calendar.google.com") return null;
+    if (!u.pathname.startsWith("/calendar/ical/") || !u.pathname.endsWith(".ics")) return null;
+    if (u.username || u.password || u.port) return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -33,8 +32,9 @@ export function validateCalendarUrl(raw: string): string | null {
 export async function syncCalendar(): Promise<SyncResult> {
   const admin = createAdminClient();
   const { data: priv } = await admin.from("private_settings").select("ical_url").eq("id", 1).single();
-  const url = priv?.ical_url as string | null;
+  const url = priv?.ical_url ? validateCalendarUrl(priv.ical_url as string) : null;
   if (!url) return { ok: false, error: "No calendar link saved yet. Add it in Settings." };
+  await admin.from("settings").update({ last_attempt_at: new Date().toISOString() }).eq("id", 1);
 
   const now = Date.now();
   const from = new Date(now - PAST_DAYS * 86_400_000);
@@ -42,7 +42,7 @@ export async function syncCalendar(): Promise<SyncResult> {
 
   let ics: string;
   try {
-    const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+    const res = await fetch(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15_000) });
     if (!res.ok) throw new Error(`status ${res.status}`);
     ics = await res.text();
     if (!ics.includes("BEGIN:VCALENDAR")) throw new Error("not a calendar");
@@ -81,12 +81,13 @@ export async function syncCalendar(): Promise<SyncResult> {
     };
   });
 
-  const saved: { id: string; event_uid: string; occurrence_key: string; title: string; students_locked: boolean }[] = [];
+  type Saved = { id: string; title: string; students_locked: boolean; status: string };
+  const saved: Saved[] = [];
   for (let i = 0; i < rows.length; i += 200) {
     const { data, error } = await admin
       .from("lessons")
       .upsert(rows.slice(i, i + 200), { onConflict: "event_uid,occurrence_key" })
-      .select("id, event_uid, occurrence_key, title, students_locked");
+      .select("id, title, students_locked, status");
     if (error) return { ok: false, error: "Couldn't save lessons from your calendar." };
     saved.push(...(data ?? []));
   }
@@ -102,8 +103,10 @@ export async function syncCalendar(): Promise<SyncResult> {
   const gone = (windowRows ?? []).map((r) => r.id as string).filter((id) => !seen.has(id));
   if (gone.length) await admin.from("lessons").update({ in_calendar: false }).in("id", gone);
 
-  // 3. Automatic student matches (lessons the tutor edited by hand are left alone).
-  const unlocked = saved.filter((s) => !s.students_locked);
+  // 3. Automatic student matches. Only lessons that are still "scheduled" and
+  // that the tutor hasn't edited by hand are re-matched, so finished lessons
+  // never lose their student (or their hours) when keywords change.
+  const unlocked = saved.filter((s) => !s.students_locked && s.status === "scheduled");
   const ids = unlocked.map((s) => s.id);
   for (let i = 0; i < ids.length; i += 200) {
     await admin.from("lesson_students").delete().in("lesson_id", ids.slice(i, i + 200)).eq("match_source", "auto");
@@ -132,9 +135,18 @@ export async function syncCalendar(): Promise<SyncResult> {
 /** Sync only if it's been a while (used when a page opens). */
 export async function syncIfStale(): Promise<void> {
   const admin = createAdminClient();
-  const { data } = await admin.from("settings").select("last_synced_at, calendar_connected").eq("id", 1).single();
+  const { data } = await admin.from("settings").select("last_attempt_at, calendar_connected").eq("id", 1).single();
   if (!data?.calendar_connected) return;
-  const last = data.last_synced_at ? new Date(data.last_synced_at).getTime() : 0;
+  // Uses the last *attempt*, so a broken link doesn't slow down every page.
+  const last = data.last_attempt_at ? new Date(data.last_attempt_at).getTime() : 0;
   if (Date.now() - last < STALE_MINUTES * 60_000) return;
   await syncCalendar();
+}
+
+/** True if a refresh was tried in the last few seconds (stops button-mashing). */
+export async function refreshedJustNow(): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("settings").select("last_attempt_at").eq("id", 1).single();
+  const last = data?.last_attempt_at ? new Date(data.last_attempt_at).getTime() : 0;
+  return Date.now() - last < MIN_REFRESH_SECONDS * 1000;
 }

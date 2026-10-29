@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SignOutButton } from "./SignOutButton";
 
 const TUTOR = [
   { href: "/", label: "Home", icon: "M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" },
@@ -38,11 +39,9 @@ export function BottomNav({ role }: { role: "tutor" | "viewer" }) {
           </Link>
         ))}
         {role === "viewer" ? (
-          <form action="/signout" method="post" className="flex flex-1 md:ml-auto md:flex-none">
-            <button className="flex min-h-16 flex-1 flex-col items-center justify-center text-xs text-muted md:min-h-14 md:text-sm">
-              Sign out
-            </button>
-          </form>
+          <div className="flex flex-1 md:ml-auto md:flex-none">
+            <SignOutButton className="flex min-h-16 flex-1 flex-col items-center justify-center text-xs text-muted md:min-h-14 md:text-sm" />
+          </div>
         ) : null}
       </div>
     </nav>

@@ -8,6 +8,14 @@ export type MaterialView = { id: string; kind: "canva" | "pdf" | "photo" | "link
 
 const ICON: Record<MaterialView["kind"], string> = { canva: "Canva", pdf: "PDF", photo: "Photo", link: "Link" };
 const MAX_MB = 15;
+const EXT_BY_TYPE: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/heic": "heic",
+  "image/heif": "heif",
+  "image/webp": "webp",
+};
 
 export function Materials({ lessonId, items }: { lessonId: string; items: MaterialView[] }) {
   const router = useRouter();
@@ -22,10 +30,13 @@ export function Materials({ lessonId, items }: { lessonId: string; items: Materi
     setError(null);
     if (file.size > MAX_MB * 1024 * 1024) return setError(`That file is over ${MAX_MB} MB.`);
     if (kind === "pdf" && file.type !== "application/pdf") return setError("Please choose a PDF file.");
-    if (kind === "photo" && !file.type.startsWith("image/")) return setError("Please choose a photo.");
+    if (kind === "photo" && (!file.type.startsWith("image/") || !EXT_BY_TYPE[file.type])) {
+      return setError("Please choose a JPG, PNG or HEIC photo.");
+    }
     setBusy(kind === "pdf" ? "Uploading worksheet…" : "Uploading photo…");
     try {
-      const ext = (file.name.split(".").pop() || (kind === "pdf" ? "pdf" : "jpg")).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "bin";
+      const ext = EXT_BY_TYPE[file.type];
+      if (!ext) throw new Error("type");
       const path = `${lessonId}/${crypto.randomUUID()}.${ext}`;
       const supabase = createClient();
       const { error: upErr } = await supabase.storage.from("materials").upload(path, file, { contentType: file.type, upsert: false });
