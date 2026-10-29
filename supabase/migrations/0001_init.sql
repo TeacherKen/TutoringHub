@@ -1,6 +1,11 @@
 -- TutoringHub — Phase 1 database
 -- Run this once in Supabase: SQL Editor → New query → paste → Run.
 --
+-- Everything lives in its own schema called "tutoring", so it can share a
+-- Supabase project with another app (e.g. Our Home) without mixing data.
+-- After running this, add "tutoring" under Project Settings → Data API →
+-- Exposed schemas.
+--
 -- Security model
 --   * Every table has Row Level Security (RLS) switched on.
 --   * The tutor can read and change everything.
@@ -13,39 +18,42 @@
 
 create extension if not exists pgcrypto;
 
+create schema if not exists tutoring;
+grant usage on schema tutoring to anon, authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- Who may sign in
 -- ---------------------------------------------------------------------------
-create table public.app_users (
+create table tutoring.app_users (
   email        text primary key check (email = lower(email)),
   role         text not null check (role in ('tutor', 'viewer', 'parent', 'student')),
   display_name text,
   created_at   timestamptz not null default now()
 );
 
-create or replace function public.current_app_role()
+create or replace function tutoring.current_app_role()
 returns text
 language sql stable security definer
-set search_path = public
+set search_path = tutoring
 as $$
   -- Only trust emails that came from Google sign-in (not email/password sign-up).
-  select role from public.app_users
+  select role from tutoring.app_users
   where email = lower(coalesce(auth.jwt() ->> 'email', ''))
     and coalesce(auth.jwt() -> 'app_metadata' ->> 'provider', '') = 'google'
 $$;
 
-create or replace function public.is_tutor()
+create or replace function tutoring.is_tutor()
 returns boolean
 language sql stable security definer
-set search_path = public
+set search_path = tutoring
 as $$
-  select coalesce(public.current_app_role() = 'tutor', false)
+  select coalesce(tutoring.current_app_role() = 'tutor', false)
 $$;
 
 -- ---------------------------------------------------------------------------
 -- Hour accounts: one per student, or one shared by siblings
 -- ---------------------------------------------------------------------------
-create table public.hour_accounts (
+create table tutoring.hour_accounts (
   id         uuid primary key default gen_random_uuid(),
   name       text not null,
   created_at timestamptz not null default now()
@@ -54,7 +62,7 @@ create table public.hour_accounts (
 -- ---------------------------------------------------------------------------
 -- Students (first name / nickname only — no surnames)
 -- ---------------------------------------------------------------------------
-create table public.students (
+create table tutoring.students (
   id              uuid primary key default gen_random_uuid(),
   first_name      text not null check (length(trim(first_name)) > 0),
   level           text,
@@ -68,7 +76,7 @@ create table public.students (
   book            text,
   private_notes   text,
   active          boolean not null default true,
-  hour_account_id uuid references public.hour_accounts(id) on delete set null,
+  hour_account_id uuid references tutoring.hour_accounts(id) on delete set null,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
@@ -76,7 +84,7 @@ create table public.students (
 -- ---------------------------------------------------------------------------
 -- Lessons (one row per calendar occurrence) + the tutor's notes
 -- ---------------------------------------------------------------------------
-create table public.lessons (
+create table tutoring.lessons (
   id              uuid primary key default gen_random_uuid(),
   event_uid       text not null,
   occurrence_key  text not null,
@@ -102,20 +110,20 @@ create table public.lessons (
   created_at      timestamptz not null default now(),
   unique (event_uid, occurrence_key)
 );
-create index lessons_start_idx on public.lessons (start_at);
+create index lessons_start_idx on tutoring.lessons (start_at);
 
-create table public.lesson_students (
-  lesson_id    uuid not null references public.lessons(id) on delete cascade,
-  student_id   uuid not null references public.students(id) on delete cascade,
+create table tutoring.lesson_students (
+  lesson_id    uuid not null references tutoring.lessons(id) on delete cascade,
+  student_id   uuid not null references tutoring.students(id) on delete cascade,
   match_source text not null default 'auto' check (match_source in ('auto', 'manual')),
   uses_hours   boolean not null default true,
   primary key (lesson_id, student_id)
 );
-create index lesson_students_student_idx on public.lesson_students (student_id);
+create index lesson_students_student_idx on tutoring.lesson_students (student_id);
 
-create table public.lesson_materials (
+create table tutoring.lesson_materials (
   id           uuid primary key default gen_random_uuid(),
-  lesson_id    uuid not null references public.lessons(id) on delete cascade,
+  lesson_id    uuid not null references tutoring.lessons(id) on delete cascade,
   kind         text not null check (kind in ('canva', 'pdf', 'photo', 'link')),
   url          text,
   storage_path text,
@@ -127,9 +135,9 @@ create table public.lesson_materials (
 -- ---------------------------------------------------------------------------
 -- Packages (Thai baht) and manual adjustments
 -- ---------------------------------------------------------------------------
-create table public.packages (
+create table tutoring.packages (
   id              uuid primary key default gen_random_uuid(),
-  hour_account_id uuid not null references public.hour_accounts(id) on delete cascade,
+  hour_account_id uuid not null references tutoring.hour_accounts(id) on delete cascade,
   hours           numeric(6, 2) not null check (hours > 0),
   price_thb       numeric(10, 2) check (price_thb is null or price_thb >= 0),
   paid_on         date,
@@ -139,9 +147,9 @@ create table public.packages (
   created_at      timestamptz not null default now()
 );
 
-create table public.hour_adjustments (
+create table tutoring.hour_adjustments (
   id              uuid primary key default gen_random_uuid(),
-  hour_account_id uuid not null references public.hour_accounts(id) on delete cascade,
+  hour_account_id uuid not null references tutoring.hour_accounts(id) on delete cascade,
   hours           numeric(6, 2) not null check (hours <> 0),
   reason          text not null check (length(trim(reason)) > 0),
   adjusted_on     date not null default current_date,
@@ -151,7 +159,7 @@ create table public.hour_adjustments (
 -- ---------------------------------------------------------------------------
 -- Settings
 -- ---------------------------------------------------------------------------
-create table public.settings (
+create table tutoring.settings (
   id                  int primary key default 1 check (id = 1),
   prompt_template     text,
   tone                text not null default 'warm',
@@ -162,32 +170,32 @@ create table public.settings (
   last_attempt_at     timestamptz,
   last_sync_error     text
 );
-insert into public.settings (id) values (1);
+insert into tutoring.settings (id) values (1);
 
 -- The secret calendar link lives here. RLS on + no policies = server only.
-create table public.private_settings (
+create table tutoring.private_settings (
   id       int primary key default 1 check (id = 1),
   ical_url text
 );
-insert into public.private_settings (id) values (1);
+insert into tutoring.private_settings (id) values (1);
 
 -- ---------------------------------------------------------------------------
 -- Ready for later phases (no screens yet)
 -- ---------------------------------------------------------------------------
-create table public.parent_links (
+create table tutoring.parent_links (
   parent_email text not null check (parent_email = lower(parent_email)),
-  student_id   uuid not null references public.students(id) on delete cascade,
+  student_id   uuid not null references tutoring.students(id) on delete cascade,
   created_at   timestamptz not null default now(),
   primary key (parent_email, student_id)
 );
 
-create table public.student_logins (
+create table tutoring.student_logins (
   login_email text primary key check (login_email = lower(login_email)),
-  student_id  uuid not null references public.students(id) on delete cascade,
+  student_id  uuid not null references tutoring.students(id) on delete cascade,
   created_at  timestamptz not null default now()
 );
 
-create table public.skill_topics (
+create table tutoring.skill_topics (
   id     uuid primary key default gen_random_uuid(),
   level  text not null,
   strand text,
@@ -195,9 +203,9 @@ create table public.skill_topics (
   sort   int not null default 0
 );
 
-create table public.quiz_results (
+create table tutoring.quiz_results (
   id         uuid primary key default gen_random_uuid(),
-  student_id uuid not null references public.students(id) on delete cascade,
+  student_id uuid not null references tutoring.students(id) on delete cascade,
   topic      text,
   score      int,
   out_of     int,
@@ -207,23 +215,23 @@ create table public.quiz_results (
 -- ---------------------------------------------------------------------------
 -- Row Level Security
 -- ---------------------------------------------------------------------------
-alter table public.app_users        enable row level security;
-alter table public.hour_accounts    enable row level security;
-alter table public.students         enable row level security;
-alter table public.lessons          enable row level security;
-alter table public.lesson_students  enable row level security;
-alter table public.lesson_materials enable row level security;
-alter table public.packages         enable row level security;
-alter table public.hour_adjustments enable row level security;
-alter table public.settings         enable row level security;
-alter table public.private_settings enable row level security;
-alter table public.parent_links     enable row level security;
-alter table public.student_logins   enable row level security;
-alter table public.skill_topics     enable row level security;
-alter table public.quiz_results     enable row level security;
+alter table tutoring.app_users        enable row level security;
+alter table tutoring.hour_accounts    enable row level security;
+alter table tutoring.students         enable row level security;
+alter table tutoring.lessons          enable row level security;
+alter table tutoring.lesson_students  enable row level security;
+alter table tutoring.lesson_materials enable row level security;
+alter table tutoring.packages         enable row level security;
+alter table tutoring.hour_adjustments enable row level security;
+alter table tutoring.settings         enable row level security;
+alter table tutoring.private_settings enable row level security;
+alter table tutoring.parent_links     enable row level security;
+alter table tutoring.student_logins   enable row level security;
+alter table tutoring.skill_topics     enable row level security;
+alter table tutoring.quiz_results     enable row level security;
 
 -- Everyone signed in can see their own access row (to know their role).
-create policy app_users_self_read on public.app_users
+create policy app_users_self_read on tutoring.app_users
   for select to authenticated
   using (
     email = lower(coalesce(auth.jwt() ->> 'email', ''))
@@ -231,25 +239,25 @@ create policy app_users_self_read on public.app_users
   );
 
 -- Tutor-only access to everything else.
-create policy tutor_all on public.app_users        for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.hour_accounts    for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.students         for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.lessons          for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.lesson_students  for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.lesson_materials for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.packages         for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.hour_adjustments for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.settings         for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.parent_links     for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.student_logins   for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.skill_topics     for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
-create policy tutor_all on public.quiz_results     for all to authenticated using (public.is_tutor()) with check (public.is_tutor());
+create policy tutor_all on tutoring.app_users        for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.hour_accounts    for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.students         for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.lessons          for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.lesson_students  for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.lesson_materials for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.packages         for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.hour_adjustments for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.settings         for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.parent_links     for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.student_logins   for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.skill_topics     for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
+create policy tutor_all on tutoring.quiz_results     for all to authenticated using (tutoring.is_tutor()) with check (tutoring.is_tutor());
 -- private_settings: intentionally no policies.
 
 -- ---------------------------------------------------------------------------
 -- The viewer's window: schedule only
 -- ---------------------------------------------------------------------------
-create or replace function public.viewer_schedule(p_from timestamptz, p_to timestamptz)
+create or replace function tutoring.viewer_schedule(p_from timestamptz, p_to timestamptz)
 returns table (
   lesson_id uuid,
   start_at  timestamptz,
@@ -260,10 +268,10 @@ returns table (
   is_preply boolean
 )
 language plpgsql stable security definer
-set search_path = public
+set search_path = tutoring
 as $$
 begin
-  if coalesce(public.current_app_role(), '') not in ('tutor', 'viewer') then
+  if coalesce(tutoring.current_app_role(), '') not in ('tutor', 'viewer') then
     raise exception 'not allowed' using errcode = '42501';
   end if;
   if p_to - p_from > interval '62 days' then
@@ -287,23 +295,31 @@ begin
       else min(s.place)  -- never the raw calendar location (could hold addresses or meeting links)
     end as place,
     l.is_preply
-  from public.lessons l
-  left join public.lesson_students ls on ls.lesson_id = l.id
-  left join public.students s on s.id = ls.student_id
+  from tutoring.lessons l
+  left join tutoring.lesson_students ls on ls.lesson_id = l.id
+  left join tutoring.students s on s.id = ls.student_id
   where l.start_at < p_to
     and l.end_at > p_from
     and l.in_calendar
     and not l.ignored
     and l.status not in ('cancelled', 'cancelled_charged')
-    and exists (select 1 from public.lesson_students x where x.lesson_id = l.id)
+    and exists (select 1 from tutoring.lesson_students x where x.lesson_id = l.id)
   group by l.id
   order by l.start_at;
 end;
 $$;
 
-revoke all on function public.viewer_schedule(timestamptz, timestamptz) from public, anon;
-grant execute on function public.viewer_schedule(timestamptz, timestamptz) to authenticated;
-revoke all on function public.current_app_role() from public, anon;
-grant execute on function public.current_app_role() to authenticated;
-revoke all on function public.is_tutor() from public, anon;
-grant execute on function public.is_tutor() to authenticated;
+revoke all on function tutoring.viewer_schedule(timestamptz, timestamptz) from public, anon;
+grant execute on function tutoring.viewer_schedule(timestamptz, timestamptz) to authenticated;
+revoke all on function tutoring.current_app_role() from public, anon;
+grant execute on function tutoring.current_app_role() to authenticated;
+revoke all on function tutoring.is_tutor() from public, anon;
+grant execute on function tutoring.is_tutor() to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Access for the API roles (Row Level Security above still decides what each
+-- signed-in person can actually see).
+-- ---------------------------------------------------------------------------
+grant all on all tables in schema tutoring to authenticated, service_role;
+grant all on all sequences in schema tutoring to authenticated, service_role;
+alter default privileges in schema tutoring grant all on tables to authenticated, service_role;

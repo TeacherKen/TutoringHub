@@ -37,6 +37,7 @@ beforeAll(async () => {
   await db.exec(`
     create role anon nologin;
     create role authenticated nologin;
+    create role service_role nologin;
     create schema auth;
     create function auth.jwt() returns jsonb language sql stable as
       $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
@@ -50,8 +51,7 @@ beforeAll(async () => {
   await db.exec(sql);
   // Supabase gives these grants by default; RLS does the real protection.
   await db.exec(`
-    grant usage on schema public to anon, authenticated;
-    grant all on all tables in schema public to anon, authenticated;
+    set search_path = tutoring, public;
     insert into app_users (email, role) values
       ('${TUTOR}', 'tutor'), ('${VIEWER}', 'viewer'), ('${PARENT}', 'parent');
     insert into hour_accounts (id, name) values ('00000000-0000-0000-0000-00000000000a', 'Jaian & Nivaan');
@@ -163,8 +163,11 @@ describe("other people", () => {
       as(PARENT, "select * from viewer_schedule(now(), now() + interval '1 day')"),
     ).rejects.toThrow(/not allowed/);
   });
-  it("signed-out visitors cannot read anything", async () => {
-    expect(await as(null, "select * from students")).toEqual([]);
-    expect(await as(null, "select * from app_users")).toEqual([]);
+  it("signed-out visitors are refused outright", async () => {
+    await expect(as(null, "select * from students")).rejects.toThrow(/permission denied/);
+    await expect(as(null, "select * from app_users")).rejects.toThrow(/permission denied/);
+    await expect(as(null, "select * from viewer_schedule(now(), now() + interval '1 day')")).rejects.toThrow(
+      /permission denied/,
+    );
   });
 });

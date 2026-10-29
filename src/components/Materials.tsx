@@ -3,6 +3,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { addMaterialFile, addMaterialLink, removeMaterial } from "@/app/actions/lessons";
+import { MATERIALS_BUCKET } from "@/lib/constants";
 
 export type MaterialView = { id: string; kind: "canva" | "pdf" | "photo" | "link"; label: string; href: string | null };
 
@@ -39,7 +40,7 @@ export function Materials({ lessonId, items }: { lessonId: string; items: Materi
       if (!ext) throw new Error("type");
       const path = `${lessonId}/${crypto.randomUUID()}.${ext}`;
       const supabase = createClient();
-      const { error: upErr } = await supabase.storage.from("materials").upload(path, file, { contentType: file.type, upsert: false });
+      const { error: upErr } = await supabase.storage.from(MATERIALS_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
       if (upErr) throw upErr;
       const label = kind === "pdf" ? file.name.replace(/\.pdf$/i, "").slice(0, 120) : "Photo of work";
       const r = await addMaterialFile(lessonId, path, kind, label);

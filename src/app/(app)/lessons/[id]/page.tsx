@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getLesson, getSettings, getStudents, lessonMode, lessonNames, lessonPlace } from "@/lib/data";
-import { tutorName } from "@/lib/env";
+import { MATERIALS_BUCKET, tutorName } from "@/lib/env";
 import { bkkDateKey, fmtLongDay, fmtTime, hoursBetween, isPast } from "@/lib/time";
 import { LessonNoteForm } from "@/components/LessonNoteForm";
 import { Materials, type MaterialView } from "@/components/Materials";
@@ -37,7 +37,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
     (mats ?? []).map(async (m) => {
       let href = m.url as string | null;
       if (m.storage_path) {
-        const { data } = await supabase.storage.from("materials").createSignedUrl(m.storage_path, 60 * 10);
+        const { data } = await supabase.storage.from(MATERIALS_BUCKET).createSignedUrl(m.storage_path, 60 * 10);
         href = data?.signedUrl ?? null;
       }
       return { id: m.id, kind: m.kind, label: m.label ?? "", href };

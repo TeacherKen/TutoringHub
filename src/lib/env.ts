@@ -1,4 +1,5 @@
 // Reads settings from environment variables (set in Vercel → Settings → Environment Variables).
+export { DB_SCHEMA, MATERIALS_BUCKET } from "./constants";
 
 export function supabaseUrl(): string {
   const v = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { assertTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { MATERIALS_BUCKET } from "@/lib/env";
 
 const STATUSES = ["scheduled", "done", "cancelled", "cancelled_charged", "no_show"] as const;
 const HOW = ["great", "good", "needs_practice"] as const;
@@ -149,7 +150,7 @@ export async function removeMaterial(form: FormData): Promise<void> {
   const id = String(form.get("id"));
   const supabase = await createClient();
   const { data } = await supabase.from("lesson_materials").select("storage_path").eq("id", id).single();
-  if (data?.storage_path) await supabase.storage.from("materials").remove([data.storage_path]);
+  if (data?.storage_path) await supabase.storage.from(MATERIALS_BUCKET).remove([data.storage_path]);
   await supabase.from("lesson_materials").delete().eq("id", id);
   revalidatePath("/", "layout");
 }

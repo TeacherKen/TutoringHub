@@ -2,12 +2,13 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createPlainClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import { supabasePublicKey, supabaseSecretKey, supabaseUrl } from "@/lib/env";
+import { DB_SCHEMA, supabasePublicKey, supabaseSecretKey, supabaseUrl } from "@/lib/env";
 
 /** Acts as the signed-in person. Database security rules apply. */
 export async function createClient() {
   const cookieStore = await cookies();
   return createServerClient(supabaseUrl(), supabasePublicKey(), {
+    db: { schema: DB_SCHEMA },
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -30,6 +31,7 @@ export async function createClient() {
  */
 export function createAdminClient() {
   return createPlainClient(supabaseUrl(), supabaseSecretKey(), {
+    db: { schema: DB_SCHEMA },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

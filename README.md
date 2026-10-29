@@ -7,21 +7,22 @@ Phase 1 of 3. Phase 2 adds parent sign-in. Phase 3 adds student practice and gam
 ## Setup (one time, about 20 minutes)
 
 ### 1. Supabase (the database)
-1. Go to **supabase.com** → **New project**. Name: `TutoringHub`. Region: **Southeast Asia (Singapore)**. Save the database password somewhere safe.
-2. When it's ready, open **SQL Editor** → **New query**.
-3. Paste everything in `supabase/migrations/0001_init.sql` → **Run**.
-4. New query again → paste `supabase/migrations/0002_storage.sql` → **Run**.
-5. Go to **Project Settings → API Keys** (or **Data API**) and copy:
-   - Project URL
-   - Publishable key (or "anon public" key)
-   - Secret key (or "service_role" key) — keep this one private.
+TutoringHub keeps all its tables in its own schema called `tutoring`, so it can live inside an existing project (Mr Ken uses the **ourhome** project) without touching that app's data.
+
+1. Open the **ourhome** project → **SQL Editor** → **New query**.
+2. Paste everything in `supabase/migrations/0001_init.sql` → **Run**.
+3. New query again → paste `supabase/migrations/0002_storage.sql` → **Run**.
+4. **Project Settings → Data API → Exposed schemas** → add `tutoring` → Save.
+5. **Project Settings → API Keys** — copy the Project URL, the Publishable (anon) key and the Secret (service_role) key. Keep the secret one private.
 
 ### 2. Google sign-in
-1. **console.cloud.google.com** → your project (or a new one) → **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**.
+If ourhome already uses Google sign-in, skip to step 4.
+1. **console.cloud.google.com** → **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**.
 2. **Authorised redirect URI**: `https://<your-project>.supabase.co/auth/v1/callback`
-3. Copy the Client ID and Client secret.
-4. In Supabase: **Authentication → Sign In / Providers → Google** → turn on, paste both → Save.
-5. Still in **Sign In / Providers**: turn **Email** **off** (and **Allow new users to sign up** off for email). Only Google sign-in is used — the app ignores any other kind of sign-in, but switching Email off keeps things tidy.
+3. In Supabase: **Authentication → Sign In / Providers → Google** → turn on, paste the Client ID and secret → Save.
+4. **Authentication → URL Configuration → Redirect URLs** → add `https://<your-vercel-address>/auth/callback` (do this after step 3 below). **Don't change the Site URL** — that belongs to Our Home.
+
+TutoringHub only trusts Google sign-ins, and only the emails you add in Settings. Other sign-in methods your other app uses are ignored, so leave them as they are.
 
 ### 3. Vercel (the website)
 1. **vercel.com → Add New → Project** → import `TeacherKen/TutoringHub`.
@@ -36,9 +37,7 @@ Phase 1 of 3. Phase 2 adds parent sign-in. Phase 3 adds student practice and gam
 | `TUTOR_NAME` | `Mr Ken` |
 
 3. Press **Deploy**. Copy your site address, e.g. `https://tutoringhub.vercel.app`.
-4. Back in Supabase: **Authentication → URL Configuration**:
-   - Site URL: your Vercel address
-   - Redirect URLs: add `https://<your-vercel-address>/auth/callback`
+4. Back in Supabase: add `https://<your-vercel-address>/auth/callback` to **Redirect URLs** (section 2, step 4).
 
 ### 4. First use
 1. Open your Vercel address → **Sign in with Google**.
