@@ -43,3 +43,27 @@ export async function setGamesOpen(studentIds: string[], open: boolean): Promise
   revalidatePath("/", "layout");
   return { ok: !error };
 }
+
+/** "Current slides" that always show in the student's room (e.g. their ongoing Canva deck). */
+export async function setStudentSlides(studentId: string, url: string, label: string): Promise<{ ok?: boolean; error?: string }> {
+  await assertTutor();
+  const clean = url.trim();
+  let safe: string | null = null;
+  if (clean) {
+    try {
+      const u = new URL(clean);
+      if (u.protocol === "https:" || u.protocol === "http:") safe = u.toString();
+    } catch {
+      /* not a link */
+    }
+    if (!safe) return { error: "Please paste a full link starting with https://" };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("students")
+    .update({ slides_url: safe, slides_label: safe ? label.trim().slice(0, 80) || null : null })
+    .eq("id", studentId);
+  if (error) return { error: "Couldn't save." };
+  revalidatePath("/", "layout");
+  return { ok: true };
+}

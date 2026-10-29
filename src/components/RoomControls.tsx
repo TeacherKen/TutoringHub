@@ -1,9 +1,9 @@
 "use client";
 import { useState, useTransition } from "react";
-import { ensureRoomToken, resetRoomToken, setGamesOpen } from "@/app/actions/rooms";
+import { ensureRoomToken, resetRoomToken, setGamesOpen, setStudentSlides } from "@/app/actions/rooms";
 import { WatchScreen } from "./WatchScreen";
 
-type S = { id: string; first_name: string; room_token: string | null; games_open: boolean };
+type S = { id: string; first_name: string; room_token: string | null; games_open: boolean; slides_url: string | null; slides_label: string | null };
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -139,6 +139,7 @@ export function RoomControls({ students, showGames = true }: { students: S[]; sh
               ) : null}
             </div>
           </div>
+          <SlidesField student={s} />
           {showGames && open && watching === s.id ? <WatchScreen studentId={s.id} name={s.first_name} /> : null}
         </div>
       ))}
@@ -148,5 +149,60 @@ export function RoomControls({ students, showGames = true }: { students: S[]; sh
         </p>
       ) : null}
     </section>
+  );
+}
+
+function SlidesField({ student }: { student: S }) {
+  const [url, setUrl] = useState(student.slides_url ?? "");
+  const [label, setLabel] = useState(student.slides_label ?? "");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | string>(student.slides_url ? "saved" : "idle");
+  const changed = url !== (student.slides_url ?? "") || label !== (student.slides_label ?? "");
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setState("saving");
+        const r = await setStudentSlides(student.id, url, label);
+        setState(r.ok ? "saved" : (r.error ?? "Couldn't save."));
+      }}
+    >
+      <span className="label">{student.first_name}&apos;s current slides (always in their room)</span>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Name, e.g. Alice Prep #52"
+          className="input sm:w-56"
+          maxLength={80}
+        />
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          type="url"
+          inputMode="url"
+          placeholder="Paste a Canva link"
+          className="input flex-1"
+        />
+        <button className="btn-secondary shrink-0" disabled={state === "saving" || (!changed && state === "saved")}>
+          {state === "saving" ? "Saving…" : !changed && state === "saved" && url ? "Saved ✓" : url ? "Save" : "Save"}
+        </button>
+      </div>
+      {state !== "idle" && state !== "saving" && state !== "saved" ? <p className="text-sm text-danger">{state}</p> : null}
+      {url && !changed ? (
+        <button
+          type="button"
+          className="text-xs text-muted underline"
+          onClick={async () => {
+            setUrl("");
+            setLabel("");
+            const r = await setStudentSlides(student.id, "", "");
+            setState(r.ok ? "idle" : (r.error ?? "Couldn't save."));
+          }}
+        >
+          Remove current slides
+        </button>
+      ) : null}
+    </form>
   );
 }

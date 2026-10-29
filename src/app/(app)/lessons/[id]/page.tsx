@@ -8,6 +8,7 @@ import { bkkDateKey, fmtLongDay, fmtTime, hoursBetween, isPast } from "@/lib/tim
 import { LessonNoteForm } from "@/components/LessonNoteForm";
 import { Materials, type MaterialView } from "@/components/Materials";
 import { RoomControls } from "@/components/RoomControls";
+import { aiAvailable } from "@/lib/ai";
 import { roomStudent } from "@/lib/roomStudent";
 import { addLessonStudent, removeLessonStudent, setUsesHours } from "@/app/actions/lessons";
 import { setIgnored } from "@/app/actions/calendar";
@@ -148,6 +149,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
         }}
         defaultLength={hoursBetween(lesson.start_at, lesson.end_at)}
         isPast={isPast(lesson.start_at)}
+        aiEnabled={aiAvailable()}
         topicSuggestions={topicSuggestions}
         promptContext={{
           studentNames: inLesson.map((ls) => ls.students?.first_name ?? "").filter(Boolean),

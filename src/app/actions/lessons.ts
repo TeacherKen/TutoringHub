@@ -154,3 +154,12 @@ export async function removeMaterial(form: FormData): Promise<void> {
   await supabase.from("lesson_materials").delete().eq("id", id);
   revalidatePath("/", "layout");
 }
+
+/** Built-in AI: write the parent message from the prompt (first names only — see feedbackPrompt.ts). */
+export async function writeFeedbackWithAI(prompt: string): Promise<{ text?: string; error?: string }> {
+  await assertTutor();
+  const { writeWithAI } = await import("@/lib/ai");
+  const p = String(prompt ?? "").slice(0, 12000);
+  if (p.trim().length < 20) return { error: "Write the lesson note first." };
+  return writeWithAI(p);
+}

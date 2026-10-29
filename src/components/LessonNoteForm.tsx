@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { saveFinalMessage, saveLessonNote, setSent, type NoteInput } from "@/app/actions/lessons";
+import { saveFinalMessage, saveLessonNote, setSent, writeFeedbackWithAI, type NoteInput } from "@/app/actions/lessons";
 import { buildFeedbackPrompt, type PromptInput } from "@/lib/feedbackPrompt";
 
 type Initial = NoteInput & { final_message: string; sent_at: string | null; updated_at: string | null };
@@ -10,6 +10,7 @@ type Props = {
   initial: Initial;
   defaultLength: number;
   isPast: boolean;
+  aiEnabled: boolean;
   topicSuggestions: string[];
   promptContext: Omit<PromptInput, "learned" | "nextTime" | "homework" | "howItWent" | "topics">;
 };
@@ -64,7 +65,7 @@ async function copy(text: string): Promise<boolean> {
   }
 }
 
-export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, topicSuggestions, promptContext }: Props) {
+export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEnabled, topicSuggestions, promptContext }: Props) {
   const draftKey = `th-note-${lessonId}`;
   const [note, setNote] = useState<NoteInput>(() => ({
     learned: initial.learned,
@@ -162,6 +163,37 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, topic
     if (!v || note.topics.includes(v)) return;
     set("topics", [...note.topics, v].slice(0, 12));
     setTopicInput("");
+  }
+
+  const [writing, setWriting] = useState(false);
+
+  function currentPrompt() {
+    return buildFeedbackPrompt({
+      ...promptContext,
+      learned: note.learned,
+      nextTime: note.next_time,
+      homework: note.homework,
+      howItWent: note.how_it_went as PromptInput["howItWent"],
+      topics: note.topics,
+    });
+  }
+
+  async function writeWithAI() {
+    if (finalMsg.trim() && !confirm("Replace the message that's already there?")) return;
+    setWriting(true);
+    try {
+      const r = await writeFeedbackWithAI(currentPrompt());
+      if (r.text) {
+        setFinalMsg(r.text);
+        setFinalState("idle");
+        setFlash("Message written — check it, then tap Save message.");
+      } else setFlash(r.error ?? "Couldn't write the message.");
+    } catch {
+      setFlash("Couldn't reach the AI. Check your connection.");
+    } finally {
+      setWriting(false);
+      setTimeout(() => setFlash(null), 6000);
+    }
   }
 
   async function preparePrompt() {
@@ -294,19 +326,35 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, topic
 
       <section className="card space-y-4">
         <h2 className="h2">Parent feedback</h2>
-        <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
-          <li>Tap “Copy prompt for ChatGPT”.</li>
-          <li>Open ChatGPT, paste, and send.</li>
-          <li>Paste ChatGPT’s message below, check it, and save.</li>
-        </ol>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <button type="button" className="btn-primary flex-1" onClick={preparePrompt} disabled={notesEmpty}>
-            Copy prompt for ChatGPT
-          </button>
-          <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" className="btn-secondary flex-1">
-            Open ChatGPT ↗
-          </a>
-        </div>
+        {aiEnabled ? (
+          <>
+            <button type="button" className="btn-primary w-full" onClick={writeWithAI} disabled={notesEmpty || writing}>
+              {writing ? "Writing the message…" : "✦ Write parent message"}
+            </button>
+            <p className="text-xs text-muted">
+              Uses your note above (first names only). Always read it before sending.{" "}
+              <button type="button" className="underline" onClick={preparePrompt} disabled={notesEmpty}>
+                Or copy the prompt for ChatGPT
+              </button>
+            </p>
+          </>
+        ) : (
+          <>
+            <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
+              <li>Tap “Copy prompt for ChatGPT”.</li>
+              <li>Open ChatGPT, paste, and send.</li>
+              <li>Paste ChatGPT’s message below, check it, and save.</li>
+            </ol>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button type="button" className="btn-primary flex-1" onClick={preparePrompt} disabled={notesEmpty}>
+                Copy prompt for ChatGPT
+              </button>
+              <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" className="btn-secondary flex-1">
+                Open ChatGPT ↗
+              </a>
+            </div>
+          </>
+        )}
         {notesEmpty ? <p className="text-xs text-muted">Write “Learned today” or “Next time” first.</p> : null}
         {flash ? (
           <p role="status" className="rounded-xl bg-accent-soft p-3 text-sm text-accent">
@@ -323,7 +371,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, topic
               setFinalMsg(e.target.value);
               setFinalState("idle");
             }}
-            placeholder="Paste the polished message from ChatGPT here, then check and edit it."
+            placeholder={aiEnabled ? "Tap “Write parent message”, or type your own." : "Paste the polished message from ChatGPT here, then check and edit it."}
           />
         </label>
         <div className="flex flex-col gap-2 sm:flex-row">

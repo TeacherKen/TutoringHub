@@ -38,11 +38,29 @@ export function canvaEmbed(url: string): string | null {
 export async function getRoom(token: string): Promise<RoomData | null> {
   if (!isValidToken(token)) return null;
   const admin = createAdminClient();
-  const { data: s } = await admin
+  type Row = {
+    id: string;
+    first_name: string;
+    active: boolean;
+    games_open: boolean;
+    games_opened_at: string | null;
+    slides_url?: string | null;
+    slides_label?: string | null;
+  };
+  const first = await admin
     .from("students")
-    .select("id, first_name, active, games_open, games_opened_at")
+    .select("id, first_name, active, games_open, games_opened_at, slides_url, slides_label")
     .eq("room_token", token)
-    .maybeSingle();
+    .maybeSingle<Row>();
+  let s = first.data;
+  if (first.error) {
+    // The "current slides" columns may not exist yet (database update 0007 not run) — still open the room.
+    ({ data: s } = await admin
+      .from("students")
+      .select("id, first_name, active, games_open, games_opened_at")
+      .eq("room_token", token)
+      .maybeSingle<Row>());
+  }
   if (!s || !s.active) return null;
 
   const opened = s.games_opened_at ? new Date(s.games_opened_at).getTime() : 0;
@@ -88,6 +106,17 @@ export async function getRoom(token: string): Promise<RoomData | null> {
         });
       }
     }
+  }
+
+  // The student's "current slides" always show, first (unless that same link is already in the lesson).
+  if (s.slides_url && !materials.some((m) => m.href === s.slides_url)) {
+    const isCanva = canvaEmbed(s.slides_url) != null;
+    materials.unshift({
+      kind: isCanva ? "canva" : "link",
+      label: s.slides_label || "My slides",
+      href: s.slides_url,
+      embed: isCanva ? canvaEmbed(s.slides_url) : null,
+    });
   }
 
   return {

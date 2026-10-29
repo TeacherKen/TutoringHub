@@ -107,3 +107,20 @@ describe("feedback prompt", () => {
     );
   });
 });
+
+import { renewalText } from "@/components/RenewalMessage";
+
+describe("renewal message", () => {
+  it("mentions hours left and the same package price", () => {
+    const t = renewalText({ parentName: "Ms Aradhana", names: ["Jaian", "Nivaan"], hoursLeft: 1.5, lastHours: 12, lastPrice: 33600, tutorName: "Mr Ken" });
+    expect(t).toContain("Hi Ms Aradhana");
+    expect(t).toContain("Jaian and Nivaan have 1.5 hours left");
+    expect(t).toContain("12 hours for ฿33,600");
+    expect(t).toContain("Mr Ken");
+  });
+  it("handles used-up packages", () => {
+    expect(renewalText({ parentName: null, names: ["Alice"], hoursLeft: -1, lastHours: null, lastPrice: null, tutorName: "Mr Ken" })).toContain(
+      "Alice has used all the package hours, plus 1 hour extra.",
+    );
+  });
+});

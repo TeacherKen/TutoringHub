@@ -7,6 +7,8 @@ import { lessonLength } from "@/lib/hours";
 import { bkkDateKey, fmtDate, fmtDay, fmtHours, fmtTime, isPast, todayKey } from "@/lib/time";
 import { StudentForm } from "@/components/StudentForm";
 import { RoomControls } from "@/components/RoomControls";
+import { RenewalMessage } from "@/components/RenewalMessage";
+import { tutorName } from "@/lib/env";
 import { roomStudent } from "@/lib/roomStudent";
 import { AdjustmentForm, PackageForm } from "@/components/HoursForms";
 import { deleteAdjustment, deletePackage, deleteStudent, setHourSharing, updateStudent } from "@/app/actions/students";
@@ -93,6 +95,16 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
               <p className="rounded-xl bg-danger-soft p-3 text-sm text-danger">Hours have run out — {fmtHours(-bal.left)} over.</p>
             ) : low ? (
               <p className="rounded-xl bg-warn-soft p-3 text-sm text-warn">Running low — time to send a renewal message.</p>
+            ) : null}
+            {account.packages.length ? (
+              <RenewalMessage
+                parentName={student.parent_name}
+                names={account.students.map((x) => x.first_name)}
+                hoursLeft={bal.left}
+                lastHours={account.packages.at(-1)?.hours != null ? Number(account.packages.at(-1)!.hours) : null}
+                lastPrice={account.packages.at(-1)?.price_thb != null ? Number(account.packages.at(-1)!.price_thb) : null}
+                tutorName={tutorName()}
+              />
             ) : null}
             {account.packages.length === 0 ? (
               <p className="text-sm text-muted">
