@@ -49,7 +49,9 @@ beforeAll(async () => {
     "",
   );
   await db.exec(sql);
-  await db.exec(readFileSync(join(__dirname, "../supabase/migrations/0003_multiple_calendars.sql"), "utf8"));
+  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql"]) {
+    await db.exec(readFileSync(join(__dirname, "../supabase/migrations", f), "utf8"));
+  }
   // Supabase gives these grants by default; RLS does the real protection.
   await db.exec(`
     set search_path = tutoring, public;
@@ -109,6 +111,10 @@ describe("viewer (family member)", () => {
   it("cannot read the calendar links", async () => {
     expect(await as(VIEWER, "select * from private_settings")).toEqual([]);
     await expect(as(VIEWER, "select * from calendar_sources")).rejects.toThrow(/permission denied/);
+  });
+  it("cannot see any student's room link", async () => {
+    await as(TUTOR, "update students set room_token = 'secret-room-token-abcdefghijkl'");
+    expect(await as(VIEWER, "select room_token from students")).toEqual([]);
   });
   it("cannot change data", async () => {
     await as(VIEWER, "update lessons set learned = 'hacked'");

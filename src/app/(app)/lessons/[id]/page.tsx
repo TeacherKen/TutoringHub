@@ -7,6 +7,8 @@ import { MATERIALS_BUCKET, tutorName } from "@/lib/env";
 import { bkkDateKey, fmtLongDay, fmtTime, hoursBetween, isPast } from "@/lib/time";
 import { LessonNoteForm } from "@/components/LessonNoteForm";
 import { Materials, type MaterialView } from "@/components/Materials";
+import { RoomControls } from "@/components/RoomControls";
+import { roomStudent } from "@/lib/roomStudent";
 import { addLessonStudent, removeLessonStudent, setUsesHours } from "@/app/actions/lessons";
 import { setIgnored } from "@/app/actions/calendar";
 
@@ -73,6 +75,12 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
           {lesson.title && lesson.title !== lessonNames(lesson) ? <span className="chip">“{lesson.title}”</span> : null}
         </div>
       </header>
+
+      {inLesson.length ? (
+        <RoomControls
+          students={students.filter((s) => studentIds.includes(s.id)).map(roomStudent)}
+        />
+      ) : null}
 
       {lastPlan ? (
         <section className="card border-accent bg-accent-soft">

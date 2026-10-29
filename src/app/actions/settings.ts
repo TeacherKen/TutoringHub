@@ -37,6 +37,7 @@ export async function saveFeedbackSettings(_: SettingsState, form: FormData): Pr
   const tone = String(form.get("tone") ?? "warm");
   const template = String(form.get("prompt_template") ?? "").trim();
   const low = Number(form.get("low_hours_threshold"));
+  const trackFrom = String(form.get("track_from") ?? "");
   const supabase = await createClient();
   const { error } = await supabase
     .from("settings")
@@ -45,6 +46,7 @@ export async function saveFeedbackSettings(_: SettingsState, form: FormData): Pr
       allow_emoji: form.get("allow_emoji") === "on",
       prompt_template: !template || template === DEFAULT_TEMPLATE.trim() ? null : template.slice(0, 8000),
       low_hours_threshold: Number.isFinite(low) && low >= 0 && low <= 50 ? low : 2,
+      ...(/^\d{4}-\d{2}-\d{2}$/.test(trackFrom) ? { track_from: trackFrom } : {}),
     })
     .eq("id", 1);
   if (error) return { error: "Couldn't save." };

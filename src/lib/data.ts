@@ -17,6 +17,9 @@ export type Student = {
   private_notes: string | null;
   active: boolean;
   hour_account_id: string | null;
+  room_token?: string | null;
+  games_open?: boolean;
+  games_opened_at?: string | null;
 };
 
 export type LessonStudent = {
@@ -58,6 +61,7 @@ export type Settings = {
   calendar_connected: boolean;
   last_synced_at: string | null;
   last_sync_error: string | null;
+  track_from: string | null;
 };
 
 const LESSON_SELECT =
@@ -103,6 +107,7 @@ export async function getSettings(): Promise<Settings> {
       calendar_connected: false,
       last_synced_at: null,
       last_sync_error: null,
+      track_from: null,
     }
   );
 }

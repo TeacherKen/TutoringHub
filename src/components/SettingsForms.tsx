@@ -87,6 +87,7 @@ export function FeedbackSettingsForm(props: {
   allowEmoji: boolean;
   template: string | null;
   lowHours: number;
+  trackFrom: string | null;
 }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveFeedbackSettings, null);
   const [template, setTemplate] = useState(props.template ?? DEFAULT_TEMPLATE);
@@ -106,6 +107,11 @@ export function FeedbackSettingsForm(props: {
         <label>
           <span className="label">Warn when hours left are at or below</span>
           <input name="low_hours_threshold" type="number" step="0.5" min="0" className="input" defaultValue={props.lowHours} />
+        </label>
+        <label>
+          <span className="label">Remind me about notes for lessons from</span>
+          <input name="track_from" type="date" className="input" defaultValue={props.trackFrom ?? ""} />
+          <span className="mt-1 block text-xs text-muted">Older lessons are never flagged as missing a note.</span>
         </label>
       </div>
       <label className="flex min-h-12 items-center gap-3">

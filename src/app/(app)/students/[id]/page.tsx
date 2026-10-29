@@ -6,6 +6,8 @@ import { getAccountSummaries, getSettings, getStudents, type Lesson } from "@/li
 import { lessonLength } from "@/lib/hours";
 import { bkkDateKey, fmtDate, fmtDay, fmtHours, fmtTime, isPast, todayKey } from "@/lib/time";
 import { StudentForm } from "@/components/StudentForm";
+import { RoomControls } from "@/components/RoomControls";
+import { roomStudent } from "@/lib/roomStudent";
 import { AdjustmentForm, PackageForm } from "@/components/HoursForms";
 import { deleteAdjustment, deletePackage, deleteStudent, setHourSharing, updateStudent } from "@/app/actions/students";
 
@@ -56,6 +58,8 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
           </p>
         ) : null}
       </header>
+
+      <RoomControls students={[roomStudent(student)]} showGames={false} />
 
       {latestPlan ? (
         <section className="card border-accent bg-accent-soft">

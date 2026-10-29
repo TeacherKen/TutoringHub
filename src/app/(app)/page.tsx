@@ -25,10 +25,15 @@ export default async function Home() {
   const matched = lessons.filter((l) => l.lesson_students.length > 0);
   const todays = matched.filter((l) => bkkDateKey(l.start_at) === today);
   const rest = matched.filter((l) => bkkDateKey(l.start_at) > today);
-  const missing = matched.filter(needsNote);
-  const unsent = matched.filter((l) => l.status === "done" && !l.sent_at && bkkDateKey(l.start_at) <= today);
+  // Lessons before the "start tracking from" date (Settings) are never flagged.
+  const trackFrom = settings.track_from ?? "0000-01-01";
+  const tracked = (l: { start_at: string }) => bkkDateKey(l.start_at) >= trackFrom;
+  const missing = matched.filter((l) => tracked(l) && needsNote(l));
+  const unsent = matched.filter((l) => tracked(l) && l.status === "done" && !l.sent_at && bkkDateKey(l.start_at) <= today);
   const low = accounts.filter((a) => a.packages.length > 0 && a.balance.left <= Number(settings.low_hours_threshold));
-  const unmatched = lessons.filter((l) => l.lesson_students.length === 0 && bkkDateKey(l.start_at) >= addDays(today, -14));
+  const unmatched = lessons.filter(
+    (l) => l.lesson_students.length === 0 && bkkDateKey(l.start_at) >= (trackFrom > addDays(today, -14) ? trackFrom : addDays(today, -14)),
+  );
 
   const byDay = new Map<string, typeof rest>();
   for (const l of rest) {
@@ -107,6 +112,7 @@ export default async function Home() {
                     </div>
                     <form action={linkEventToStudent} className="mt-2 flex flex-wrap items-center gap-2">
                       <input type="hidden" name="lesson_id" value={l.id} />
+                      <input type="hidden" name="keyword" value={eventName(l.title)} />
                       <select name="student_id" className="input min-h-11 w-auto flex-1" required defaultValue="">
                         <option value="" disabled>
                           Choose student…
@@ -118,6 +124,11 @@ export default async function Home() {
                         ))}
                       </select>
                       <button className="btn-secondary min-h-11">Link</button>
+                      {eventName(l.title) ? (
+                        <span className="w-full text-xs text-muted">
+                          Future events called “{eventName(l.title)}” will link to this student by themselves.
+                        </span>
+                      ) : null}
                     </form>
                     <form action={setIgnored} className="mt-1">
                       <input type="hidden" name="lesson_id" value={l.id} />
@@ -127,7 +138,7 @@ export default async function Home() {
                   </div>
                 ))}
                 <p className="text-xs text-muted">
-                  Tip: add the word from the event title as a calendar keyword on the student, and future events will link by themselves.
+                  Preply names events after the account owner — often the parent (e.g. “Chloe L.” for Yina).
                 </p>
               </Group>
             ) : null}
@@ -154,6 +165,13 @@ export default async function Home() {
       </section>
     </div>
   );
+}
+
+/** "Chloe L. - Preply lesson" → "Chloe L." — the name part of an event title, used to remember the link. */
+function eventName(title: string | null): string {
+  const t = (title ?? "").trim();
+  const name = t.split(/\s+[-–—|]\s+/)[0]?.trim() ?? "";
+  return name.length >= 2 && name.length <= 40 ? name : "";
 }
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
