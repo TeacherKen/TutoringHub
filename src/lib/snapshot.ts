@@ -36,6 +36,14 @@ function clean(root: Element) {
 export function snapshotDocument(doc: Document, baseHref: string): string {
   const clone = doc.documentElement.cloneNode(true) as HTMLElement;
   copyFormState(doc.documentElement, clone);
+  // Mark inner scroll boxes (e.g. a scrolling game board) before cleaning, while both trees still match.
+  const orig = doc.documentElement.querySelectorAll("*");
+  const copy = clone.querySelectorAll("*");
+  orig.forEach((el, i) => {
+    if ((el.scrollTop > 0 || el.scrollLeft > 0) && copy[i]) {
+      copy[i].setAttribute("data-th-scroll", `${Math.round(el.scrollLeft)}:${Math.round(el.scrollTop)}`);
+    }
+  });
   clean(clone);
   let head = clone.querySelector("head");
   if (!head) {
@@ -45,9 +53,12 @@ export function snapshotDocument(doc: Document, baseHref: string): string {
   const base = doc.createElement("base");
   base.setAttribute("href", baseHref);
   head.prepend(base);
-  // Show the same scroll position.
-  const y = doc.defaultView?.scrollY ?? 0;
-  if (y) clone.setAttribute("data-scroll-y", String(Math.round(y)));
+  // Remember what part of the page the student can see, so the tutor sees the same view.
+  const win = doc.defaultView;
+  clone.setAttribute("data-scroll-x", String(Math.round(win?.scrollX ?? 0)));
+  clone.setAttribute("data-scroll-y", String(Math.round(win?.scrollY ?? 0)));
+  clone.setAttribute("data-vw", String(Math.round(win?.innerWidth ?? 1024)));
+  clone.setAttribute("data-vh", String(Math.round(win?.innerHeight ?? 700)));
   return `<!doctype html>${clone.outerHTML}`;
 }
 
@@ -61,5 +72,7 @@ export function snapshotElement(el: Element): string {
     .join("");
   const inline = [...document.querySelectorAll("head style")].map((st) => `<style>${st.textContent ?? ""}</style>`).join("");
   const htmlClass = document.documentElement.className.replace(/"/g, "");
-  return `<!doctype html><html class="${htmlClass}"><head><base href="${location.origin}/">${styles}${inline}</head><body style="padding:16px">${clone.outerHTML}</body></html>`;
+  const w = Math.round(el.getBoundingClientRect().width) + 32;
+  const h = Math.round(el.getBoundingClientRect().height) + 32;
+  return `<!doctype html><html class="${htmlClass}" data-vw="${w}" data-vh="${h}"><head><base href="${location.origin}/">${styles}${inline}</head><body style="padding:16px">${clone.outerHTML}</body></html>`;
 }
