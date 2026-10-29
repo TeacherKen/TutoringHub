@@ -49,6 +49,7 @@ beforeAll(async () => {
     "",
   );
   await db.exec(sql);
+  await db.exec(readFileSync(join(__dirname, "../supabase/migrations/0003_multiple_calendars.sql"), "utf8"));
   // Supabase gives these grants by default; RLS does the real protection.
   await db.exec(`
     set search_path = tutoring, public;
@@ -65,7 +66,7 @@ beforeAll(async () => {
       ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-000000000001');
     insert into packages (hour_account_id, hours, price_thb, start_date)
       values ('00000000-0000-0000-0000-00000000000a', 12, 33600, current_date);
-    update private_settings set ical_url = 'https://calendar.google.com/secret/abc' where id = 1;
+    insert into calendar_sources (label, ical_url) values ('Lessons', 'https://calendar.google.com/secret/abc');
   `);
 });
 
@@ -93,8 +94,9 @@ describe("tutor", () => {
     expect((await as(TUTOR, "select * from app_users")).length).toBe(4);
     await as(TUTOR, "delete from app_users where email = 'new@example.com'");
   });
-  it("cannot read the secret calendar link from the database directly", async () => {
+  it("cannot read the secret calendar links from the browser side", async () => {
     expect(await as(TUTOR, "select ical_url from private_settings")).toEqual([]);
+    await expect(as(TUTOR, "select ical_url from calendar_sources")).rejects.toThrow(/permission denied/);
   });
 });
 
@@ -104,8 +106,9 @@ describe("viewer (family member)", () => {
       expect(await as(VIEWER, `select * from ${table}`)).toEqual([]);
     });
   }
-  it("cannot read the calendar link", async () => {
+  it("cannot read the calendar links", async () => {
     expect(await as(VIEWER, "select * from private_settings")).toEqual([]);
+    await expect(as(VIEWER, "select * from calendar_sources")).rejects.toThrow(/permission denied/);
   });
   it("cannot change data", async () => {
     await as(VIEWER, "update lessons set learned = 'hacked'");

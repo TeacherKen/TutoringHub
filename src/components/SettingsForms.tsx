@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { saveCalendarLink, type ActionState } from "@/app/actions/calendar";
+import { addCalendar, type ActionState } from "@/app/actions/calendar";
 import { addPerson, saveFeedbackSettings, type SettingsState } from "@/app/actions/settings";
 import { DEFAULT_TEMPLATE, TONES } from "@/lib/feedbackPrompt";
 
@@ -11,29 +11,39 @@ function Msg({ s }: { s: { ok?: boolean | string; error?: string; message?: stri
   return text ? <p className={`text-sm ${isErr ? "text-danger" : "text-ok"}`}>{text}</p> : null;
 }
 
-export function CalendarForm({ connected }: { connected: boolean }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(saveCalendarLink, null);
+export function CalendarForm({ first }: { first: boolean }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(addCalendar, null);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) ref.current?.reset();
   }, [state]);
   return (
     <form ref={ref} action={action} className="space-y-3">
-      <label className="block">
-        <span className="label">{connected ? "Replace calendar link" : "Secret address in iCal format"}</span>
-        <input
-          name="ical_url"
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          required
-          className="input font-mono text-sm"
-          placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"
-        />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="sm:col-span-1">
+          <span className="label">Name</span>
+          <input name="label" className="input" placeholder={first ? "e.g. Lessons" : "e.g. Preply"} maxLength={40} />
+        </label>
+        <label className="sm:col-span-2">
+          <span className="label">Secret address in iCal format</span>
+          <input
+            name="ical_url"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            required
+            className="input font-mono text-sm"
+            placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"
+          />
+        </label>
+      </div>
+      <label className="flex min-h-12 items-center gap-3">
+        <input type="checkbox" name="is_preply" className="h-5 w-5 accent-[var(--accent)]" />
+        <span>Every lesson in this calendar is a Preply lesson</span>
       </label>
       <Msg s={state} />
       <button className="btn-primary w-full sm:w-auto" disabled={pending}>
-        {pending ? "Checking your calendar…" : connected ? "Save new link" : "Connect calendar"}
+        {pending ? "Checking the calendar…" : first ? "Connect calendar" : "Add calendar"}
       </button>
     </form>
   );

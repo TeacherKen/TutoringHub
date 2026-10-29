@@ -10,55 +10,64 @@ const MIN_REFRESH_SECONDS = 30;
 
 export type SyncResult = { ok: true; count: number } | { ok: false; error: string };
 
-/** Only Google Calendar's own iCal addresses are accepted. */
+/**
+ * Accepted calendar links:
+ * - Google Calendar's own "Secret address in iCal format"
+ * - Preply's calendar export link (https on preply.com)
+ */
 export function validateCalendarUrl(raw: string): string | null {
   const s = raw.trim().replace(/^webcal:\/\//i, "https://");
   try {
     const u = new URL(s);
-    if (u.protocol !== "https:" || u.hostname !== "calendar.google.com") return null;
-    if (!u.pathname.startsWith("/calendar/ical/") || !u.pathname.endsWith(".ics")) return null;
-    if (u.username || u.password || u.port) return null;
-    return u.toString();
+    if (u.protocol !== "https:" || u.username || u.password || u.port) return null;
+    if (u.hostname === "calendar.google.com") {
+      if (!u.pathname.startsWith("/calendar/ical/") || !u.pathname.endsWith(".ics")) return null;
+      return u.toString();
+    }
+    if (u.hostname === "preply.com" || u.hostname.endsWith(".preply.com")) return u.toString();
+    return null;
   } catch {
     return null;
   }
 }
 
+type Source = { id: string; label: string; ical_url: string; is_preply: boolean };
+
+async function readSource(src: Source, from: Date, to: Date) {
+  const url = validateCalendarUrl(src.ical_url);
+  if (!url) throw new Error("bad link");
+  const res = await fetch(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new Error(`status ${res.status}`);
+  const ics = await res.text();
+  if (!ics.includes("BEGIN:VCALENDAR")) throw new Error("not a calendar");
+  return parseOccurrences(ics, from, to);
+}
+
 /**
- * Reads the Google Calendar link (server only), and saves each occurrence as a
- * lesson row. Notes already written are never touched. The calendar link is
+ * Reads every saved calendar (server only) and saves each occurrence as a
+ * lesson row. Notes already written are never touched. Calendar links are
  * never returned, logged, or put in an error message.
  */
 export async function syncCalendar(): Promise<SyncResult> {
   const admin = createAdminClient();
-  const { data: priv } = await admin.from("private_settings").select("ical_url").eq("id", 1).single();
-  const url = priv?.ical_url ? validateCalendarUrl(priv.ical_url as string) : null;
-  if (!url) return { ok: false, error: "No calendar link saved yet. Add it in Settings." };
+  const { data: srcRows } = await admin.from("calendar_sources").select("id, label, ical_url, is_preply").order("created_at");
+  const sources = (srcRows ?? []) as Source[];
+  if (!sources.length) return { ok: false, error: "No calendar link saved yet. Add it in Settings." };
   await admin.from("settings").update({ last_attempt_at: new Date().toISOString() }).eq("id", 1);
 
   const now = Date.now();
   const from = new Date(now - PAST_DAYS * 86_400_000);
   const to = new Date(now + FUTURE_DAYS * 86_400_000);
 
-  let ics: string;
-  try {
-    const res = await fetch(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) throw new Error(`status ${res.status}`);
-    ics = await res.text();
-    if (!ics.includes("BEGIN:VCALENDAR")) throw new Error("not a calendar");
-  } catch {
-    const error = "Couldn't read your Google Calendar. Check the calendar link in Settings.";
-    await admin.from("settings").update({ last_sync_error: error }).eq("id", 1);
-    return { ok: false, error };
-  }
-
-  let occurrences;
-  try {
-    occurrences = parseOccurrences(ics, from, to);
-  } catch {
-    const error = "Your calendar was read, but it couldn't be understood.";
-    await admin.from("settings").update({ last_sync_error: error }).eq("id", 1);
-    return { ok: false, error };
+  // Read all calendars at the same time. One broken calendar doesn't stop the others.
+  const results = await Promise.allSettled(sources.map((src) => readSource(src, from, to)));
+  const okSources: { src: Source; occ: Awaited<ReturnType<typeof readSource>> }[] = [];
+  const failed: string[] = [];
+  results.forEach((r, i) => (r.status === "fulfilled" ? okSources.push({ src: sources[i], occ: r.value }) : failed.push(sources[i].label)));
+  const failMsg = failed.length ? `Couldn't read: ${failed.join(", ")}. Check the link in Settings.` : null;
+  if (!okSources.length) {
+    await admin.from("settings").update({ last_sync_error: failMsg }).eq("id", 1);
+    return { ok: false, error: failMsg! };
   }
 
   const { data: students } = await admin.from("students").select("id, keywords, source").eq("active", true);
@@ -66,20 +75,24 @@ export async function syncCalendar(): Promise<SyncResult> {
   const preplyIds = new Set(studentList.filter((s) => s.source === "preply").map((s) => s.id));
 
   // 1. Upsert lesson rows (time, title, place only — notes are left alone).
-  const unique = new Map(occurrences.map((o) => [`${o.uid}|${o.key}`, o]));
-  const rows = [...unique.values()].map((o) => {
-    const matched = matchStudents(o.title, studentList);
-    return {
-      event_uid: o.uid,
-      occurrence_key: o.key,
-      start_at: o.start.toISOString(),
-      end_at: o.end.toISOString(),
-      title: o.title.slice(0, 300),
-      location: o.location?.slice(0, 300) ?? null,
-      is_preply: isPreplyTitle(o.title) || matched.some((id) => preplyIds.has(id)),
-      in_calendar: true,
-    };
-  });
+  const unique = new Map<string, Record<string, unknown>>();
+  for (const { src, occ } of okSources) {
+    for (const o of occ) {
+      const matched = matchStudents(o.title, studentList);
+      unique.set(`${o.uid}|${o.key}`, {
+        event_uid: o.uid,
+        occurrence_key: o.key,
+        start_at: o.start.toISOString(),
+        end_at: o.end.toISOString(),
+        title: o.title.slice(0, 300),
+        location: o.location?.slice(0, 300) ?? null,
+        is_preply: src.is_preply || isPreplyTitle(o.title) || matched.some((id) => preplyIds.has(id)),
+        in_calendar: true,
+        calendar_source_id: src.id,
+      });
+    }
+  }
+  const rows = [...unique.values()];
 
   type Saved = { id: string; title: string; students_locked: boolean; status: string };
   const saved: Saved[] = [];
@@ -92,15 +105,19 @@ export async function syncCalendar(): Promise<SyncResult> {
     saved.push(...(data ?? []));
   }
 
-  // 2. Lessons in this window that are no longer in the calendar.
+  // 2. Lessons no longer in a calendar that was read successfully.
+  // (Lessons from a calendar that failed to load are left alone.)
   const seen = new Set(saved.map((s) => s.id));
+  const okIds = okSources.map((x) => x.src.id);
   const { data: windowRows } = await admin
     .from("lessons")
-    .select("id")
+    .select("id, calendar_source_id")
     .gte("start_at", from.toISOString())
     .lte("start_at", to.toISOString())
     .eq("in_calendar", true);
-  const gone = (windowRows ?? []).map((r) => r.id as string).filter((id) => !seen.has(id));
+  const gone = (windowRows ?? [])
+    .filter((r) => !seen.has(r.id as string) && (r.calendar_source_id == null || okIds.includes(r.calendar_source_id as string)))
+    .map((r) => r.id as string);
   if (gone.length) await admin.from("lessons").update({ in_calendar: false }).in("id", gone);
 
   // 3. Automatic student matches. Only lessons that are still "scheduled" and
@@ -127,9 +144,16 @@ export async function syncCalendar(): Promise<SyncResult> {
 
   await admin
     .from("settings")
-    .update({ last_synced_at: new Date().toISOString(), last_sync_error: null, calendar_connected: true })
+    .update({ last_synced_at: new Date().toISOString(), last_sync_error: failMsg, calendar_connected: true })
     .eq("id", 1);
-  return { ok: true, count: saved.length };
+  return failMsg ? { ok: false, error: failMsg } : { ok: true, count: saved.length };
+}
+
+/** Calendar names for the Settings page (never the links). */
+export async function listCalendarSources(): Promise<{ id: string; label: string; is_preply: boolean }[]> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("calendar_sources").select("id, label, is_preply").order("created_at");
+  return (data ?? []) as { id: string; label: string; is_preply: boolean }[];
 }
 
 /** Sync only if it's been a while (used when a page opens). */

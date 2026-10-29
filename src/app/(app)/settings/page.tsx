@@ -6,12 +6,13 @@ import { fmtDate, fmtTime } from "@/lib/time";
 import { AddPersonForm, CalendarForm, FeedbackSettingsForm } from "@/components/SettingsForms";
 import { RefreshButton } from "@/components/RefreshButton";
 import { SignOutButton } from "@/components/SignOutButton";
-import { removeCalendarLink } from "@/app/actions/calendar";
+import { removeCalendar, setCalendarPreply } from "@/app/actions/calendar";
+import { listCalendarSources } from "@/lib/calendar/sync";
 import { removePerson } from "@/app/actions/settings";
 
 export default async function SettingsPage() {
   const me = await requireTutor();
-  const settings = await getSettings();
+  const [settings, calendars] = await Promise.all([getSettings(), listCalendarSources()]);
   const supabase = await createClient();
   const { data: people } = await supabase.from("app_users").select("email, role, display_name").in("role", ["tutor", "viewer"]).order("role");
   const { count: hidden } = await supabase.from("lessons").select("id", { count: "exact", head: true }).eq("ignored", true);
@@ -36,6 +37,30 @@ export default async function SettingsPage() {
         </div>
         {settings.last_sync_error ? <p className="rounded-xl bg-danger-soft p-3 text-sm text-danger">{settings.last_sync_error}</p> : null}
 
+        {calendars.length ? (
+          <ul className="space-y-2">
+            {calendars.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 p-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{c.label}</span>
+                  {c.is_preply ? <span className="chip-accent">All Preply</span> : null}
+                </div>
+                <div className="flex items-center gap-3">
+                  <form action={setCalendarPreply}>
+                    <input type="hidden" name="id" value={c.id} />
+                    <input type="hidden" name="is_preply" value={c.is_preply ? "false" : "true"} />
+                    <button className="text-xs text-muted underline">{c.is_preply ? "Not Preply" : "Mark as Preply"}</button>
+                  </form>
+                  <form action={removeCalendar}>
+                    <input type="hidden" name="id" value={c.id} />
+                    <button className="text-xs text-muted underline">Remove</button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
         <details className="rounded-xl bg-surface-2 p-3 text-sm" open={!settings.calendar_connected}>
           <summary className="cursor-pointer font-medium">How to find your calendar link (on a computer)</summary>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
@@ -54,17 +79,18 @@ export default async function SettingsPage() {
             </li>
             <li>Paste it below and press Connect.</li>
           </ol>
+          <p className="mt-2">
+            <strong>Preply lessons:</strong> if Preply puts lessons into their own calendar under “My calendars”, add that calendar too and tick
+            “Every lesson in this calendar is a Preply lesson”. If the Preply calendar is under “Other calendars” (subscribed), Google has no secret
+            address for it — copy the calendar link from Preply instead (Preply → Settings → Calendar) and paste that.
+          </p>
           <p className="mt-2 text-muted">
             Keep this link private — anyone with it can see that calendar. TutoringHub stores it on the server only and never shows it again. Lessons
             from 2 weeks ago to 6 weeks ahead are read, and updated every time the app opens (or when you press Refresh).
           </p>
         </details>
-        <CalendarForm connected={settings.calendar_connected} />
-        {settings.calendar_connected ? (
-          <form action={removeCalendarLink}>
-            <button className="btn-quiet px-0 text-sm text-muted">Disconnect calendar</button>
-          </form>
-        ) : null}
+        {calendars.length ? <h3 className="pt-2 font-medium">Add another calendar (e.g. Preply)</h3> : null}
+        <CalendarForm first={calendars.length === 0} />
         {hidden ? <p className="text-xs text-muted">{hidden} calendar events are hidden as “not a lesson”.</p> : null}
       </section>
 
@@ -114,7 +140,7 @@ export default async function SettingsPage() {
           <li>Family members can only see lesson times, first names, onsite/online and place. The database itself blocks everything else.</li>
           <li>Worksheets and photos are kept in private storage and open with links that expire after 10 minutes.</li>
           <li>The ChatGPT prompt uses first names only, and no contacts or school names. Ask parents before sharing photos of work with any AI.</li>
-          <li>Your calendar link is stored on the server only and never sent to the browser.</li>
+          <li>Your calendar links are stored on the server only and never sent to the browser.</li>
         </ul>
       </section>
 

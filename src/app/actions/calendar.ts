@@ -16,31 +16,45 @@ export async function refreshCalendar(): Promise<ActionState> {
   return r.ok ? { ok: true, message: `Updated — ${r.count} calendar events read.` } : { ok: false, message: r.error };
 }
 
-export async function saveCalendarLink(_: ActionState, form: FormData): Promise<ActionState> {
+export async function addCalendar(_: ActionState, form: FormData): Promise<ActionState> {
   await assertTutor();
-  const raw = String(form.get("ical_url") ?? "");
-  const url = validateCalendarUrl(raw);
+  const url = validateCalendarUrl(String(form.get("ical_url") ?? ""));
   if (!url) {
     return {
       ok: false,
-      message: "That doesn't look like a Google Calendar iCal link. It should start with https://calendar.google.com and end with .ics",
+      message:
+        "That doesn't look like a calendar link. Use Google Calendar's “Secret address in iCal format” (starts with https://calendar.google.com, ends with .ics).",
     };
   }
+  const isPreply = form.get("is_preply") === "on";
+  const label = String(form.get("label") ?? "").trim().slice(0, 40) || (isPreply ? "Preply" : "Lessons");
   const admin = createAdminClient();
-  await admin.from("private_settings").update({ ical_url: url }).eq("id", 1);
+  const { error } = await admin.from("calendar_sources").insert({ label, ical_url: url, is_preply: isPreply });
+  if (error) return { ok: false, message: "Couldn't save the calendar." };
   await admin.from("settings").update({ calendar_connected: true, last_synced_at: null, last_attempt_at: null }).eq("id", 1);
   const r = await syncCalendar();
   revalidatePath("/", "layout");
-  return r.ok
-    ? { ok: true, message: `Calendar connected. ${r.count} events read.` }
-    : { ok: false, message: r.error };
+  return r.ok ? { ok: true, message: `“${label}” added. ${r.count} events read.` } : { ok: false, message: r.error };
 }
 
-export async function removeCalendarLink(): Promise<void> {
+export async function removeCalendar(form: FormData): Promise<void> {
   await assertTutor();
   const admin = createAdminClient();
-  await admin.from("private_settings").update({ ical_url: null }).eq("id", 1);
-  await admin.from("settings").update({ calendar_connected: false }).eq("id", 1);
+  await admin.from("calendar_sources").delete().eq("id", String(form.get("id")));
+  const { count } = await admin.from("calendar_sources").select("id", { count: "exact", head: true });
+  if (!count) await admin.from("settings").update({ calendar_connected: false }).eq("id", 1);
+  else await syncCalendar();
+  revalidatePath("/", "layout");
+}
+
+export async function setCalendarPreply(form: FormData): Promise<void> {
+  await assertTutor();
+  const admin = createAdminClient();
+  await admin
+    .from("calendar_sources")
+    .update({ is_preply: form.get("is_preply") === "true" })
+    .eq("id", String(form.get("id")));
+  await syncCalendar();
   revalidatePath("/", "layout");
 }
 

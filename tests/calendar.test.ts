@@ -126,11 +126,14 @@ describe("calendar link check", () => {
   it("accepts Google's secret iCal address", () => {
     expect(validateCalendarUrl("https://calendar.google.com/calendar/ical/abc%40gmail.com/private-123/basic.ics")).toBeTruthy();
     expect(validateCalendarUrl("webcal://calendar.google.com/calendar/ical/abc/private-1/basic.ics")).toMatch(/^https:/);
+    expect(validateCalendarUrl("https://preply.com/en/calendar/ical/abc123.ics")).toBeTruthy();
   });
   it("rejects anything else", () => {
     for (const bad of [
       "https://evil.com/calendar/ical/x/basic.ics",
       "https://calendar.google.com.evil.com/calendar/ical/x/basic.ics",
+      "https://preply.com.evil.com/a.ics",
+      "http://preply.com/a.ics",
       "https://www.google.com/url?q=https://evil.com/a.ics",
       "http://calendar.google.com/calendar/ical/x/basic.ics",
       "https://calendar.google.com/calendar/embed?src=x",
