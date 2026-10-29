@@ -53,7 +53,12 @@ export async function createStudent(_: FormState, form: FormData): Promise<FormS
     .insert({ ...fields, hour_account_id: acct.id })
     .select("id")
     .single();
-  if (error) return { error: "Couldn't save. Please try again." };
+  if (error) {
+    await supabase.from("hour_accounts").delete().eq("id", acct.id);
+    return error.code === "23505"
+      ? { error: `You already have a student called ${fields.first_name}. Use a different nickname.` }
+      : { error: "Couldn't save. Please try again." };
+  }
   await syncCalendar();
   revalidatePath("/", "layout");
   redirect(`/students/${data.id}`);
@@ -66,7 +71,11 @@ export async function updateStudent(_: FormState, form: FormData): Promise<FormS
   if (!fields.first_name) return { error: "Please enter a first name." };
   const supabase = await createClient();
   const { error } = await supabase.from("students").update(fields).eq("id", id);
-  if (error) return { error: "Couldn't save. Please try again." };
+  if (error) {
+    return error.code === "23505"
+      ? { error: `You already have a student called ${fields.first_name}.` }
+      : { error: "Couldn't save. Please try again." };
+  }
   await syncCalendar();
   revalidatePath("/", "layout");
   return { ok: "Saved." };

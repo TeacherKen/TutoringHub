@@ -193,7 +193,7 @@ export async function getAccountSummaries(): Promise<AccountSummary[]> {
 }
 
 export function lessonNames(l: Lesson): string {
-  const names = l.lesson_students.map((ls) => ls.students?.first_name).filter(Boolean) as string[];
+  const names = [...new Set(l.lesson_students.map((ls) => ls.students?.first_name).filter(Boolean) as string[])];
   return names.length ? names.join(" & ") : (l.title ?? "Untitled event");
 }
 
