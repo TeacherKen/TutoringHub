@@ -64,7 +64,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         ) : null}
       </header>
 
-      <RoomControls students={[roomStudent(student)]} showGames={false} />
+      <RoomControls students={[roomStudent(student)]} showGames={false} lessonId={past[0]?.id ?? null} />
 
       {latestPlan ? (
         <section className="card border-accent bg-accent-soft">

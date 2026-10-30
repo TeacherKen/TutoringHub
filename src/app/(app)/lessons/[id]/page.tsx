@@ -90,6 +90,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
       {inLesson.length ? (
         <RoomControls
           students={students.filter((s) => studentIds.includes(s.id)).map(roomStudent)}
+          lessonId={lesson.id}
         />
       ) : null}
 

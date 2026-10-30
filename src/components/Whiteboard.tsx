@@ -1,7 +1,10 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { addMaterialFile } from "@/app/actions/lessons";
+import { MATERIALS_BUCKET } from "@/lib/constants";
 import {
   cleanMark,
   COLORS,
@@ -10,6 +13,7 @@ import {
   SIZES,
   TOOL_NAMES,
   hitsMark,
+  pageKind,
   type BoardInfo,
   type BoardPoll,
   type Live,
@@ -39,7 +43,30 @@ type Props = {
   otherName: string;
   /** Shown when there are no smart slides (student side). */
   empty?: React.ReactNode;
+  /** Tutor only: the lesson that "Save work" adds the pictures to. */
+  saveLessonId?: string | null;
 };
+
+const GRID_CELLS = 32; // squares across a squared-paper page
+const GRID_LINE = "#d6def0";
+
+function drawGrid(ctx: CanvasRenderingContext2D, W: number, H: number) {
+  const cell = W / GRID_CELLS;
+  ctx.save();
+  ctx.strokeStyle = GRID_LINE;
+  ctx.lineWidth = Math.max(1, W / 1600);
+  ctx.beginPath();
+  for (let x = cell; x < W; x += cell) {
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+  }
+  for (let y = cell; y < H; y += cell) {
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
 
 function drawMark(ctx: CanvasRenderingContext2D, m: MarkData, W: number, H: number, alpha = 1) {
   ctx.save();
@@ -86,8 +113,32 @@ async function post(api: string, body: unknown) {
   }
 }
 
-export function Whiteboard({ api, me, otherName, empty }: Props) {
+/** One page as a picture: the slide (or blank / squared paper) with all the writing on it. */
+export async function pagePicture(board: BoardInfo, id: number, all: Iterable<Mark>): Promise<Blob> {
+  const W = 1600;
+  const H = Math.round(W * board.aspect);
+  const c = document.createElement("canvas");
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+  if (pageKind(id) === "slide" && board.urls?.[id]) {
+    const img = await createImageBitmap(await (await fetch(board.urls[id])).blob());
+    ctx.drawImage(img, 0, 0, W, H);
+  } else if (pageKind(id) === "grid") {
+    drawGrid(ctx, W, H);
+  }
+  for (const m of all) if (m.page === id) drawMark(ctx, m.data, W, H);
+  return new Promise<Blob>((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error("image"))), "image/jpeg", 0.88));
+}
+
+export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const isTutor = me === "tutor";
+  const router = useRouter();
+  const [pageMenu, setPageMenu] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null);
   const [board, setBoard] = useState<BoardInfo | null>(null);
   const [missing, setMissing] = useState(false);
   const [page, setPage] = useState(0);
@@ -172,6 +223,13 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
     render();
   });
 
+  /** Pages were added or removed (by me or the other person). */
+  const applyLayout = useCallback((layout: number[]) => {
+    setBoard((b) => (b && b.layout.join() !== layout.join() ? { ...b, layout } : b));
+    // If the page I'm on was removed, go to the first page.
+    setPage((p) => (layout.includes(p) ? p : (layout[0] ?? 0)));
+  }, []);
+
   // ---- Live connection ---------------------------------------------------------------
   const broadcast = useCallback((event: string, payload: Record<string, unknown>) => {
     const ch = channel.current;
@@ -232,6 +290,11 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
         for (const [id, m] of marks.current) if (m.page === payload.page && (other === "tutor" || m.author === "student")) marks.current.delete(id);
         bump();
       })
+      .on("broadcast", { event: "layout" }, ({ payload }) => {
+        if (payload?.who !== other || !Array.isArray(payload.layout)) return;
+        const layout = (payload.layout as unknown[]).filter((n): n is number => Number.isInteger(n));
+        if (layout.length) applyLayout(layout);
+      })
       .on("broadcast", { event: "go" }, ({ payload }) => {
         if (isTutor || payload?.who !== "tutor" || !Number.isInteger(payload.page)) return;
         setPage(payload.page as number);
@@ -246,7 +309,7 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
       channel.current = null;
       void sb.removeChannel(ch);
     };
-  }, [boardId, isTutor, applyOther]);
+  }, [boardId, isTutor, applyOther, applyLayout]);
 
   // ---- Telling the other screen what I'm doing ------------------------------
   const sendLive = useCallback(
@@ -315,6 +378,8 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
         if (data.board.urls) {
           needUrls = false;
           setBoard(data.board);
+        } else {
+          applyLayout(data.board.layout);
         }
         let changed = false;
         for (const m of data.marks) {
@@ -357,7 +422,7 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
       clearTimeout(timer);
       clearInterval(refreshUrls);
     };
-  }, [api, isTutor, applyOther]);
+  }, [api, isTutor, applyOther, applyLayout]);
 
   // ---- Full screen ---------------------------------------------------------------
   // The page grows to fill the screen; the browser's own full screen hides the tabs too.
@@ -510,18 +575,86 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
     void post(api, { op: "clear", page });
   }
 
-  function goPage(n: number) {
+  /** Go to the page at this position (pages can be added, so position ≠ page number). */
+  function goPage(pos: number) {
     if (!board) return;
-    const next = Math.max(0, Math.min(board.pages - 1, n));
+    const next = board.layout[Math.max(0, Math.min(board.layout.length - 1, pos))];
     if (isTutor && other && next !== other.page) setFollow(false);
     setPage(next);
+    setPageMenu(false);
+    setConfirmRemove(false);
     setTextAt(null);
+  }
+
+  async function addPage(kind: "blank" | "grid") {
+    setPageMenu(false);
+    try {
+      const res = await fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "addPage", page, kind }) });
+      const r = (await res.json()) as { layout?: number[]; error?: string };
+      if (!r.layout) return setSaving(r.error ?? "Couldn't add a page.");
+      const added = r.layout.find((id) => !board?.layout.includes(id));
+      setBoard((b) => (b ? { ...b, layout: r.layout! } : b));
+      broadcast("layout", { layout: r.layout });
+      if (added != null) {
+        setPage(added);
+        if (isTutor) setFollow(false);
+      }
+    } catch {
+      setSaving("Couldn't add a page.");
+    }
+  }
+
+  async function removeThisPage() {
+    setConfirmRemove(false);
+    if (!board) return;
+    const pos = board.layout.indexOf(page);
+    try {
+      const res = await fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "removePage", page }) });
+      const r = (await res.json()) as { layout?: number[] };
+      if (!r.layout) return;
+      setBoard((b) => (b ? { ...b, layout: r.layout! } : b));
+      broadcast("layout", { layout: r.layout });
+      setPage(r.layout[Math.max(0, pos - 1)] ?? 0);
+    } catch {
+      /* try again */
+    }
+  }
+
+  /** Tutor: turn every page with writing into a picture and add it to the lesson. */
+  async function saveWork() {
+    if (!board || !saveLessonId) return;
+    const withWriting = board.layout.filter((id) => [...marks.current.values()].some((m) => m.page === id));
+    if (!withWriting.length) return setSaving("There's no writing to save yet.");
+    let done = 0;
+    try {
+      const sb = createClient();
+      for (const id of withWriting) {
+        const pos = board.layout.indexOf(id) + 1;
+        setSaving(`Saving page ${pos}…`);
+        const blob = await pagePicture(board, id, marks.current.values());
+        const path = `${saveLessonId}/${crypto.randomUUID()}.jpg`;
+        const { error } = await sb.storage.from(MATERIALS_BUCKET).upload(path, blob, { contentType: "image/jpeg" });
+        if (error) throw error;
+        const r = await addMaterialFile(saveLessonId, path, "photo", `${otherName}'s work · ${board.title} · page ${pos}`.slice(0, 120));
+        if (r.error) throw new Error(r.error);
+        done++;
+      }
+      setSaving(`Saved ${done} ${done === 1 ? "page" : "pages"} to the lesson ✓ (under Worksheets and materials)`);
+      router.refresh();
+    } catch {
+      setSaving(done ? `Saved ${done} pages, then something went wrong. Try again.` : "Couldn't save. Please try again.");
+    }
   }
 
   // ---- Screen ----------------------------------------------------------------------
   if (!board) return missing ? <>{empty ?? null}</> : <div className="card py-16 text-center text-muted">Loading slides…</div>;
 
-  const url = board.urls?.[page];
+  const pos = Math.max(0, board.layout.indexOf(page));
+  const kind = pageKind(page);
+  const url = kind === "slide" ? board.urls?.[page] : undefined;
+  const nextId = board.layout[pos + 1];
+  const nextUrl = nextId != null && pageKind(nextId) === "slide" ? board.urls?.[nextId] : undefined;
+  const otherPos = other ? board.layout.indexOf(other.page) + 1 : 0;
   const ago = other?.updated_at && now ? Math.round((now - new Date(other.updated_at).getTime()) / 1000) : null;
   const here = ago != null && ago < 25;
   const myMarksOnPage = [...marks.current.values()].some((m) => m.page === page && (isTutor || m.author === "student"));
@@ -541,7 +674,7 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
           <span>
             {here && other ? (
               <>
-                <strong>{otherName}</strong> is on page {other.page + 1} · {TOOL_NAMES[other.tool ?? ""] ?? "—"}
+                <strong>{otherName}</strong> is on page {otherPos || "?"} · {TOOL_NAMES[other.tool ?? ""] ?? "—"}
                 {other.color && other.tool !== "eraser" ? (
                   <>
                     {" "}
@@ -564,8 +697,13 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
               onClick={() => sendLive({ go_to: page })}
               title={`Move ${otherName}'s screen to this page`}
             >
-              Bring {otherName} to page {page + 1}
+              Bring {otherName} to page {pos + 1}
             </button>
+            {saveLessonId ? (
+              <button type="button" className="btn-primary min-h-9 px-3 text-sm" onClick={saveWork} disabled={saving?.startsWith("Saving")}>
+                📸 Save work to lesson
+              </button>
+            ) : null}
           </span>
         </div>
       ) : null}
@@ -575,11 +713,20 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
         <div ref={box} className="relative w-full select-none overflow-hidden rounded-2xl border border-line bg-white" style={{ aspectRatio: `1 / ${board.aspect}` }}>
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={url} alt={`Page ${page + 1}`} className="pointer-events-none absolute inset-0 h-full w-full" draggable={false} />
+            <img src={url} alt={`Page ${pos + 1}`} className="pointer-events-none absolute inset-0 h-full w-full" draggable={false} />
           ) : null}
-          {board.urls?.[page + 1] ? (
+          {kind === "grid" ? (
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                backgroundImage: `linear-gradient(${GRID_LINE} 1px, transparent 1px), linear-gradient(90deg, ${GRID_LINE} 1px, transparent 1px)`,
+                backgroundSize: `${100 / GRID_CELLS}% ${100 / GRID_CELLS / board.aspect}%`,
+              }}
+            />
+          ) : null}
+          {nextUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={board.urls[page + 1]} alt="" className="hidden" aria-hidden />
+            <img src={nextUrl} alt="" className="hidden" aria-hidden />
           ) : null}
           <canvas
             ref={canvas}
@@ -622,15 +769,41 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
       {/* Tools — big buttons for small hands */}
       <div className={`flex flex-wrap items-center justify-center ${full ? "gap-1.5" : "gap-2"}`}>
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
-          <button type="button" className={btn(false)} onClick={() => goPage(page - 1)} disabled={page === 0} aria-label="Previous page">
+          <button type="button" className={btn(false)} onClick={() => goPage(pos - 1)} disabled={pos === 0} aria-label="Previous page">
             ◀
           </button>
           <span className="min-w-16 text-center text-sm font-medium tabular-nums">
-            {page + 1} / {board.pages}
+            {pos + 1} / {board.layout.length}
           </span>
-          <button type="button" className={btn(false)} onClick={() => goPage(page + 1)} disabled={page >= board.pages - 1} aria-label="Next page">
+          <button type="button" className={btn(false)} onClick={() => goPage(pos + 1)} disabled={pos >= board.layout.length - 1} aria-label="Next page">
             ▶
           </button>
+          <div className="relative">
+            <button type="button" className={btn(pageMenu)} onClick={() => setPageMenu(!pageMenu)} title="Add a page" aria-expanded={pageMenu}>
+              ➕
+            </button>
+            {pageMenu ? (
+              <div className="absolute bottom-full left-1/2 z-20 mb-2 flex -translate-x-1/2 flex-col gap-1 rounded-xl border border-line bg-surface p-1 shadow-lg">
+                <button type="button" className="min-h-11 whitespace-nowrap rounded-lg px-4 text-left hover:bg-surface-2" onClick={() => addPage("blank")}>
+                  ⬜ Blank page
+                </button>
+                <button type="button" className="min-h-11 whitespace-nowrap rounded-lg px-4 text-left hover:bg-surface-2" onClick={() => addPage("grid")}>
+                  ▦ Squared page
+                </button>
+              </div>
+            ) : null}
+          </div>
+          {isTutor && kind !== "slide" ? (
+            confirmRemove ? (
+              <button type="button" className="btn-danger h-11 px-3 text-sm" onClick={removeThisPage}>
+                Remove page?
+              </button>
+            ) : (
+              <button type="button" className={btn(false)} onClick={() => setConfirmRemove(true)} title="Remove this added page">
+                ✕
+              </button>
+            )
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
@@ -693,6 +866,7 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
           </button>
         )}
       </div>
+      {saving && isTutor ? <p className="text-center text-sm text-accent">{saving}</p> : null}
       {!isTutor && !full ? <p className="text-center text-xs text-muted">Mr Ken can see your writing.</p> : null}
     </div>
   );

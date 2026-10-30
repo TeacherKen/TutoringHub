@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { MATERIALS_BUCKET } from "@/lib/constants";
-import { cleanLive, cleanMark, isUuid, type BoardInfo, type BoardPoll, type Live, type Mark } from "@/lib/boardShared";
+import { boardLayout, cleanLive, cleanMark, insertPage, isUuid, removePage, type BoardInfo, type BoardPoll, type Live, type Mark } from "@/lib/boardShared";
 
 // Smart slides on the server. Both the student's room (private link) and Mr Ken's
 // view (signed in) come through here, after their own checks, using the admin client.
@@ -13,12 +13,17 @@ type Who = "student" | "tutor";
 export const boardFolder = (studentId: string, boardId: string) => `boards/${studentId}/${boardId}`;
 export const pagePath = (studentId: string, boardId: string, page: number) => `${boardFolder(studentId, boardId)}/${page + 1}.jpg`;
 
-type BoardRow = { id: string; student_id: string; title: string; pages: number; aspect: number | string };
+type BoardRow = { id: string; student_id: string; title: string; pages: number; aspect: number | string; layout?: number[] | null };
 
 export async function getBoardRow(boardId: string): Promise<BoardRow | null> {
   if (!isUuid(boardId)) return null;
-  const { data } = await createAdminClient().from("boards").select("id, student_id, title, pages, aspect").eq("id", boardId).maybeSingle<BoardRow>();
-  return data ?? null;
+  const admin = createAdminClient();
+  // "layout" arrives with database update 0010; work without it until then.
+  for (const cols of ["id, student_id, title, pages, aspect, layout", "id, student_id, title, pages, aspect"]) {
+    const { data, error } = await admin.from("boards").select(cols).eq("id", boardId).maybeSingle<BoardRow>();
+    if (!error) return data ?? null;
+  }
+  return null;
 }
 
 /** New lines, rubbings-out and the other person's live info since `after`. */
@@ -44,7 +49,7 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
       : Promise.resolve(null),
   ]);
   const marks = (marksRes.data ?? []) as Mark[];
-  const board: BoardInfo = { id: b.id, title: b.title, pages: b.pages, aspect: Number(b.aspect) };
+  const board: BoardInfo = { id: b.id, title: b.title, pages: b.pages, aspect: Number(b.aspect), layout: boardLayout(b.pages, b.layout) };
   if (urls?.data) board.urls = urls.data.map((u) => u.signedUrl ?? "");
   return {
     board,
@@ -55,14 +60,15 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
 }
 
 /** Handle one change sent from a screen: add a line, rub out, or "here's what I'm doing". */
-export async function changeBoard(b: BoardRow, me: Who, body: unknown): Promise<{ ok: boolean; error?: string }> {
+export async function changeBoard(b: BoardRow, me: Who, body: unknown): Promise<{ ok: boolean; error?: string; layout?: number[] }> {
   const admin = createAdminClient();
-  const req = (body ?? {}) as { op?: unknown; mark?: unknown; ids?: unknown; live?: unknown; page?: unknown };
+  const req = (body ?? {}) as { op?: unknown; mark?: unknown; ids?: unknown; live?: unknown; page?: unknown; kind?: unknown };
+  const layout = boardLayout(b.pages, b.layout);
 
   if (req.op === "add") {
     const m = (req.mark ?? {}) as { id?: unknown; page?: unknown; data?: unknown };
     const data = cleanMark(m.data);
-    if (!isUuid(m.id) || !data || !Number.isInteger(m.page) || (m.page as number) < 0 || (m.page as number) >= b.pages) {
+    if (!isUuid(m.id) || !data || !Number.isInteger(m.page) || !layout.includes(m.page as number)) {
       return { ok: false, error: "bad mark" };
     }
     const { count } = await admin.from("board_marks").select("id", { count: "exact", head: true }).eq("board_id", b.id);
@@ -91,7 +97,7 @@ export async function changeBoard(b: BoardRow, me: Who, body: unknown): Promise<
   }
 
   if (req.op === "live") {
-    const live = cleanLive(req.live, b.pages);
+    const live = cleanLive(req.live, layout);
     if (!live) return { ok: false };
     const row: Record<string, unknown> = {
       board_id: b.id,
@@ -108,6 +114,23 @@ export async function changeBoard(b: BoardRow, me: Who, body: unknown): Promise<
     }
     const { error } = await admin.from("board_live").upsert(row, { onConflict: "board_id,who" });
     return { ok: !error };
+  }
+
+  if (req.op === "addPage") {
+    if (!Number.isInteger(req.page) || (req.kind !== "blank" && req.kind !== "grid")) return { ok: false };
+    const next = insertPage(layout, req.page as number, req.kind);
+    if (!next) return { ok: false, error: "Too many added pages." };
+    const { error } = await admin.from("boards").update({ layout: next }).eq("id", b.id);
+    return error ? { ok: false, error: "Run database update 0010 first." } : { ok: true, layout: next };
+  }
+
+  if (req.op === "removePage") {
+    if (me !== "tutor" || !Number.isInteger(req.page)) return { ok: false };
+    const next = removePage(layout, req.page as number);
+    if (!next) return { ok: false };
+    const { error } = await admin.from("boards").update({ layout: next }).eq("id", b.id);
+    if (!error) await admin.from("board_marks").update({ deleted: true }).eq("board_id", b.id).eq("page", req.page).eq("deleted", false);
+    return { ok: !error, layout: next };
   }
 
   return { ok: false, error: "unknown" };

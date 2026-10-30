@@ -32,7 +32,40 @@ export type Live = {
   updated_at?: string;
 };
 
-export type BoardInfo = { id: string; title: string; pages: number; aspect: number; urls?: string[] };
+export type BoardInfo = { id: string; title: string; pages: number; aspect: number; layout: number[]; urls?: string[] };
+
+// Pages have fixed numbers so writing stays on the right page when pages are added:
+// 0, 1, 2… are the PDF's own pages, 1000+ are blank pages and 2000+ are squared paper.
+export const BLANK_BASE = 1000;
+export const GRID_BASE = 2000;
+export const MAX_EXTRA_PAGES = 40;
+export type PageKind = "slide" | "blank" | "grid";
+export const pageKind = (id: number): PageKind => (id >= GRID_BASE ? "grid" : id >= BLANK_BASE ? "blank" : "slide");
+
+/** The order of pages: the PDF's pages, unless pages have been added. */
+export function boardLayout(pages: number, layout?: number[] | null): number[] {
+  return layout && layout.length ? layout : Array.from({ length: pages }, (_, i) => i);
+}
+
+/** Add a blank or squared page straight after `after` (or at the end). */
+export function insertPage(layout: number[], after: number, kind: "blank" | "grid"): number[] | null {
+  const extras = layout.filter((id) => pageKind(id) !== "slide");
+  if (extras.length >= MAX_EXTRA_PAGES) return null;
+  const base = kind === "grid" ? GRID_BASE : BLANK_BASE;
+  const used = layout.filter((id) => pageKind(id) === kind);
+  const id = used.length ? Math.max(...used) + 1 : base;
+  if (id >= base + 999) return null;
+  const at = layout.indexOf(after);
+  const next = [...layout];
+  next.splice(at < 0 ? next.length : at + 1, 0, id);
+  return next;
+}
+
+/** Remove an added page (the PDF's own pages always stay). */
+export function removePage(layout: number[], id: number): number[] | null {
+  if (pageKind(id) === "slide" || !layout.includes(id)) return null;
+  return layout.filter((x) => x !== id);
+}
 export type BoardPoll = { board: BoardInfo | null; marks: Mark[]; rev: number; other: Live | null };
 
 export const MAX_POINTS = 4000; // numbers (x,y pairs × 2) in one line
@@ -62,17 +95,17 @@ export function cleanMark(raw: unknown): MarkData | null {
   return null;
 }
 
-export function cleanLive(raw: unknown, pages: number): Live | null {
+export function cleanLive(raw: unknown, layout: number[]): Live | null {
   if (!raw || typeof raw !== "object") return null;
   const d = raw as Record<string, unknown>;
-  if (!Number.isInteger(d.page) || (d.page as number) < 0 || (d.page as number) >= pages) return null;
+  if (!Number.isInteger(d.page) || !layout.includes(d.page as number)) return null;
   const stroke = d.stroke ? cleanMark(d.stroke) : null;
   return {
     page: d.page as number,
     tool: typeof d.tool === "string" && d.tool in TOOL_NAMES ? d.tool : null,
     color: typeof d.color === "string" && COLOR_RE.test(d.color) ? d.color : null,
     stroke: stroke && stroke.t !== "text" ? stroke : null,
-    go_to: Number.isInteger(d.go_to) && (d.go_to as number) >= 0 && (d.go_to as number) < pages ? (d.go_to as number) : null,
+    go_to: Number.isInteger(d.go_to) && layout.includes(d.go_to as number) ? (d.go_to as number) : null,
   };
 }
 

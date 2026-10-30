@@ -8,7 +8,7 @@ import { Whiteboard } from "./Whiteboard";
 const MAX_MB = 40;
 
 /** Mr Ken's controls for a student's smart slides: upload a PDF, watch and write live. */
-export function SmartSlides({ studentId, name, currentId }: { studentId: string; name: string; currentId: string | null }) {
+export function SmartSlides({ studentId, name, currentId, lessonId }: { studentId: string; name: string; currentId: string | null; lessonId?: string | null }) {
   const [current, setCurrent] = useState<string | null>(currentId);
   const [boards, setBoards] = useState<BoardSummary[]>([]);
   const [ready, setReady] = useState(true);
@@ -109,7 +109,7 @@ export function SmartSlides({ studentId, name, currentId }: { studentId: string;
 
       {open && cur ? (
         <div className="rounded-xl border border-line bg-bg p-2">
-          <Whiteboard key={cur.id} api={`/api/board/${cur.id}`} me="tutor" otherName={name} />
+          <Whiteboard key={cur.id} api={`/api/board/${cur.id}`} me="tutor" otherName={name} saveLessonId={lessonId} />
         </div>
       ) : null}
 

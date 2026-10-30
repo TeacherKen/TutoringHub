@@ -16,7 +16,7 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 /** On a lesson page: share each student's room link, and open/close break-time games. */
-export function RoomControls({ students, showGames = true }: { students: S[]; showGames?: boolean }) {
+export function RoomControls({ students, showGames = true, lessonId }: { students: S[]; showGames?: boolean; lessonId?: string | null }) {
   const [tokens, setTokens] = useState<Record<string, string | null>>(() =>
     Object.fromEntries(students.map((s) => [s.id, s.room_token])),
   );
@@ -140,7 +140,7 @@ export function RoomControls({ students, showGames = true }: { students: S[]; sh
               ) : null}
             </div>
           </div>
-          <SmartSlides studentId={s.id} name={s.first_name} currentId={s.board_id ?? null} />
+          <SmartSlides studentId={s.id} name={s.first_name} currentId={s.board_id ?? null} lessonId={lessonId} />
           <SlidesField student={s} />
           {showGames && open && watching === s.id ? <WatchScreen studentId={s.id} name={s.first_name} /> : null}
         </div>
