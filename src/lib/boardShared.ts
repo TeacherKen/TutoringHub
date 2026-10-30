@@ -26,7 +26,10 @@ export const TOOL_NAMES: Record<string, string> = { pen: "✏️ Pen", hl: "🖍
 /** pen / highlighter: a path of points; line / rect: two corners [x1, y1, x2, y2]. */
 export type StrokeData = { t: "pen" | "hl" | "line" | "rect"; c: string; w: number; p: number[] };
 export type TextData = { t: "text"; c: string; s: number; x: number; y: number; text: string };
-export type MarkData = StrokeData | TextData;
+/** A pasted picture: file key (stored with the slides) and its place on the page. */
+export type ImageData = { t: "img"; k: string; x: number; y: number; w: number; h: number };
+export type MarkData = StrokeData | TextData | ImageData;
+export const IMG_KEY_RE = /^img-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png)$/;
 export type Mark = { id: string; page: number; author: "student" | "tutor"; data: MarkData; deleted?: boolean; rev?: number };
 
 export type Live = {
@@ -90,6 +93,11 @@ const r4 = (n: number) => Math.round(n * 10000) / 10000;
 export function cleanMark(raw: unknown): MarkData | null {
   if (!raw || typeof raw !== "object") return null;
   const d = raw as Record<string, unknown>;
+  if (d.t === "img") {
+    if (typeof d.k !== "string" || !IMG_KEY_RE.test(d.k)) return null;
+    if (!num(d.x, 0, 1) || !num(d.y, 0, 1) || !num(d.w, 0.01, 1) || !num(d.h, 0.01, 1)) return null;
+    return { t: "img", k: d.k, x: r4(d.x as number), y: r4(d.y as number), w: r4(d.w as number), h: r4(d.h as number) };
+  }
   const c = typeof d.c === "string" && COLOR_RE.test(d.c) ? d.c : null;
   if (!c) return null;
   if (d.t === "pen" || d.t === "hl" || d.t === "line" || d.t === "rect") {
@@ -115,13 +123,14 @@ export function cleanLive(raw: unknown, layout: number[]): Live | null {
     page: d.page as number,
     tool: typeof d.tool === "string" && d.tool in TOOL_NAMES ? d.tool : null,
     color: typeof d.color === "string" && COLOR_RE.test(d.color) ? d.color : null,
-    stroke: stroke && stroke.t !== "text" ? stroke : null,
+    stroke: stroke && stroke.t !== "text" && stroke.t !== "img" ? stroke : null,
     go_to: Number.isInteger(d.go_to) && layout.includes(d.go_to as number) ? (d.go_to as number) : null,
   };
 }
 
 /** Is the point (x, y) within `r` of this mark? Used by the eraser. */
 export function hitsMark(m: MarkData, x: number, y: number, r: number, aspect: number): boolean {
+  if (m.t === "img") return x >= m.x - r && x <= m.x + m.w + r && y >= m.y - r / aspect && y <= m.y + m.h + r / aspect;
   if (m.t === "text") {
     const w = m.s * 0.55 * m.text.length;
     return x >= m.x - r && x <= m.x + w + r && y >= m.y - (m.s / aspect) - r && y <= m.y + r;
@@ -155,6 +164,7 @@ const r4b = (n: number) => Math.round(n * 10000) / 10000;
 
 /** The rectangle around a mark (fractions of the page). */
 export function markBounds(m: MarkData, aspect: number): Box {
+  if (m.t === "img") return { x1: m.x, y1: m.y, x2: m.x + m.w, y2: m.y + m.h };
   if (m.t === "text") {
     const w = m.s * 0.55 * m.text.length;
     return { x1: m.x, y1: m.y - m.s / aspect, x2: Math.min(1, m.x + w), y2: m.y + (m.s * 0.25) / aspect };
@@ -184,12 +194,13 @@ export function translateMark(m: MarkData, dx: number, dy: number, aspect: numbe
   const b = markBounds(m, aspect);
   const ddx = Math.min(Math.max(dx, -b.x1), 1 - b.x2);
   const ddy = Math.min(Math.max(dy, -b.y1), 1 - b.y2);
-  if (m.t === "text") return { ...m, x: r4b(m.x + ddx), y: r4b(m.y + ddy) };
+  if (m.t === "text" || m.t === "img") return { ...m, x: r4b(m.x + ddx), y: r4b(m.y + ddy) };
   return { ...m, p: m.p.map((v, i) => r4b(v + (i % 2 ? ddy : ddx))) };
 }
 
 /** Grab points for resizing: the two ends of a line, the four corners of a box. */
 export function handlesOf(m: MarkData): [number, number][] {
+  if (m.t === "img") return [[m.x, m.y], [m.x + m.w, m.y], [m.x + m.w, m.y + m.h], [m.x, m.y + m.h]];
   if (m.t === "line") return [[m.p[0], m.p[1]], [m.p[2], m.p[3]]];
   if (m.t === "rect") {
     const [x1, y1, x2, y2] = m.p;
@@ -200,6 +211,18 @@ export function handlesOf(m: MarkData): [number, number][] {
 
 /** Drag handle number `h` to (x, y). */
 export function moveHandle(m: MarkData, h: number, x: number, y: number, aspect: number): MarkData {
+  if (m.t === "img") {
+    // Pictures keep their shape: the opposite corner stays put.
+    const left = h === 0 || h === 3;
+    const top = h === 0 || h === 1;
+    const fx = left ? m.x + m.w : m.x;
+    const fy = top ? m.y + m.h : m.y;
+    const ratio = m.h / m.w;
+    let w = Math.max(0.03, Math.abs(clamp01(x) - fx));
+    w = Math.min(w, left ? fx : 1 - fx, (top ? fy : 1 - fy) / ratio);
+    const hh = w * ratio;
+    return { ...m, x: r4b(left ? fx - w : fx), y: r4b(top ? fy - hh : fy), w: r4b(w), h: r4b(hh) };
+  }
   if (m.t !== "line" && m.t !== "rect") return m;
   const p = [...m.p];
   const cx = r4b(clamp01(x));

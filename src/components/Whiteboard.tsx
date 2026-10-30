@@ -76,8 +76,24 @@ function drawGrid(ctx: CanvasRenderingContext2D, W: number, H: number) {
   ctx.restore();
 }
 
-function drawMark(ctx: CanvasRenderingContext2D, m: MarkData, W: number, H: number, alpha = 1) {
+type ImageGetter = (key: string) => CanvasImageSource | null;
+
+function drawMark(ctx: CanvasRenderingContext2D, m: MarkData, W: number, H: number, alpha = 1, images?: ImageGetter) {
   ctx.save();
+  if (m.t === "img") {
+    const img = images?.(m.k) ?? null;
+    ctx.globalAlpha = alpha;
+    if (img) ctx.drawImage(img, m.x * W, m.y * H, m.w * W, m.h * H);
+    else {
+      // Still loading: a light placeholder the same size.
+      ctx.fillStyle = "rgba(148,163,184,0.15)";
+      ctx.strokeStyle = "rgba(148,163,184,0.6)";
+      ctx.fillRect(m.x * W, m.y * H, m.w * W, m.h * H);
+      ctx.strokeRect(m.x * W, m.y * H, m.w * W, m.h * H);
+    }
+    ctx.restore();
+    return;
+  }
   if (m.t === "text") {
     ctx.globalAlpha = alpha;
     ctx.fillStyle = m.c;
@@ -160,7 +176,7 @@ async function post(api: string, body: unknown) {
 }
 
 /** One page as a picture: the slide (or blank / squared paper) with all the writing on it. */
-export async function pagePicture(board: BoardInfo, id: number, all: Iterable<Mark>): Promise<Blob> {
+export async function pagePicture(board: BoardInfo, id: number, all: Iterable<Mark>, imageUrl?: (key: string) => string): Promise<Blob> {
   const W = 1600;
   const H = Math.round(W * board.aspect);
   const c = document.createElement("canvas");
@@ -175,7 +191,19 @@ export async function pagePicture(board: BoardInfo, id: number, all: Iterable<Ma
   } else if (pageKind(id) === "grid") {
     drawGrid(ctx, W, H);
   }
-  for (const m of all) if (m.page === id) drawMark(ctx, m.data, W, H);
+  const list = [...all].filter((m) => m.page === id);
+  const pics = new Map<string, ImageBitmap>();
+  if (imageUrl) {
+    for (const m of list) {
+      if (m.data.t !== "img" || pics.has(m.data.k)) continue;
+      try {
+        pics.set(m.data.k, await createImageBitmap(await (await fetch(imageUrl(m.data.k))).blob()));
+      } catch {
+        /* skip a picture that won't load */
+      }
+    }
+  }
+  for (const m of list) drawMark(ctx, m.data, W, H, 1, (k) => pics.get(k) ?? null);
   return new Promise<Blob>((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error("image"))), "image/jpeg", 0.88));
 }
 
@@ -211,6 +239,9 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const future = useRef<{ add: Mark[]; del: Mark[] }[]>([]);
   const eraseStep = useRef<Mark[] | null>(null);
   const lastErase = useRef<{ x: number; y: number } | null>(null);
+  const pictures = useRef(new Map<string, HTMLImageElement>());
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const selectedRef = useRef<string | null>(null);
   const drag = useRef<{ id: string; mode: "move" | "handle"; handle: number; x: number; y: number; preview: MarkData | null } | null>(null);
@@ -262,7 +293,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     const d = drag.current;
     for (const m of marks.current.values()) {
       if (m.page !== pg) continue;
-      drawMark(ctx, d?.preview && d.id === m.id ? d.preview : m.data, W, H);
+      drawMark(ctx, d?.preview && d.id === m.id ? d.preview : m.data, W, H, 1, picture);
     }
     if (other?.stroke && other.page === pg) drawMark(ctx, other.stroke, W, H, 0.6);
     if (drawing.current) drawMark(ctx, currentStroke(drawing.current), W, H);
@@ -289,6 +320,24 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [other]);
+
+  /** Address of a pasted picture (through this app, so only people on this board can see it). */
+  function imageSrc(key: string) {
+    return `${api}/image?k=${encodeURIComponent(key)}`;
+  }
+
+  /** A loaded picture, or null while it loads (then the page redraws). */
+  function picture(key: string): HTMLImageElement | null {
+    let img = pictures.current.get(key);
+    if (!img) {
+      img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => render();
+      img.src = imageSrc(key);
+      pictures.current.set(key, img);
+    }
+    return img.complete && img.naturalWidth ? img : null;
+  }
 
   function currentStroke(p: number[]): StrokeData {
     const { tool: t, color: c, hlColor: h } = stateRef.current;
@@ -363,7 +412,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       const l = payload.live as Live;
       if (!Number.isInteger(l.page)) return;
       const stroke = l.stroke ? cleanMark(l.stroke) : null;
-      applyOther({ ...l, stroke: stroke && stroke.t !== "text" ? stroke : null, updated_at: new Date().toISOString() }, true);
+      applyOther({ ...l, stroke: stroke && stroke.t !== "text" && stroke.t !== "img" ? stroke : null, updated_at: new Date().toISOString() }, true);
     })
       .on("broadcast", { event: "mark" }, ({ payload }) => {
         const m = payload?.mark as Mark | undefined;
@@ -616,6 +665,32 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // ---- Paste a picture (⌘V / Ctrl+V), or copied words as typing ----------------------
+  const paste = useRef<(e: ClipboardEvent) => void>(() => {});
+  useLayoutEffect(() => {
+    paste.current = (e: ClipboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      const items = [...(e.clipboardData?.items ?? [])];
+      const pic = items.find((i) => i.kind === "file" && i.type.startsWith("image/"))?.getAsFile();
+      if (pic) {
+        e.preventDefault();
+        void addPicture(pic);
+        return;
+      }
+      const words = e.clipboardData?.getData("text/plain")?.trim();
+      if (words && board) {
+        e.preventDefault();
+        addMark({ t: "text", c: color, s: TEXT_SIZE, x: 0.08, y: 0.15, text: words.replace(/\s+/g, " ").slice(0, 200) });
+      }
+    };
+  });
+  useEffect(() => {
+    const on = (e: ClipboardEvent) => paste.current(e);
+    window.addEventListener("paste", on);
+    return () => window.removeEventListener("paste", on);
   }, []);
 
   // ---- Countdown clock -------------------------------------------------------------------
@@ -909,6 +984,46 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     save({ op: "add", mark: { id, page, data } });
   }
 
+  /** Paste, drop or pick a picture: shrink it, store it with the slides, put it in the middle of the page. */
+  async function addPicture(file: Blob) {
+    if (!board || !file.type.startsWith("image/")) return;
+    setNotice("Adding picture…");
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+      const w = Math.max(1, Math.round(bmp.width * scale));
+      const h = Math.max(1, Math.round(bmp.height * scale));
+      let body: Blob = file;
+      const keepPng = file.type === "image/png" && scale === 1 && file.size < 1_500_000;
+      if (!keepPng) {
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const ctx = c.getContext("2d")!;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(bmp, 0, 0, w, h);
+        body = await new Promise<Blob>((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error("image"))), "image/jpeg", 0.88));
+      }
+      const res = await fetch(`${api}/image`, { method: "POST", headers: { "Content-Type": keepPng ? "image/png" : "image/jpeg" }, body });
+      const r = (await res.json()) as { key?: string; error?: string };
+      if (!r.key) throw new Error(r.error ?? "upload");
+      // Size it to fit: up to 45% of the page width and 70% of its height, keeping its shape.
+      let fw = 0.45;
+      let fh = (fw * (h / w)) / board.aspect;
+      if (fh > 0.7) {
+        fh = 0.7;
+        fw = (fh * board.aspect * w) / h;
+      }
+      addMark({ t: "img", k: r.key, x: (1 - fw) / 2, y: (1 - fh) / 2, w: fw, h: fh });
+      setTool("select");
+      setNotice(null);
+    } catch (e) {
+      setNotice(e instanceof Error && e.message !== "upload" && e.message !== "image" ? e.message : "Couldn't add the picture. Please try again.");
+      setTimeout(() => setNotice(null), 5000);
+    }
+  }
+
   function addText() {
     const text = textValue.trim();
     if (textAt && text) addMark({ t: "text", c: color, s: TEXT_SIZE, x: textAt.x, y: Math.max(TEXT_SIZE, textAt.y), text: text.slice(0, 200) });
@@ -1052,7 +1167,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       for (const id of withWriting) {
         const pos = board.layout.indexOf(id) + 1;
         setSaving(`Saving page ${pos}…`);
-        const blob = await pagePicture(board, id, marks.current.values());
+        const blob = await pagePicture(board, id, marks.current.values(), imageSrc);
         const path = `${saveLessonId}/${crypto.randomUUID()}.jpg`;
         const { error } = await sb.storage.from(MATERIALS_BUCKET).upload(path, blob, { contentType: "image/jpeg" });
         if (error) throw error;
@@ -1137,7 +1252,19 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
       <div ref={stageRef} className={full ? "flex min-h-0 flex-1 items-center justify-center" : ""}>
       <div className="mx-auto" style={{ width: pageWidth }}>
-        <div ref={box} className="relative w-full select-none overflow-hidden rounded-2xl border border-line bg-white" style={{ aspectRatio: `1 / ${board.aspect}` }}>
+        <div
+          ref={box}
+          className="relative w-full select-none overflow-hidden rounded-2xl border border-line bg-white"
+          style={{ aspectRatio: `1 / ${board.aspect}` }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            const f = [...e.dataTransfer.files].find((x) => x.type.startsWith("image/"));
+            if (f) {
+              e.preventDefault();
+              void addPicture(f);
+            }
+          }}
+        >
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={url} alt={`Page ${pos + 1}`} className="pointer-events-none absolute inset-0 h-full w-full" draggable={false} />
@@ -1241,6 +1368,16 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
                 </button>
                 <button type="button" className="min-h-11 whitespace-nowrap rounded-lg px-4 text-left hover:bg-surface-2" onClick={() => addPage("grid")}>
                   ▦ Squared page
+                </button>
+                <button
+                  type="button"
+                  className="min-h-11 whitespace-nowrap rounded-lg px-4 text-left hover:bg-surface-2"
+                  onClick={() => {
+                    setPageMenu(false);
+                    fileInput.current?.click();
+                  }}
+                >
+                  🖼 Picture on this page
                 </button>
               </div>
             ) : null}
@@ -1369,6 +1506,18 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           </button>
         )}
       </div>
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void addPicture(f);
+          e.target.value = "";
+        }}
+      />
+      {notice ? <p className="text-center text-sm text-accent">{notice}</p> : null}
       {unsaved.failing && unsaved.pending ? (
         <p role="status" className="mx-auto w-fit rounded-xl bg-warn-soft px-3 py-1.5 text-center text-sm text-warn">
           ⚠ Not saved yet ({unsaved.pending}) — no internet? It will save by itself when the connection is back.

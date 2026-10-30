@@ -95,3 +95,19 @@ describe("moving and resizing drawings", () => {
     expect(moveHandle(line, 1, 0.7, 0.505, 0.5625)).toMatchObject({ p: [0.1, 0.5, 0.7, 0.5] }); // stays flat
   });
 });
+
+describe("pasted pictures", () => {
+  const pic = { t: "img" as const, k: "img-4fb0a7b1-4f15-4605-8931-2f1a33be1791.png", x: 0.2, y: 0.2, w: 0.4, h: 0.3 };
+  it("only accepts picture keys made by the app", () => {
+    expect(cleanMark(pic)).toEqual(pic);
+    expect(cleanMark({ ...pic, k: "../../secret.jpg" })).toBeNull();
+    expect(cleanMark({ ...pic, w: 5 })).toBeNull();
+  });
+  it("can be grabbed anywhere on it, and resized keeping its shape", () => {
+    expect(grabsMark(pic, 0.4, 0.35, 0.01, 0.5625)).toBe(true);
+    const big = moveHandle(pic, 2, 0.8, 0.9, 0.5625) as typeof pic;
+    expect(big.x).toBe(0.2);
+    expect(big.y).toBe(0.2);
+    expect(big.h / big.w).toBeCloseTo(0.3 / 0.4, 3);
+  });
+});

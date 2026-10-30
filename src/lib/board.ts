@@ -1,7 +1,8 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { MATERIALS_BUCKET } from "@/lib/constants";
-import { BOARD_KEEP_DAYS, boardExpired, boardLayout, cleanLive, cleanMark, insertPage, isUuid, removePage, type BoardInfo, type BoardPoll, type Live, type Mark } from "@/lib/boardShared";
+import { randomUUID } from "node:crypto";
+import { BOARD_KEEP_DAYS, IMG_KEY_RE, boardExpired, boardLayout, cleanLive, cleanMark, insertPage, isUuid, removePage, type BoardInfo, type BoardPoll, type Live, type Mark } from "@/lib/boardShared";
 
 // Smart slides on the server. Both the student's room (private link) and Mr Ken's
 // view (signed in) come through here, after their own checks, using the admin client.
@@ -12,6 +13,38 @@ type Who = "student" | "tutor";
 
 export const boardFolder = (studentId: string, boardId: string) => `boards/${studentId}/${boardId}`;
 export const pagePath = (studentId: string, boardId: string, page: number) => `${boardFolder(studentId, boardId)}/${page + 1}.jpg`;
+
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGES = 80;
+
+/** Store a pasted picture with the slides. Returns its key. */
+export async function uploadBoardImage(b: { id: string; student_id: string }, bytes: ArrayBuffer, type: string): Promise<{ key?: string; error?: string }> {
+  if (type !== "image/jpeg" && type !== "image/png") return { error: "Only JPG or PNG pictures." };
+  if (!bytes.byteLength || bytes.byteLength > MAX_IMAGE_BYTES) return { error: "That picture is too big (4 MB max)." };
+  const admin = createAdminClient();
+  const folder = boardFolder(b.student_id, b.id);
+  const { data: existing } = await admin.storage.from(MATERIALS_BUCKET).list(folder, { limit: 200, search: "img-" });
+  if ((existing?.length ?? 0) >= MAX_IMAGES) return { error: "Too many pictures on these slides." };
+  const key = `img-${randomUUID()}.${type === "image/png" ? "png" : "jpg"}`;
+  const { error } = await admin.storage.from(MATERIALS_BUCKET).upload(`${folder}/${key}`, new Blob([bytes], { type }), { contentType: type });
+  return error ? { error: "Couldn't save the picture." } : { key };
+}
+
+/** A short-lived link to a pasted picture (only for pictures on this board). */
+export async function boardImageUrl(b: { id: string; student_id: string }, key: string): Promise<string | null> {
+  if (!IMG_KEY_RE.test(key)) return null;
+  const { data } = await createAdminClient().storage.from(MATERIALS_BUCKET).createSignedUrl(`${boardFolder(b.student_id, b.id)}/${key}`, 6 * 3600);
+  return data?.signedUrl ?? null;
+}
+
+/** Every file of a board: page pictures and pasted pictures. */
+export async function boardFiles(studentId: string, boardId: string, pages: number): Promise<string[]> {
+  const folder = boardFolder(studentId, boardId);
+  const { data } = await createAdminClient().storage.from(MATERIALS_BUCKET).list(folder, { limit: 1000 });
+  const listed = (data ?? []).map((f) => `${folder}/${f.name}`);
+  const pagesList = Array.from({ length: pages }, (_, i) => pagePath(studentId, boardId, i));
+  return [...new Set([...pagesList, ...listed])];
+}
 
 type BoardRow = { id: string; student_id: string; title: string; pages: number; aspect: number | string; layout?: number[] | null; created_at?: string };
 
@@ -173,7 +206,7 @@ export async function cleanupOldBoards(force = false): Promise<number> {
   const { data } = await admin.from("boards").select("id, student_id, pages").lt("created_at", cutoff).limit(40);
   let removed = 0;
   for (const b of (data ?? []) as { id: string; student_id: string; pages: number }[]) {
-    const paths = Array.from({ length: b.pages }, (_, i) => pagePath(b.student_id, b.id, i));
+    const paths = await boardFiles(b.student_id, b.id, b.pages);
     const { error: fileErr } = await admin.storage.from(MATERIALS_BUCKET).remove(paths);
     if (fileErr) continue; // try again next time rather than leave files without a record
     const { error } = await admin.from("boards").delete().eq("id", b.id); // writing goes with it

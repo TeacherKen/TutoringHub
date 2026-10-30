@@ -4,7 +4,7 @@ import { assertTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/boardShared";
 import { MATERIALS_BUCKET } from "@/lib/constants";
-import { cleanupOldBoards, pagePath } from "@/lib/board";
+import { boardFiles, cleanupOldBoards } from "@/lib/board";
 
 /** Called after the browser has turned a PDF into page pictures and uploaded them. */
 export async function createBoard(studentId: string, boardId: string, title: string, pages: number, aspect: number): Promise<{ ok?: boolean; error?: string }> {
@@ -39,9 +39,7 @@ export async function deleteBoard(boardId: string): Promise<{ ok: boolean }> {
   const supabase = await createClient();
   const { data: b } = await supabase.from("boards").select("student_id, pages").eq("id", boardId).maybeSingle();
   if (!b) return { ok: false };
-  await supabase.storage
-    .from(MATERIALS_BUCKET)
-    .remove(Array.from({ length: b.pages as number }, (_, i) => pagePath(b.student_id as string, boardId, i)));
+  await supabase.storage.from(MATERIALS_BUCKET).remove(await boardFiles(b.student_id as string, boardId, b.pages as number));
   const { error } = await supabase.from("boards").delete().eq("id", boardId);
   revalidatePath("/", "layout");
   return { ok: !error };
