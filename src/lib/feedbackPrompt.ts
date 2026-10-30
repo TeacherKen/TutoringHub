@@ -27,6 +27,7 @@ Structure:
 
 Rules:
 - Only use the facts in the notes below. Do not invent anything.
+- You may mention the progress so far in one short sentence, but focus on today.
 - Avoid vague phrases such as "making good progress" or "doing great" without saying what exactly.
 - Do not include any surnames, school names or contact details.
 - Output only the message, ready to send.
@@ -36,6 +37,7 @@ Lesson notes:
 - Learned today: {{learned}}
 - How it went: {{how_it_went}}
 - Topics: {{topics}}
+- Progress so far: {{progress}}
 - Homework: {{homework}}
 - Next time: {{next_time}}`;
 
@@ -55,6 +57,7 @@ export type PromptInput = {
   tone: Tone | string;
   allowEmoji: boolean;
   template?: string | null;
+  progress?: string | null;
 };
 
 /** First word only — the prompt never carries surnames, even if one was typed. */
@@ -78,6 +81,7 @@ export function buildFeedbackPrompt(i: PromptInput): string {
     topics: i.topics.length ? i.topics.join(", ") : "(none)",
     homework: i.homework?.trim() || "None this time",
     next_time: i.nextTime?.trim() || "(not written)",
+    progress: i.progress?.trim() || "(not tracked)",
   };
   const template = i.template?.trim() ? i.template : DEFAULT_TEMPLATE;
   return template.replace(/\{\{(\w+)\}\}/g, (m, key: string) => (key in values ? values[key] : m));

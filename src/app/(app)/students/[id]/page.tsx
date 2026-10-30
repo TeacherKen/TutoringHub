@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getAccountSummaries, getSettings, getStudents, type Lesson } from "@/lib/data";
+import { getAccountSummaries, getProgress, getSettings, getStudents, type Lesson } from "@/lib/data";
+import { TopicProgress } from "@/components/TopicProgress";
 import { lessonLength } from "@/lib/hours";
 import { bkkDateKey, fmtDate, fmtDay, fmtHours, fmtTime, isPast, todayKey } from "@/lib/time";
 import { StudentForm } from "@/components/StudentForm";
@@ -20,7 +21,7 @@ const thb = (n: number) => `฿${Number(n).toLocaleString("en-US")}`;
 export default async function StudentPage({ params }: PageProps<"/students/[id]">) {
   await requireTutor();
   const { id } = await params;
-  const [students, accounts, settings] = await Promise.all([getStudents(), getAccountSummaries(), getSettings()]);
+  const [students, accounts, settings, progress] = await Promise.all([getStudents(), getAccountSummaries(), getSettings(), getProgress([id])]);
   const student = students.find((s) => s.id === id);
   if (!student) notFound();
   const account = accounts.find((a) => a.id === student.hour_account_id);
@@ -39,6 +40,8 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
   const others = students.filter((s) => s.id !== id && s.active);
   const sharingWith = account?.students.filter((s) => s.id !== id) ?? [];
   const bal = account?.balance;
+  const { data: recent } = await supabase.from("lessons").select("topics").neq("topics", "{}").order("start_at", { ascending: false }).limit(80);
+  const topicIdeas = [...new Set((recent ?? []).flatMap((r) => r.topics as string[]))].slice(0, 40);
   const low = bal && account.packages.length > 0 && bal.left <= Number(settings.low_hours_threshold);
 
   return (
@@ -69,6 +72,8 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
           <p className="mt-1 whitespace-pre-wrap">{latestPlan}</p>
         </section>
       ) : null}
+
+      <TopicProgress studentId={student.id} rows={progress.byStudent.get(student.id) ?? []} ready={progress.ready} suggestions={topicIdeas} />
 
       {student.private_notes || student.book ? (
         <section className="card space-y-2 text-sm">

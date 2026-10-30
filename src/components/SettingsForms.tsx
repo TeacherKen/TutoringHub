@@ -123,7 +123,7 @@ export function FeedbackSettingsForm(props: {
         <textarea name="prompt_template" className="input min-h-72 font-mono text-sm" value={template} onChange={(e) => setTemplate(e.target.value)} />
         <span className="mt-1 block text-xs text-muted">
           Words in {"{{double brackets}}"} are filled in for you: student, parent, level, tone, tutor, date, learned, how_it_went, topics, homework,
-          next_time, emoji_rule.
+          next_time, emoji_rule, progress.
         </span>
       </label>
       <div className="flex flex-wrap gap-2">

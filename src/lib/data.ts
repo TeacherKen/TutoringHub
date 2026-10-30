@@ -222,3 +222,25 @@ export function needsNote(l: Lesson): boolean {
     (l.status === "scheduled" || (l.status === "done" && !l.learned))
   );
 }
+
+/** Topic progress for these students (lesson topics + what Mr Ken marked). */
+export async function getProgress(studentIds: string[]) {
+  const { mergeProgress } = await import("@/lib/progress");
+  type Saved = import("@/lib/progress").SavedTopic & { student_id: string };
+  const out = new Map<string, ReturnType<typeof mergeProgress>>();
+  if (!studentIds.length) return { byStudent: out, ready: true };
+  const supabase = await createClient();
+  const [saved, links] = await Promise.all([
+    supabase.from("student_topics").select("student_id, name, status, updated_at").in("student_id", studentIds),
+    supabase.from("lesson_students").select("student_id, lessons!inner(start_at, topics, ignored, status)").in("student_id", studentIds),
+  ]);
+  const rows = (links.data ?? []) as unknown as { student_id: string; lessons: { start_at: string; topics: string[] | null; ignored: boolean; status: string } }[];
+  for (const id of studentIds) {
+    const mine = ((saved.data ?? []) as Saved[]).filter((s) => s.student_id === id);
+    const lessons = rows
+      .filter((r) => r.student_id === id && !r.lessons.ignored && r.lessons.status !== "cancelled" && r.lessons.status !== "scheduled")
+      .map((r) => r.lessons);
+    out.set(id, mergeProgress(mine, lessons));
+  }
+  return { byStudent: out, ready: !saved.error };
+}

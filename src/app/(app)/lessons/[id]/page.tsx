@@ -2,13 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getLesson, getSettings, getStudents, lessonMode, lessonNames, lessonPlace } from "@/lib/data";
+import { getLesson, getProgress, getSettings, getStudents, lessonMode, lessonNames, lessonPlace } from "@/lib/data";
 import { MATERIALS_BUCKET, tutorName } from "@/lib/env";
 import { bkkDateKey, fmtLongDay, fmtTime, hoursBetween, isPast } from "@/lib/time";
 import { LessonNoteForm } from "@/components/LessonNoteForm";
 import { Materials, type MaterialView } from "@/components/Materials";
 import { RoomControls } from "@/components/RoomControls";
 import { aiAvailable } from "@/lib/ai";
+import { progressLine } from "@/lib/progress";
 import { roomStudent } from "@/lib/roomStudent";
 import { addLessonStudent, removeLessonStudent, setUsesHours } from "@/app/actions/lessons";
 import { setIgnored } from "@/app/actions/calendar";
@@ -21,7 +22,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
 
   const supabase = await createClient();
   const studentIds = lesson.lesson_students.map((ls) => ls.student_id);
-  const [students, settings, { data: mats }, { data: recentTopics }, prev] = await Promise.all([
+  const [students, settings, { data: mats }, { data: recentTopics }, prev, progress] = await Promise.all([
     getStudents({ activeOnly: true }),
     getSettings(),
     supabase.from("lesson_materials").select("*").eq("lesson_id", id).order("created_at"),
@@ -34,6 +35,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
           .lt("lessons.start_at", lesson.start_at)
           .not("lessons.next_time", "is", null)
       : Promise.resolve({ data: [] }),
+    getProgress(studentIds),
   ]);
 
   const materials: MaterialView[] = await Promise.all(
@@ -58,6 +60,14 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
   const mode = lessonMode(lesson);
   const place = lessonPlace(lesson);
   const firstStudent = inLesson[0]?.students;
+  const progressText =
+    inLesson
+      .map((ls) => {
+        const line = progressLine(progress.byStudent.get(ls.student_id) ?? []);
+        return line ? (inLesson.length > 1 ? `${ls.students?.first_name ?? ""} — ${line}` : line) : null;
+      })
+      .filter(Boolean)
+      .join(". ") || null;
 
   return (
     <div className="space-y-6">
@@ -157,6 +167,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
           level: firstStudent?.level ?? null,
           date: fmtLongDay(bkkDateKey(lesson.start_at)),
           tutorName: tutorName(),
+          progress: progressText,
           tone: settings.tone,
           allowEmoji: settings.allow_emoji,
           template: settings.prompt_template,
