@@ -9,10 +9,12 @@ import { SignOutButton } from "@/components/SignOutButton";
 import { removeCalendar, setCalendarPreply } from "@/app/actions/calendar";
 import { listCalendarSources } from "@/lib/calendar/sync";
 import { removePerson } from "@/app/actions/settings";
+import { BackupPanel } from "@/components/BackupPanel";
+import { listBackups } from "@/lib/backup";
 
 export default async function SettingsPage() {
   const me = await requireTutor();
-  const [settings, calendars] = await Promise.all([getSettings(), listCalendarSources()]);
+  const [settings, calendars, backups] = await Promise.all([getSettings(), listCalendarSources(), listBackups().catch(() => [])]);
   const supabase = await createClient();
   const { data: people } = await supabase.from("app_users").select("email, role, display_name").in("role", ["tutor", "viewer"]).order("role");
   const { count: hidden } = await supabase.from("lessons").select("id", { count: "exact", head: true }).eq("ignored", true);
@@ -130,8 +132,15 @@ export default async function SettingsPage() {
           template={settings.prompt_template}
           lowHours={Number(settings.low_hours_threshold)}
           renewWeeks={Number(settings.renew_weeks ?? 2)}
+          autoDone={Boolean(settings.auto_done)}
+          promptpayId={settings.promptpay_id ?? null}
           trackFrom={settings.track_from}
         />
+      </section>
+
+      <section id="backup" className="card space-y-4">
+        <h2 className="h2">Backups and export</h2>
+        <BackupPanel files={backups} ready={settings.last_backup_at !== undefined} />
       </section>
 
       <section className="card space-y-2 text-sm">

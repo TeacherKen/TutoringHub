@@ -17,9 +17,9 @@ import { RenewalMessage } from "@/components/RenewalMessage";
 import { tutorName } from "@/lib/env";
 import { roomStudent } from "@/lib/roomStudent";
 import { AdjustmentForm, PackageForm } from "@/components/HoursForms";
-import { deleteAdjustment, deletePackage, deleteStudent, setHourSharing, updateStudent } from "@/app/actions/students";
+import { deleteAdjustment, deletePackage, deleteStudent, markPackagePaid, setHourSharing, updateStudent } from "@/app/actions/students";
 
-const PAID_BY: Record<string, string> = { bank_transfer: "Bank transfer", cash: "Cash", preply: "Preply", other: "Other" };
+const PAID_BY: Record<string, string> = { bank_transfer: "Bank transfer", promptpay: "PromptPay", cash: "Cash", preply: "Preply", other: "Other" };
 const CONTACT: Record<string, string> = { whatsapp: "WhatsApp", line: "LINE", wechat: "WeChat", other: "Contact" };
 const thb = (n: number) => `฿${Number(n).toLocaleString("en-US")}`;
 
@@ -141,6 +141,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
                 lastHours={account.packages.at(-1)?.hours != null ? Number(account.packages.at(-1)!.hours) : null}
                 lastPrice={account.packages.at(-1)?.price_thb != null ? Number(account.packages.at(-1)!.price_thb) : null}
                 tutorName={tutorName()}
+                promptpayId={settings.promptpay_id ?? null}
               />
             ) : null}
             {account.packages.length === 0 ? (
@@ -168,6 +169,23 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
                         {p.paid_by ? ` · ${PAID_BY[p.paid_by]}` : ""}
                         {p.note ? ` · ${p.note}` : ""}
                       </div>
+                      {!p.paid_on ? (
+                        <form action={markPackagePaid} className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="chip-warn">Not paid yet</span>
+                          <input type="hidden" name="id" value={p.id} />
+                          <select name="paid_by" className="input min-h-9 w-auto py-1 text-sm" defaultValue="promptpay">
+                            <option value="promptpay">PromptPay</option>
+                            <option value="bank_transfer">Bank transfer</option>
+                            <option value="cash">Cash</option>
+                            <option value="other">Other</option>
+                          </select>
+                          <button className="btn-secondary min-h-9 px-3 text-sm">Mark paid today</button>
+                        </form>
+                      ) : (p as { receipt_no?: string | null }).receipt_no ? (
+                        <Link href={`/receipts/${p.id}`} className="mt-1 inline-block text-accent underline">
+                          Receipt {(p as { receipt_no?: string | null }).receipt_no}
+                        </Link>
+                      ) : null}
                     </div>
                     <form action={deletePackage}>
                       <input type="hidden" name="id" value={p.id} />

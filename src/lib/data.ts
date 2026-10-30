@@ -63,6 +63,9 @@ export type Settings = {
   last_sync_error: string | null;
   track_from: string | null;
   renew_weeks?: number;
+  auto_done?: boolean;
+  promptpay_id?: string | null;
+  last_backup_at?: string | null;
 };
 
 const LESSON_SELECT =

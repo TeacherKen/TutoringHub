@@ -88,6 +88,8 @@ export function FeedbackSettingsForm(props: {
   template: string | null;
   lowHours: number;
   renewWeeks?: number;
+  autoDone?: boolean;
+  promptpayId?: string | null;
   trackFrom: string | null;
 }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveFeedbackSettings, null);
@@ -110,6 +112,10 @@ export function FeedbackSettingsForm(props: {
           <input name="low_hours_threshold" type="number" step="0.5" min="0" className="input" defaultValue={props.lowHours} />
         </label>
         <label>
+          <span className="label">PromptPay number (for the QR code in renewal messages)</span>
+          <input name="promptpay_id" inputMode="numeric" className="input" placeholder="e.g. 0812345678" defaultValue={props.promptpayId ?? ""} autoComplete="off" />
+        </label>
+        <label>
           <span className="label">Remind me this many weeks before a package runs out</span>
           <input name="renew_weeks" type="number" step="1" min="0" max="12" className="input" defaultValue={props.renewWeeks ?? 2} />
         </label>
@@ -119,6 +125,15 @@ export function FeedbackSettingsForm(props: {
           <span className="mt-1 block text-xs text-muted">Older lessons are never flagged as missing a note.</span>
         </label>
       </div>
+      <label className="flex min-h-12 items-start gap-3">
+        <input type="checkbox" name="auto_done" defaultChecked={props.autoDone} className="mt-1 h-5 w-5 accent-[var(--accent)]" />
+        <span>
+          Mark classes as done automatically the day after
+          <span className="block text-xs text-muted">
+            So hours and money stay up to date. Cancelled classes: mark them cancelled, or remove them from your calendar, before the next day.
+          </span>
+        </span>
+      </label>
       <label className="flex min-h-12 items-center gap-3">
         <input type="checkbox" name="allow_emoji" defaultChecked={props.allowEmoji} className="h-5 w-5 accent-[var(--accent)]" />
         <span>Allow one or two emojis in parent messages</span>

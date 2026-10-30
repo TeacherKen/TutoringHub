@@ -102,3 +102,12 @@ describe("package forecast", () => {
     expect(renewSoon({ ...base, leftHours: 1.5, forecast: { lessonsLeft: 1, endDate: "2026-12-30", basis: "average" } }, "2026-10-30", 2, 2)).toBe(true);
   });
 });
+
+import { nextReceiptNo } from "@/lib/receipts";
+describe("receipt numbers", () => {
+  it("count up within the year and start again next year", () => {
+    expect(nextReceiptNo([], 2026)).toBe("R-2026-001");
+    expect(nextReceiptNo(["R-2026-001", "R-2026-009", "R-2025-120", null], 2026)).toBe("R-2026-010");
+    expect(nextReceiptNo(["R-2026-041"], 2027)).toBe("R-2027-001");
+  });
+});

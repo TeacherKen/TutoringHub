@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { assertTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { syncCalendar } from "@/lib/calendar/sync";
+import { assignReceipt } from "@/lib/receipts";
 
 const s = (f: FormData, k: string, max = 500) => {
   const v = String(f.get(k) ?? "").trim();
@@ -36,6 +37,8 @@ function studentFields(form: FormData) {
 }
 
 export type FormState = { error?: string; ok?: string } | null;
+
+const PAID_BY = ["bank_transfer", "promptpay", "cash", "preply", "other"];
 
 /** Price per hour is saved on its own, so saving still works before database update 0011. */
 async function saveRate(supabase: Awaited<ReturnType<typeof createClient>>, id: string, form: FormData) {
@@ -176,21 +179,43 @@ export async function addPackage(_: FormState, form: FormData): Promise<FormStat
   if (!(hours > 0 && hours <= 500)) return { error: "Hours must be more than 0." };
   if (price != null && !(price >= 0)) return { error: "Price must be a number." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return { error: "Please choose the start date." };
+  const unpaid = form.get("payment") === "unpaid";
   const paidBy = String(form.get("paid_by") ?? "");
   const paidOn = String(form.get("paid_on") ?? "");
+  const paidOnOk = !unpaid && /^\d{4}-\d{2}-\d{2}$/.test(paidOn) ? paidOn : null;
   const supabase = await createClient();
-  const { error } = await supabase.from("packages").insert({
+  const row = {
     hour_account_id: String(form.get("hour_account_id")),
     hours,
     price_thb: price,
     start_date: start,
-    paid_on: /^\d{4}-\d{2}-\d{2}$/.test(paidOn) ? paidOn : null,
-    paid_by: ["bank_transfer", "cash", "preply", "other"].includes(paidBy) ? paidBy : null,
+    paid_on: paidOnOk,
+    paid_by: paidOnOk && PAID_BY.includes(paidBy) ? paidBy : null,
     note: s(form, "note", 300),
-  });
-  if (error) return { error: "Couldn't save the package." };
+  };
+  let { data, error } = await supabase.from("packages").insert(row).select("id").single();
+  if (error && row.paid_by === "promptpay") {
+    // Before database update 0012, "PromptPay" isn't allowed yet — save it as bank transfer.
+    ({ data, error } = await supabase.from("packages").insert({ ...row, paid_by: "bank_transfer" }).select("id").single());
+  }
+  if (error || !data) return { error: "Couldn't save the package." };
+  if (paidOnOk) await assignReceipt(supabase, data.id as string, paidOnOk);
   revalidatePath("/", "layout");
-  return { ok: "Package added." };
+  return { ok: unpaid ? "Package added — waiting for payment." : "Package added." };
+}
+
+/** A package has been paid: record the date and how, and give it a receipt number. */
+export async function markPackagePaid(form: FormData): Promise<void> {
+  await assertTutor();
+  const id = String(form.get("id") ?? "");
+  const paidOn = String(form.get("paid_on") ?? "") || new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+  const paidBy = String(form.get("paid_by") ?? "bank_transfer");
+  if (!/^[0-9a-f-]{36}$/.test(id) || !/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) return;
+  const supabase = await createClient();
+  let { error } = await supabase.from("packages").update({ paid_on: paidOn, paid_by: PAID_BY.includes(paidBy) ? paidBy : "other" }).eq("id", id);
+  if (error) ({ error } = await supabase.from("packages").update({ paid_on: paidOn, paid_by: "bank_transfer" }).eq("id", id));
+  if (!error) await assignReceipt(supabase, id, paidOn);
+  revalidatePath("/", "layout");
 }
 
 export async function deletePackage(form: FormData): Promise<void> {

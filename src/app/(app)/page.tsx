@@ -8,12 +8,18 @@ import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, fmtLongDay, fmtTi
 import { LessonCard } from "@/components/LessonCard";
 import { RefreshButton } from "@/components/RefreshButton";
 import { linkEventToStudent, setIgnored } from "@/app/actions/calendar";
+import { markPastDone } from "@/app/actions/lessons";
+import { autoMarkDone } from "@/lib/autoDone";
+import { backupIfDue } from "@/lib/backup";
+import { after } from "next/server";
 
 export default async function Home() {
   const me = await getMe();
   if (me?.role !== "tutor") redirect("/schedule");
 
   await syncIfStale();
+  await autoMarkDone();
+  after(() => backupIfDue().catch(() => {})); // weekly backup, after the page is sent
   const today = todayKey();
   const weekEnd = addDays(mondayOf(today), 7);
   const [lessons, settings, money, students] = await Promise.all([
@@ -30,6 +36,7 @@ export default async function Home() {
   const trackFrom = settings.track_from ?? "0000-01-01";
   const tracked = (l: { start_at: string }) => bkkDateKey(l.start_at) >= trackFrom;
   const missing = matched.filter((l) => tracked(l) && needsNote(l));
+  const unmarkedCount = missing.filter((l) => l.status === "scheduled").length;
   const unsent = matched.filter((l) => tracked(l) && l.status === "done" && !l.sent_at && bkkDateKey(l.start_at) <= today);
   const low = money.accounts.filter((a) => renewSoon(a, today, Number(settings.low_hours_threshold), Number(settings.renew_weeks ?? 2)));
   const unmatched = lessons.filter(
@@ -41,7 +48,9 @@ export default async function Home() {
     const k = bkkDateKey(l.start_at);
     byDay.set(k, [...(byDay.get(k) ?? []), l]);
   }
-  const attention = missing.length + unsent.length + low.length + unmatched.length;
+  const unpaid = money.packages.filter((p) => !p.paid_on && p.price_thb != null && Number(p.price_thb) > 0);
+  const unpaidNames = new Map(money.accounts.map((a) => [a.id, a.name]));
+  const attention = missing.length + unsent.length + low.length + unmatched.length + unpaid.length;
 
   return (
     <div className="space-y-8">
@@ -79,8 +88,25 @@ export default async function Home() {
           <div className="card space-y-4">
             {missing.length ? (
               <Group title={`Lessons without a note (${missing.length})`}>
+                {unmarkedCount > 1 ? (
+                  <form action={markPastDone}>
+                    <button className="btn-secondary min-h-10 w-full text-sm">✓ Mark all {unmarkedCount} past classes as done</button>
+                  </form>
+                ) : null}
                 {missing.map((l) => (
-                  <AttentionLink key={l.id} href={`/lessons/${l.id}`} text={`${lessonNames(l)} · ${fmtDay(bkkDateKey(l.start_at))} ${fmtTime(l.start_at)}`} />
+                  <div key={l.id} className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <AttentionLink href={`/lessons/${l.id}`} text={`${lessonNames(l)} · ${fmtDay(bkkDateKey(l.start_at))} ${fmtTime(l.start_at)}`} />
+                    </div>
+                    {l.status === "scheduled" ? (
+                      <form action={markPastDone}>
+                        <input type="hidden" name="lesson_id" value={l.id} />
+                        <button className="btn-secondary min-h-11 px-3 text-sm" title="Mark this class as done (it counts towards hours and money)">
+                          ✓ Done
+                        </button>
+                      </form>
+                    ) : null}
+                  </div>
                 ))}
               </Group>
             ) : null}
@@ -102,6 +128,13 @@ export default async function Home() {
                     }`}
                     danger={a.leftHours <= 0}
                   />
+                ))}
+              </Group>
+            ) : null}
+            {unpaid.length ? (
+              <Group title={`Waiting for payment (${unpaid.length})`}>
+                {unpaid.map((p) => (
+                  <AttentionLink key={p.id} href="/money#unpaid" text={`${unpaidNames.get(p.hour_account_id) ?? "Package"} · ฿${Math.round(Number(p.price_thb)).toLocaleString("en-US")}`} />
                 ))}
               </Group>
             ) : null}

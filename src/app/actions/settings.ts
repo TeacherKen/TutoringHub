@@ -53,6 +53,10 @@ export async function saveFeedbackSettings(_: SettingsState, form: FormData): Pr
   // Separate, so saving still works before database update 0011.
   const weeks = Number(form.get("renew_weeks"));
   if (Number.isFinite(weeks) && weeks >= 0 && weeks <= 12) await supabase.from("settings").update({ renew_weeks: weeks }).eq("id", 1);
+  await supabase.from("settings").update({ auto_done: form.get("auto_done") === "on" }).eq("id", 1);
+  const pp = String(form.get("promptpay_id") ?? "").replace(/[\s-]/g, "");
+  if (pp === "" || /^(0\d{9}|\d{13}|\d{15})$/.test(pp)) await supabase.from("settings").update({ promptpay_id: pp || null }).eq("id", 1);
+  else return { error: "PromptPay should be a phone number like 0812345678 (or a 13-digit ID)." };
   revalidatePath("/", "layout");
   return { ok: "Saved." };
 }

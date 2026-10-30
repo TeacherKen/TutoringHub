@@ -4,6 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getMoneyData, getSettings } from "@/lib/data";
 import { renewSoon, sumEarned, thb, type LessonEarning } from "@/lib/earnings";
 import { PackageCard, Stat } from "@/components/MoneyCards";
+import { autoMarkDone } from "@/lib/autoDone";
+import { markPastDone } from "@/app/actions/lessons";
+import { markPackagePaid } from "@/app/actions/students";
+import { PromptPayQR } from "@/components/PromptPayQR";
 import { addDays, bkkStartOfDay, fmtDay, fmtHours, fmtTime, mondayOf } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +18,7 @@ type View = keyof typeof VIEWS;
 export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
   await requireTutor();
   const sp = await searchParams;
+  await autoMarkDone();
   const view: View = sp.view === "month" || sp.view === "last" ? sp.view : "week";
   const [money, settings] = await Promise.all([getMoneyData(), getSettings()]);
   const { today } = money;
@@ -51,6 +56,10 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
     .filter((a) => a.packages.length)
     .sort((a, b) => Number(renewSoon(b, today, Number(settings.low_hours_threshold), renewWeeks)) - Number(renewSoon(a, today, Number(settings.low_hours_threshold), renewWeeks)) || a.name.localeCompare(b.name));
 
+  const accountName = new Map(money.accounts.map((a) => [a.id, a.name]));
+  const firstStudent = new Map(money.accounts.map((a) => [a.id, a.studentIds[0]]));
+  const unpaid = money.packages.filter((p) => !p.paid_on && p.price_thb != null && Number(p.price_thb) > 0);
+  const owed = unpaid.reduce((s, p) => s + Number(p.price_thb), 0);
   const [from, to] = ranges[view];
   const shown = money.lessons.filter((l) => l.date >= from && l.date < to).reverse();
   const byDay = new Map<string, LessonEarning[]>();
@@ -72,12 +81,12 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
       <div className="-mt-5 space-y-2 text-sm text-muted">
         {paidThisMonth > 0 ? <p>Packages paid to you in {monthName(monthStart)}: {thb(paidThisMonth)}</p> : null}
         {unmarked ? (
-          <p className="rounded-xl bg-warn-soft p-3 text-warn">
-            {unmarked} past {unmarked === 1 ? "class isn't" : "classes aren't"} marked yet, so {unmarked === 1 ? "it isn't" : "they aren't"} counted.{" "}
-            <Link href="/" className="underline">
-              Mark them on Home
-            </Link>
-          </p>
+          <div className="rounded-xl bg-warn-soft p-3 text-warn">
+            {unmarked} past {unmarked === 1 ? "class isn't" : "classes aren't"} marked yet, so {unmarked === 1 ? "it isn't" : "they aren't"} counted.
+            <form action={markPastDone} className="mt-2">
+              <button className="btn-secondary min-h-10 text-sm">✓ Mark {unmarked === 1 ? "it" : `all ${unmarked}`} as done</button>
+            </form>
+          </div>
         ) : null}
         {unpriced.length ? (
           <p className="rounded-xl bg-surface-2 p-3">
@@ -88,6 +97,42 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
           </p>
         ) : null}
       </div>
+
+      {unpaid.length ? (
+        <section id="unpaid" className="space-y-3">
+          <h2 className="h2">Waiting for payment · {thb(owed)}</h2>
+          {unpaid.map((p) => (
+            <div key={p.id} className="card space-y-3 border-warn">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <Link href={firstStudent.get(p.hour_account_id) ? `/students/${firstStudent.get(p.hour_account_id)}#hours` : "/students"} className="font-medium hover:underline">
+                  {accountName.get(p.hour_account_id) ?? "Package"}
+                </Link>
+                <span className="text-sm text-muted">
+                  {Number(p.hours)} h · <strong className="text-ink">{thb(Number(p.price_thb))}</strong> · added {fmtDay(p.created_at.slice(0, 10))}
+                </span>
+              </div>
+              <form action={markPackagePaid} className="flex flex-wrap items-center gap-2">
+                <input type="hidden" name="id" value={p.id} />
+                <select name="paid_by" className="input min-h-10 w-auto text-sm" defaultValue="promptpay">
+                  <option value="promptpay">PromptPay</option>
+                  <option value="bank_transfer">Bank transfer</option>
+                  <option value="cash">Cash</option>
+                  <option value="other">Other</option>
+                </select>
+                <button className="btn-primary min-h-10 text-sm">✓ Mark paid today</button>
+              </form>
+              {settings.promptpay_id ? (
+                <details>
+                  <summary className="cursor-pointer text-sm text-accent">Show PromptPay QR for {thb(Number(p.price_thb))}</summary>
+                  <div className="mt-2 max-w-xs">
+                    <PromptPayQR promptpayId={settings.promptpay_id} amount={Number(p.price_thb)} label={`PromptPay for ${accountName.get(p.hour_account_id) ?? "lessons"}`} />
+                  </div>
+                </details>
+              ) : null}
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       {withPackages.length ? (
         <section className="space-y-3">

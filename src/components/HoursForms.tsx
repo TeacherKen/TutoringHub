@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useRef, useEffect } from "react";
+import { useActionState, useRef, useEffect, useState } from "react";
 import { addAdjustment, addPackage, type FormState } from "@/app/actions/students";
 
 function useResetOnOk(state: FormState) {
@@ -13,6 +13,7 @@ function useResetOnOk(state: FormState) {
 export function PackageForm({ accountId, today }: { accountId: string; today: string }) {
   const [state, action, pending] = useActionState(addPackage, null);
   const ref = useResetOnOk(state);
+  const [paid, setPaid] = useState(true);
   return (
     <form ref={ref} action={action} className="space-y-3">
       <input type="hidden" name="hour_account_id" value={accountId} />
@@ -30,18 +31,32 @@ export function PackageForm({ accountId, today }: { accountId: string; today: st
           <input name="start_date" type="date" required className="input" defaultValue={today} />
         </label>
         <label>
-          <span className="label">Date paid</span>
-          <input name="paid_on" type="date" className="input" defaultValue={today} />
-        </label>
-        <label className="col-span-2">
-          <span className="label">Paid by</span>
-          <select name="paid_by" className="input" defaultValue="bank_transfer">
-            <option value="bank_transfer">Bank transfer</option>
-            <option value="cash">Cash</option>
-            <option value="preply">Preply</option>
-            <option value="other">Other</option>
+          <span className="label">Payment</span>
+          <select name="payment" className="input" value={paid ? "paid" : "unpaid"} onChange={(e) => setPaid(e.target.value === "paid")}>
+            <option value="paid">Paid</option>
+            <option value="unpaid">Not paid yet</option>
           </select>
         </label>
+        {paid ? (
+          <>
+            <label>
+              <span className="label">Date paid</span>
+              <input name="paid_on" type="date" className="input" defaultValue={today} />
+            </label>
+            <label>
+              <span className="label">Paid by</span>
+              <select name="paid_by" className="input" defaultValue="bank_transfer">
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="promptpay">PromptPay</option>
+                <option value="cash">Cash</option>
+                <option value="preply">Preply</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+          </>
+        ) : (
+          <p className="col-span-2 self-center text-sm text-muted">It will show under &quot;Waiting for payment&quot; until you mark it paid.</p>
+        )}
         <label className="col-span-2">
           <span className="label">Note (optional)</span>
           <input name="note" className="input" placeholder="e.g. Term 2 renewal" />

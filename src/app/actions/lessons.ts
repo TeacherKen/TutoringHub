@@ -163,3 +163,26 @@ export async function writeFeedbackWithAI(prompt: string): Promise<{ text?: stri
   if (p.trim().length < 20) return { error: "Write the lesson note first." };
   return writeWithAI(p);
 }
+
+/** Mark past classes as done (one, or all that aren't marked yet). */
+export async function markPastDone(form: FormData): Promise<void> {
+  await assertTutor();
+  const one = String(form.get("lesson_id") ?? "");
+  const supabase = await createClient();
+  let ids: string[];
+  if (one) ids = [one];
+  else {
+    const { unmarkedPastLessonIds } = await import("@/lib/autoDone");
+    const { data: s } = await supabase.from("settings").select("track_from").eq("id", 1).maybeSingle();
+    ids = await unmarkedPastLessonIds({ before: new Date(), from: (s?.track_from as string | null) ?? null });
+  }
+  if (ids.length) {
+    await supabase
+      .from("lessons")
+      .update({ status: "done" })
+      .in("id", ids.slice(0, 500))
+      .eq("status", "scheduled")
+      .lt("end_at", new Date().toISOString());
+  }
+  revalidatePath("/", "layout");
+}

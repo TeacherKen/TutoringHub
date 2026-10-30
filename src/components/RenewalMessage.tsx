@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { PromptPayQR } from "./PromptPayQR";
 
 type Props = {
   parentName: string | null;
@@ -8,6 +9,7 @@ type Props = {
   lastHours: number | null;
   lastPrice: number | null;
   tutorName: string;
+  promptpayId?: string | null;
 };
 
 const thb = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
@@ -28,9 +30,10 @@ export function renewalText(p: Props): string {
       : p.lastHours
         ? `Would you like to renew for another ${hrs(p.lastHours)}?`
         : "Would you like to renew the package?";
+  const pay = p.promptpayId && p.lastPrice ? " You can pay by scanning the PromptPay QR code." : "";
   return `Hi ${p.parentName?.trim() || "there"},
 
-Just a quick update on lessons: ${status} ${offer}
+Just a quick update on lessons: ${status} ${offer}${pay}
 
 Please let me know, and I'll keep the same lesson times. Thank you!
 
@@ -52,7 +55,10 @@ export function RenewalMessage(props: Props) {
   return (
     <div className="space-y-2 rounded-xl border border-line p-3">
       <span className="label">Renewal message (edit if you like)</span>
-      <textarea className="input min-h-40" value={text} onChange={(e) => setText(e.target.value)} />
+      <textarea className="input min-h-56" value={text} onChange={(e) => setText(e.target.value)} />
+      {props.promptpayId && props.lastPrice ? (
+        <PromptPayQR promptpayId={props.promptpayId} amount={props.lastPrice} label="PromptPay QR for the next package" />
+      ) : null}
       <div className="flex gap-2">
         <button
           type="button"
