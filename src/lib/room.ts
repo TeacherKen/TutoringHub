@@ -15,6 +15,7 @@ export type RoomData = {
   lesson: { start_at: string; end_at: string; when: "now" | "next" | "last" } | null;
   materials: RoomMaterial[];
   gamesOpen: boolean;
+  hasBoard: boolean;
 };
 
 export function isValidToken(token: string): boolean {
@@ -46,20 +47,17 @@ export async function getRoom(token: string): Promise<RoomData | null> {
     games_opened_at: string | null;
     slides_url?: string | null;
     slides_label?: string | null;
+    board_id?: string | null;
   };
-  const first = await admin
-    .from("students")
-    .select("id, first_name, active, games_open, games_opened_at, slides_url, slides_label")
-    .eq("room_token", token)
-    .maybeSingle<Row>();
-  let s = first.data;
-  if (first.error) {
-    // The "current slides" columns may not exist yet (database update 0007 not run) — still open the room.
-    ({ data: s } = await admin
-      .from("students")
-      .select("id, first_name, active, games_open, games_opened_at")
-      .eq("room_token", token)
-      .maybeSingle<Row>());
+  // Newer columns may not exist yet (database updates not run) — still open the room.
+  const BASE = "id, first_name, active, games_open, games_opened_at";
+  let s: Row | null = null;
+  for (const cols of [`${BASE}, slides_url, slides_label, board_id`, `${BASE}, slides_url, slides_label`, BASE]) {
+    const r = await admin.from("students").select(cols).eq("room_token", token).maybeSingle<Row>();
+    if (!r.error) {
+      s = r.data;
+      break;
+    }
   }
   if (!s || !s.active) return null;
 
@@ -124,5 +122,6 @@ export async function getRoom(token: string): Promise<RoomData | null> {
     lesson: picked ? { start_at: picked.l.start_at, end_at: picked.l.end_at, when: picked.when } : null,
     materials,
     gamesOpen,
+    hasBoard: Boolean(s.board_id),
   };
 }

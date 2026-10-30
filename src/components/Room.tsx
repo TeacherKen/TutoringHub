@@ -5,6 +5,7 @@ import { TimesTables } from "./games/TimesTables";
 import { QuickMaths } from "./games/QuickMaths";
 import { MiniSudoku } from "./games/MiniSudoku";
 import { snapshotDocument, snapshotElement } from "@/lib/snapshot";
+import { Whiteboard } from "./Whiteboard";
 
 // Games with a `src` are Mr Ken's own games, copied into /public/games.
 const GAMES = [
@@ -24,7 +25,7 @@ export function Room({ token, initial }: { token: string; initial: RoomData }) {
   const [room, setRoom] = useState(initial);
   const [tab, setTab] = useState<"lesson" | "games">(initial.gamesOpen ? "games" : "lesson");
   const [game, setGame] = useState<GameId | null>(null);
-  const [slide, setSlide] = useState(0);
+  const [slide, setSlide] = useState(-1); // -1 = smart slides (when there are some)
   const openRef = useRef(initial.gamesOpen);
   const gameBox = useRef<HTMLDivElement>(null);
   const gameFrame = useRef<HTMLIFrameElement>(null);
@@ -97,7 +98,8 @@ export function Room({ token, initial }: { token: string; initial: RoomData }) {
 
   const slides = room.materials.filter((m) => m.kind === "canva");
   const others = room.materials.filter((m) => m.kind !== "canva");
-  const current = slides[Math.min(slide, Math.max(0, slides.length - 1))];
+  const onBoard = room.hasBoard && slide < 0;
+  const current = onBoard ? undefined : slides[Math.min(Math.max(0, slide), Math.max(0, slides.length - 1))];
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 pb-8 pt-4">
@@ -136,13 +138,21 @@ export function Room({ token, initial }: { token: string; initial: RoomData }) {
 
       {tab === "lesson" ? (
         <section className="flex flex-1 flex-col gap-4">
-          {slides.length > 1 ? (
+          {slides.length + (room.hasBoard ? 1 : 0) > 1 ? (
             <div className="flex flex-wrap gap-2">
+              {room.hasBoard ? (
+                <button
+                  onClick={() => setSlide(-1)}
+                  className={`min-h-10 rounded-xl border px-3 text-sm ${onBoard ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}
+                >
+                  ✏️ Write on slides
+                </button>
+              ) : null}
               {slides.map((s, i) => (
                 <button
                   key={s.href}
                   onClick={() => setSlide(i)}
-                  className={`min-h-10 rounded-xl border px-3 text-sm ${i === slide ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}
+                  className={`min-h-10 rounded-xl border px-3 text-sm ${!onBoard && i === Math.max(0, slide) ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}
                 >
                   {s.label || `Slides ${i + 1}`}
                 </button>
@@ -150,7 +160,9 @@ export function Room({ token, initial }: { token: string; initial: RoomData }) {
             </div>
           ) : null}
 
-          {current ? (
+          {onBoard ? (
+            <Whiteboard api={`/api/room/${token}/board`} me="student" otherName="Mr Ken" />
+          ) : current ? (
             <div className="space-y-2">
               {current.embed ? (
                 <div className="relative w-full overflow-hidden rounded-2xl border border-line bg-surface" style={{ aspectRatio: "16 / 9" }}>

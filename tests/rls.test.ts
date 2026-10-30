@@ -49,7 +49,7 @@ beforeAll(async () => {
     "",
   );
   await db.exec(sql);
-  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql", "0007_pinned_slides.sql", "0008_topic_progress.sql"]) {
+  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql", "0007_pinned_slides.sql", "0008_topic_progress.sql", "0009_smart_slides.sql"]) {
     await db.exec(readFileSync(join(__dirname, "../supabase/migrations", f), "utf8"));
   }
   // Supabase gives these grants by default; RLS does the real protection.
@@ -125,6 +125,19 @@ describe("viewer (family member)", () => {
     expect(await as(PARENT, "select * from student_topics")).toEqual([]);
     await as(VIEWER, "update student_topics set status = 'next'");
     expect((await as<{ status: string }>(TUTOR, "select status from student_topics"))[0].status).toBe("got_it");
+  });
+  it("cannot see smart slides or the writing on them", async () => {
+    const B = "00000000-0000-0000-0000-0000000000c1";
+    await as(TUTOR, `insert into boards (id, student_id, title, pages, aspect) values ('${B}', '00000000-0000-0000-0000-000000000001', 'Fractions', 2, 0.5625)`);
+    await as(TUTOR, `insert into board_marks (id, board_id, page, author, data) values ('00000000-0000-0000-0000-0000000000d1', '${B}', 0, 'student', '{"t":"pen"}')`);
+    for (const t of ["boards", "board_marks", "board_live"]) {
+      expect(await as(VIEWER, `select * from ${t}`)).toEqual([]);
+      expect(await as(PARENT, `select * from ${t}`)).toEqual([]);
+    }
+    const before = await as<{ rev: string }>(TUTOR, "select rev from board_marks");
+    await as(TUTOR, "update board_marks set deleted = true");
+    const after = await as<{ rev: string }>(TUTOR, "select rev from board_marks");
+    expect(Number(after[0].rev)).toBeGreaterThan(Number(before[0].rev)); // rubbing out counts as a change
   });
   it("closing games clears the game screen", async () => {
     await as(TUTOR, "update students set games_open = true");
