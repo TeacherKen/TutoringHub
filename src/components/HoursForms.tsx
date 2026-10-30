@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useRef, useEffect, useState } from "react";
 import { addAdjustment, addPackage, type FormState } from "@/app/actions/students";
+import type { PriceOption } from "@/lib/prices";
 
 function useResetOnOk(state: FormState) {
   const ref = useRef<HTMLFormElement>(null);
@@ -10,13 +11,35 @@ function useResetOnOk(state: FormState) {
   return ref;
 }
 
-export function PackageForm({ accountId, today }: { accountId: string; today: string }) {
+export function PackageForm({ accountId, today, priceList = [] }: { accountId: string; today: string; priceList?: PriceOption[] }) {
   const [state, action, pending] = useActionState(addPackage, null);
   const ref = useResetOnOk(state);
   const [paid, setPaid] = useState(true);
   return (
     <form ref={ref} action={action} className="space-y-3">
       <input type="hidden" name="hour_account_id" value={accountId} />
+      {priceList.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {priceList.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              className="chip min-h-9 px-3"
+              onClick={() => {
+                const f = ref.current;
+                if (!f) return;
+                (f.elements.namedItem("hours") as HTMLInputElement).value = String(o.hours);
+                (f.elements.namedItem("price_thb") as HTMLInputElement).value = String(o.price);
+                const note = f.elements.namedItem("note") as HTMLInputElement;
+                if (o.label && !note.value) note.value = o.label;
+              }}
+            >
+              {o.label ? `${o.label} · ` : ""}
+              {o.hours} h · ฿{o.price.toLocaleString("en-US")}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-3">
         <label>
           <span className="label">Hours bought</span>

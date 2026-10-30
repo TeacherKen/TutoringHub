@@ -49,7 +49,7 @@ beforeAll(async () => {
     "",
   );
   await db.exec(sql);
-  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql", "0007_pinned_slides.sql", "0008_topic_progress.sql", "0009_smart_slides.sql"]) {
+  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql", "0007_pinned_slides.sql", "0008_topic_progress.sql", "0009_smart_slides.sql", "0010_board_pages.sql", "0011_money.sql", "0013_used_before_class_price.sql", "0014_board_timer.sql", "0015_prices_family_link.sql"]) {
     await db.exec(readFileSync(join(__dirname, "../supabase/migrations", f), "utf8"));
   }
   // Supabase gives these grants by default; RLS does the real protection.
@@ -138,6 +138,12 @@ describe("viewer (family member)", () => {
     await as(TUTOR, "update board_marks set deleted = true");
     const after = await as<{ rev: string }>(TUTOR, "select rev from board_marks");
     expect(Number(after[0].rev)).toBeGreaterThan(Number(before[0].rev)); // rubbing out counts as a change
+  });
+  it("cannot see family page links", async () => {
+    await as(TUTOR, "update hour_accounts set family_token = 'secret-family-token-abcdefghij'");
+    expect(await as(VIEWER, "select family_token from hour_accounts")).toEqual([]);
+    expect(await as(PARENT, "select family_token from hour_accounts")).toEqual([]);
+    expect(await as(null, "select family_token from hour_accounts").catch(() => [])).toEqual([]);
   });
   it("closing games clears the game screen", async () => {
     await as(TUTOR, "update students set games_open = true");

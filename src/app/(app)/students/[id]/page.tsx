@@ -14,6 +14,8 @@ import { bkkDateKey, fmtDate, fmtDay, fmtHours, fmtTime, isPast, todayKey } from
 import { StudentForm } from "@/components/StudentForm";
 import { RoomControls } from "@/components/RoomControls";
 import { RenewalMessage } from "@/components/RenewalMessage";
+import { FamilyLink } from "@/components/FamilyLink";
+import { cleanPriceOptions } from "@/lib/prices";
 import { tutorName } from "@/lib/env";
 import { roomStudent } from "@/lib/roomStudent";
 import { AdjustmentForm, PackageForm } from "@/components/HoursForms";
@@ -62,6 +64,8 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
       })),
   );
   const acctMoney = money.accounts.find((a) => a.id === student.hour_account_id);
+  const { data: fam } = account ? await supabase.from("hour_accounts").select("family_token").eq("id", account.id).maybeSingle() : { data: null };
+  const familyToken = (fam as { family_token?: string | null } | null)?.family_token ?? null;
   const curPkg = acctMoney?.packages.find((p) => p.state === "current");
   const low = bal && account.packages.length > 0 && (bal.left <= Number(settings.low_hours_threshold) || (acctMoney ? renewSoon(acctMoney, money.today, Number(settings.low_hours_threshold), Number(settings.renew_weeks ?? 2)) : false));
 
@@ -108,6 +112,17 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         </section>
       ) : null}
 
+      {account ? (
+        <FamilyLink
+          accountId={account.id}
+          names={account.students.map((x) => x.first_name).join(" & ")}
+          parentName={student.parent_name}
+          contactApp={student.contact_app}
+          contact={student.contact}
+          initialToken={familyToken}
+        />
+      ) : null}
+
       <section id="hours" className="space-y-3">
         <h2 className="h2">Package hours</h2>
         {account && bal ? (
@@ -142,6 +157,10 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
                 lastPrice={account.packages.at(-1)?.price_thb != null ? Number(account.packages.at(-1)!.price_thb) : null}
                 tutorName={tutorName()}
                 promptpayId={settings.promptpay_id ?? null}
+                priceList={cleanPriceOptions(settings.price_options)}
+                accountId={account.id}
+                contactApp={student.contact_app}
+                contact={student.contact}
               />
             ) : null}
             {account.packages.length === 0 ? (
@@ -219,7 +238,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
             <details className="rounded-xl border border-line p-3">
               <summary className="cursor-pointer font-medium">Add a package</summary>
               <div className="mt-3">
-                <PackageForm accountId={account.id} today={todayKey()} />
+                <PackageForm accountId={account.id} today={todayKey()} priceList={cleanPriceOptions(settings.price_options)} />
               </div>
             </details>
             <details className="rounded-xl border border-line p-3">
@@ -286,6 +305,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
       <MonthlyReport
         months={months}
         aiEnabled={aiAvailable()}
+        contact={{ app: student.contact_app, value: student.contact }}
         base={{
           studentName: student.first_name,
           parentName: student.parent_name,

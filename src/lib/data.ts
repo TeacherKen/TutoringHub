@@ -66,6 +66,7 @@ export type Settings = {
   auto_done?: boolean;
   promptpay_id?: string | null;
   last_backup_at?: string | null;
+  price_options?: unknown;
 };
 
 const LESSON_SELECT =

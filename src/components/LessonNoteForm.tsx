@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { saveFinalMessage, saveLessonNote, setSent, writeFeedbackWithAI, type NoteInput } from "@/app/actions/lessons";
 import { buildFeedbackPrompt, type PromptInput } from "@/lib/feedbackPrompt";
+import { SendButton } from "./SendButton";
+import type { ChatApp } from "@/lib/chat";
 
 type Initial = NoteInput & { final_message: string; sent_at: string | null; updated_at: string | null };
 
@@ -11,6 +13,8 @@ type Props = {
   defaultLength: number;
   isPast: boolean;
   aiEnabled: boolean;
+  /** The parent's chat app and number, for "Send on WhatsApp / LINE". */
+  contact?: { app: ChatApp; value: string | null };
   topicSuggestions: string[];
   promptContext: Omit<PromptInput, "learned" | "nextTime" | "homework" | "howItWent" | "topics">;
 };
@@ -65,7 +69,7 @@ async function copy(text: string): Promise<boolean> {
   }
 }
 
-export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEnabled, topicSuggestions, promptContext }: Props) {
+export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEnabled, topicSuggestions, promptContext, contact }: Props) {
   const draftKey = `th-note-${lessonId}`;
   const [note, setNote] = useState<NoteInput>(() => ({
     learned: initial.learned,
@@ -390,6 +394,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
           >
             {flash?.startsWith("Message copied") ? "✓ Copied" : "Copy final message"}
           </button>
+          {contact ? <SendButton app={contact.app} contact={contact.value} text={finalMsg} className="btn-primary flex-1" /> : null}
         </div>
         <label className="flex min-h-12 items-center gap-3 rounded-xl bg-surface-2 px-3">
           <input

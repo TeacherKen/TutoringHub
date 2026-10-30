@@ -20,10 +20,11 @@ export const HIGHLIGHT = "#facc15";
 export const HL_COLORS = ["#facc15", "#4ade80", "#f472b6", "#60a5fa", "#fb923c"] as const;
 export const SIZES = { thin: 0.003, thick: 0.007 } as const;
 
-export type Tool = "pen" | "hl" | "text" | "eraser" | "pointer";
-export const TOOL_NAMES: Record<string, string> = { pen: "✏️ Pen", hl: "🖍️ Highlighter", text: "🔤 Typing", eraser: "🧽 Eraser", pointer: "👆 Point" };
+export type Tool = "pen" | "hl" | "line" | "rect" | "text" | "eraser" | "pointer";
+export const TOOL_NAMES: Record<string, string> = { pen: "✏️ Pen", hl: "🖍️ Highlighter", text: "🔤 Typing", eraser: "🧽 Eraser", pointer: "👆 Point", line: "📏 Line", rect: "▭ Box" };
 
-export type StrokeData = { t: "pen" | "hl"; c: string; w: number; p: number[] };
+/** pen / highlighter: a path of points; line / rect: two corners [x1, y1, x2, y2]. */
+export type StrokeData = { t: "pen" | "hl" | "line" | "rect"; c: string; w: number; p: number[] };
 export type TextData = { t: "text"; c: string; s: number; x: number; y: number; text: string };
 export type MarkData = StrokeData | TextData;
 export type Mark = { id: string; page: number; author: "student" | "tutor"; data: MarkData; deleted?: boolean; rev?: number };
@@ -91,8 +92,9 @@ export function cleanMark(raw: unknown): MarkData | null {
   const d = raw as Record<string, unknown>;
   const c = typeof d.c === "string" && COLOR_RE.test(d.c) ? d.c : null;
   if (!c) return null;
-  if (d.t === "pen" || d.t === "hl") {
+  if (d.t === "pen" || d.t === "hl" || d.t === "line" || d.t === "rect") {
     if (!num(d.w, 0.0005, 0.05) || !Array.isArray(d.p) || d.p.length < 2 || d.p.length > MAX_POINTS || d.p.length % 2) return null;
+    if ((d.t === "line" || d.t === "rect") && d.p.length !== 4) return null;
     if (!d.p.every((n) => num(n, -0.05, 1.05))) return null;
     return { t: d.t, c, w: r4(d.w as number), p: (d.p as number[]).map(r4) };
   }
@@ -125,12 +127,44 @@ export function hitsMark(m: MarkData, x: number, y: number, r: number, aspect: n
     return x >= m.x - r && x <= m.x + w + r && y >= m.y - (m.s / aspect) - r && y <= m.y + r;
   }
   const rr = r + m.w;
+  if (m.t === "line" || m.t === "rect") {
+    const [x1, y1, x2, y2] = m.p;
+    const segs =
+      m.t === "line"
+        ? [[x1, y1, x2, y2]]
+        : [
+            [x1, y1, x2, y1],
+            [x2, y1, x2, y2],
+            [x2, y2, x1, y2],
+            [x1, y2, x1, y1],
+          ];
+    return segs.some(([ax, ay, bx, by]) => segDist(x, y * aspect, ax, ay * aspect, bx, by * aspect) <= rr);
+  }
   for (let i = 0; i < m.p.length; i += 2) {
     const dx = m.p[i] - x;
     const dy = (m.p[i + 1] - y) * aspect;
     if (dx * dx + dy * dy <= rr * rr) return true;
   }
   return false;
+}
+
+/** Distance from point (px, py) to the segment a–b (all in page-width units). */
+function segDist(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = dx * dx + dy * dy;
+  const t = len ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len)) : 0;
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+/** Straight lines snap to flat or upright when they're nearly so (neat bar models and number lines). */
+export function snapLine(x1: number, y1: number, x2: number, y2: number, aspect: number): [number, number] {
+  const dx = x2 - x1;
+  const dy = (y2 - y1) * aspect;
+  const angle = Math.abs((Math.atan2(dy, dx) * 180) / Math.PI);
+  if (angle < 7 || angle > 173) return [x2, y1];
+  if (Math.abs(angle - 90) < 7) return [x1, y2];
+  return [x2, y2];
 }
 
 // Smart slides delete themselves 4 weeks after upload, so old PDFs don't pile up.

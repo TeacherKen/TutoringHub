@@ -63,6 +63,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
   const mode = lessonMode(lesson);
   const place = lessonPlace(lesson);
   const firstStudent = inLesson[0]?.students;
+  const parentOf = students.find((s) => s.id === inLesson[0]?.student_id);
   const progressText =
     inLesson
       .map((ls) => {
@@ -165,6 +166,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
         defaultLength={hoursBetween(lesson.start_at, lesson.end_at)}
         isPast={isPast(lesson.start_at)}
         aiEnabled={aiAvailable()}
+        contact={parentOf ? { app: parentOf.contact_app, value: parentOf.contact } : undefined}
         topicSuggestions={topicSuggestions}
         promptContext={{
           studentNames: inLesson.map((ls) => ls.students?.first_name ?? "").filter(Boolean),

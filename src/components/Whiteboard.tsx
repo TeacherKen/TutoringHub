@@ -15,6 +15,7 @@ import {
   SIZES,
   TOOL_NAMES,
   hitsMark,
+  snapLine,
   pageKind,
   type BoardInfo,
   type BoardPoll,
@@ -85,6 +86,21 @@ function drawMark(ctx: CanvasRenderingContext2D, m: MarkData, W: number, H: numb
   ctx.strokeStyle = m.c;
   ctx.fillStyle = m.c;
   ctx.lineWidth = Math.max(1, m.w * W);
+  if (m.t === "line" || m.t === "rect") {
+    const [x1, y1, x2, y2] = m.p;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    if (m.t === "line") {
+      ctx.moveTo(x1 * W, y1 * H);
+      ctx.lineTo(x2 * W, y2 * H);
+    } else {
+      ctx.rect(Math.min(x1, x2) * W, Math.min(y1, y2) * H, Math.abs(x2 - x1) * W, Math.abs(y2 - y1) * H);
+    }
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
   ctx.lineCap = m.t === "hl" ? "butt" : "round";
   ctx.lineJoin = "round";
   const p = m.p;
@@ -240,7 +256,9 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
   function currentStroke(p: number[]): StrokeData {
     const { tool: t, color: c, hlColor: h } = stateRef.current;
-    return t === "hl" ? { t: "hl", c: h, w: HL_WIDTH, p } : { t: "pen", c, w: SIZES[size], p };
+    if (t === "hl") return { t: "hl", c: h, w: HL_WIDTH, p };
+    if (t === "line" || t === "rect") return { t, c, w: SIZES[size], p: p.slice(0, 4) };
+    return { t: "pen", c, w: SIZES[size], p };
   }
 
   // Keep the canvas the same size as the page picture.
@@ -376,7 +394,12 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       const t0 = Date.now();
       lastLive.current = t0;
       const { page: pg, tool: t, color: c } = stateRef.current;
-      const stroke = drawing.current && (t === "pen" || t === "hl") ? currentStroke(drawing.current.slice(-1200)) : null;
+      const stroke =
+        drawing.current && (t === "line" || t === "rect")
+          ? currentStroke(drawing.current)
+          : drawing.current && (t === "pen" || t === "hl")
+            ? currentStroke(drawing.current.slice(-1200))
+            : null;
       const live = { page: pg, tool: t, color: t === "hl" ? stateRef.current.hlColor : c, stroke, ...extra };
       const sentLive = broadcast("live", { live });
       if (extra.go_to != null) broadcast("go", { page: extra.go_to as number });
@@ -687,7 +710,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       eraseAt(x, y);
       return;
     }
-    drawing.current = [x, y];
+    drawing.current = tool === "line" || tool === "rect" ? [x, y, x, y] : [x, y];
     render();
   }
 
@@ -708,6 +731,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     }
     const pts = drawing.current;
     if (!pts) return;
+    if (tool === "line" || tool === "rect") {
+      // Shapes: the first corner stays, the second follows the finger.
+      const { x, y } = at(e);
+      const [ex, ey] = tool === "line" && board ? snapLine(pts[0], pts[1], x, y, board.aspect) : [x, y];
+      drawing.current = [pts[0], pts[1], ex, ey];
+      render();
+      if (Date.now() - lastLive.current > (rtOk.current ? LIVE_RT_MS : LIVE_MS)) sendLive();
+      return;
+    }
     const events = typeof e.nativeEvent.getCoalescedEvents === "function" ? e.nativeEvent.getCoalescedEvents() : [e.nativeEvent];
     for (const ev of events.length ? events : [e.nativeEvent]) {
       const { x, y } = at(ev);
@@ -727,6 +759,13 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     const pts = drawing.current;
     drawing.current = null;
     if (!pts) return;
+    if (tool === "line" || tool === "rect") {
+      const tiny = Math.abs(pts[2] - pts[0]) < 0.006 && Math.abs(pts[3] - pts[1]) < 0.006;
+      if (!tiny) addMark(currentStroke(pts));
+      else render();
+      sendLive();
+      return;
+    }
     if (pts.length === 2) pts.push(pts[0] + 0.0005, pts[1]);
     addMark(currentStroke(pts));
     sendLive();
@@ -1069,7 +1108,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         </div>
 
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
-          {(["pen", "hl", "text", "eraser", "pointer"] as const).map((t) => (
+          {(["pen", "hl", "line", "rect", "text", "eraser", "pointer"] as const).map((t) => (
             <button key={t} type="button" className={btn(tool === t)} onClick={() => {
                 if (tool === "pointer" && t !== "pointer") broadcast("point", { hide: true });
                 setTool(t);
@@ -1096,7 +1135,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           </div>
         ) : null}
 
-        {tool === "pen" || tool === "text" ? (
+        {tool === "pen" || tool === "text" || tool === "line" || tool === "rect" ? (
           <div className="flex items-center gap-1.5 rounded-2xl border border-line bg-surface p-1.5">
             {COLORS.map((c) => (
               <button
@@ -1109,7 +1148,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
                 style={{ background: c, borderColor: color === c ? "var(--color-accent, #0f766e)" : "transparent", outline: color === c ? "2px solid white" : "none", outlineOffset: -6 }}
               />
             ))}
-            {tool === "pen" ? (
+            {tool === "pen" || tool === "line" || tool === "rect" ? (
               <button type="button" className={btn(false)} onClick={() => setSize(size === "thin" ? "thick" : "thin")} title="Line size">
                 {size === "thin" ? "Thin" : "Thick"}
               </button>

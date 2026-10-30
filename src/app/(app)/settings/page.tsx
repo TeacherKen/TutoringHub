@@ -10,6 +10,8 @@ import { removeCalendar, setCalendarPreply } from "@/app/actions/calendar";
 import { listCalendarSources } from "@/lib/calendar/sync";
 import { removePerson } from "@/app/actions/settings";
 import { BackupPanel } from "@/components/BackupPanel";
+import { PriceListForm } from "@/components/PriceListForm";
+import { cleanPriceOptions } from "@/lib/prices";
 import { listBackups } from "@/lib/backup";
 
 export default async function SettingsPage() {
@@ -136,6 +138,17 @@ export default async function SettingsPage() {
           promptpayId={settings.promptpay_id ?? null}
           trackFrom={settings.track_from}
         />
+      </section>
+
+      <section id="prices" className="card space-y-4">
+        <div>
+          <h2 className="h2">Price list</h2>
+          <p className="text-sm text-muted">The packages you offer. Renewal messages and PromptPay QR codes use these prices.</p>
+        </div>
+        {settings.price_options === undefined ? (
+          <p className="rounded-xl bg-warn-soft p-3 text-sm text-warn">Run database update 0015 to save a price list.</p>
+        ) : null}
+        <PriceListForm initial={cleanPriceOptions(settings.price_options)} />
       </section>
 
       <section id="backup" className="card space-y-4">

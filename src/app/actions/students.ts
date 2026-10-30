@@ -248,3 +248,17 @@ export async function deleteAdjustment(form: FormData): Promise<void> {
   await supabase.from("hour_adjustments").delete().eq("id", String(form.get("id")));
   revalidatePath("/", "layout");
 }
+
+/** From a renewal message: add the chosen package now, marked "not paid yet". */
+export async function addUnpaidPackage(accountId: string, hours: number, price: number, note: string): Promise<{ ok?: boolean; error?: string }> {
+  await assertTutor();
+  if (!/^[0-9a-f-]{36}$/.test(accountId) || !(hours > 0 && hours <= 500) || !(price >= 0)) return { error: "Bad package." };
+  const supabase = await createClient();
+  const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+  const { error } = await supabase
+    .from("packages")
+    .insert({ hour_account_id: accountId, hours, price_thb: price, start_date: today, paid_on: null, paid_by: null, note: note.slice(0, 300) || null });
+  if (error) return { error: "Couldn't add the package." };
+  revalidatePath("/", "layout");
+  return { ok: true };
+}

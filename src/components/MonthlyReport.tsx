@@ -2,9 +2,21 @@
 import { useState } from "react";
 import { writeFeedbackWithAI } from "@/app/actions/lessons";
 import { buildMonthlyPrompt, type MonthlyInput, type ReportMonth } from "@/lib/monthlyReport";
+import { SendButton } from "./SendButton";
+import type { ChatApp } from "@/lib/chat";
 
 /** One tap writes a monthly progress report for the parent from the month's lesson notes. */
-export function MonthlyReport({ months, base, aiEnabled }: { months: ReportMonth[]; base: Omit<MonthlyInput, "month">; aiEnabled: boolean }) {
+export function MonthlyReport({
+  months,
+  base,
+  aiEnabled,
+  contact,
+}: {
+  months: ReportMonth[];
+  base: Omit<MonthlyInput, "month">;
+  aiEnabled: boolean;
+  contact?: { app: ChatApp; value: string | null };
+}) {
   const [key, setKey] = useState(months[0]?.key ?? "");
   const [text, setText] = useState("");
   const [state, setState] = useState<string | null>(null);
@@ -69,6 +81,7 @@ export function MonthlyReport({ months, base, aiEnabled }: { months: ReportMonth
           <button type="button" className="btn-secondary" disabled={!text.trim()} onClick={() => copy(text, "Report copied ✓ — paste it into your chat with the parent.")}>
             {state?.startsWith("Report copied") ? "✓ Copied" : "Copy report"}
           </button>
+          {contact ? <SendButton app={contact.app} contact={contact.value} text={text} /> : null}
           {state && state !== "Writing…" ? <span className="text-sm text-accent">{state}</span> : null}
         </div>
       </div>

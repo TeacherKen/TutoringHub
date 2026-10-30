@@ -5,6 +5,7 @@ import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { tutorName } from "@/lib/env";
 import { ReceiptActions } from "@/components/ReceiptActions";
+import type { ChatApp } from "@/lib/chat";
 
 export const metadata: Metadata = { title: "Receipt", robots: { index: false, follow: false } };
 
@@ -20,7 +21,7 @@ export default async function ReceiptPage({ params }: PageProps<"/receipts/[id]"
   const supabase = await createClient();
   const { data: p } = await supabase.from("packages").select("*").eq("id", id).maybeSingle();
   if (!p) notFound();
-  const { data: students } = await supabase.from("students").select("id, first_name, parent_name").eq("hour_account_id", p.hour_account_id).order("first_name");
+  const { data: students } = await supabase.from("students").select("id, first_name, parent_name, contact_app, contact").eq("hour_account_id", p.hour_account_id).order("first_name");
   const names = (students ?? []).map((s) => s.first_name as string);
   const who = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : (names[0] ?? "");
   const parent = (students ?? []).map((s) => s.parent_name as string | null).find(Boolean) ?? null;
@@ -57,7 +58,10 @@ export default async function ReceiptPage({ params }: PageProps<"/receipts/[id]"
         <Link href={back} className="text-sm text-accent">
           ‹ Back
         </Link>
-        <ReceiptActions text={lines.join("\n")} />
+        <ReceiptActions
+          text={lines.join("\n")}
+          contact={students?.[0] ? { app: students[0].contact_app as ChatApp, value: (students[0].contact as string | null) ?? null } : undefined}
+        />
       </div>
 
       <article className="space-y-6 rounded-2xl border border-line bg-white p-8 text-black print:rounded-none print:border-0">

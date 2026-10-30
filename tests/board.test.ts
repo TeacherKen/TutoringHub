@@ -59,3 +59,20 @@ describe("smart slides delete after 4 weeks", () => {
     expect(boardExpired(added, Date.parse("2026-10-29T03:00:00Z"))).toBe(true);
   });
 });
+
+import { snapLine } from "@/lib/boardShared";
+describe("bar-model tools", () => {
+  it("accepts lines and boxes with two corners only", () => {
+    expect(cleanMark({ t: "rect", c: "#1f2937", w: 0.003, p: [0.1, 0.1, 0.5, 0.2] })).toMatchObject({ t: "rect" });
+    expect(cleanMark({ t: "line", c: "#1f2937", w: 0.003, p: [0.1, 0.1, 0.5, 0.2, 0.6, 0.3] })).toBeNull();
+  });
+  it("the eraser finds the edge of a box but not its empty middle", () => {
+    const box = { t: "rect" as const, c: "#000000", w: 0.003, p: [0.1, 0.1, 0.5, 0.5] };
+    expect(hitsMark(box, 0.3, 0.1, 0.01, 0.5625)).toBe(true);
+    expect(hitsMark(box, 0.3, 0.3, 0.01, 0.5625)).toBe(false);
+  });
+  it("snaps nearly-flat lines flat", () => {
+    expect(snapLine(0.1, 0.5, 0.6, 0.51, 0.5625)).toEqual([0.6, 0.5]);
+    expect(snapLine(0.1, 0.1, 0.4, 0.6, 0.5625)).toEqual([0.4, 0.6]);
+  });
+});

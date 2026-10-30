@@ -60,3 +60,15 @@ export async function saveFeedbackSettings(_: SettingsState, form: FormData): Pr
   revalidatePath("/", "layout");
   return { ok: "Saved." };
 }
+
+/** Save the price list used in renewal messages. */
+export async function savePriceOptions(options: unknown): Promise<{ ok?: string; error?: string }> {
+  await assertTutor();
+  const { cleanPriceOptions } = await import("@/lib/prices");
+  const clean = cleanPriceOptions(options);
+  const supabase = await createClient();
+  const { error } = await supabase.from("settings").update({ price_options: clean }).eq("id", 1);
+  if (error) return { error: "Couldn't save. Has database update 0015 been run?" };
+  revalidatePath("/", "layout");
+  return { ok: "Price list saved ✓" };
+}
