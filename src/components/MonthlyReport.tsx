@@ -67,7 +67,7 @@ export function MonthlyReport({ months, base, aiEnabled }: { months: ReportMonth
         <textarea className="input min-h-56" value={text} onChange={(e) => setText(e.target.value)} placeholder="The report appears here. You can edit it before sending." />
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" className="btn-secondary" disabled={!text.trim()} onClick={() => copy(text, "Report copied ✓ — paste it into your chat with the parent.")}>
-            Copy report
+            {state?.startsWith("Report copied") ? "✓ Copied" : "Copy report"}
           </button>
           {state && state !== "Writing…" ? <span className="text-sm text-accent">{state}</span> : null}
         </div>

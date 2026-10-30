@@ -23,6 +23,11 @@ export function RoomControls({ students, showGames = true, lessonId }: { student
   const [open, setOpen] = useState(students.some((s) => s.games_open));
   const [msg, setMsg] = useState<string | null>(null);
   const [watching, setWatching] = useState<string | null>(null);
+  const [done, setDone] = useState<{ id: string; what: "copy" | "send" } | null>(null);
+  const tick = (id: string, what: "copy" | "send") => {
+    setDone({ id, what });
+    setTimeout(() => setDone((d) => (d?.id === id && d.what === what ? null : d)), 2500);
+  };
   const [pending, start] = useTransition();
 
   const linkFor = (token: string) => `${window.location.origin}/room/${token}`;
@@ -55,12 +60,17 @@ export function RoomControls({ students, showGames = true, lessonId }: { student
         /* cancelled — fall back to copy */
       }
     }
-    flash((await copyText(url)) ? `${s.first_name}'s link copied — paste it into your chat.` : url);
+    const ok = await copyText(url);
+    if (ok) tick(s.id, "send");
+    flash(ok ? `${s.first_name}'s link copied — paste it into your chat.` : url);
   }
 
   async function copy(s: S) {
     const token = await getToken(s);
-    if (token) flash((await copyText(linkFor(token))) ? `${s.first_name}'s link copied.` : linkFor(token));
+    if (!token) return;
+    const ok = await copyText(linkFor(token));
+    if (ok) tick(s.id, "copy");
+    flash(ok ? `${s.first_name}'s link copied.` : linkFor(token));
   }
 
   async function preview(s: S) {
@@ -125,10 +135,14 @@ export function RoomControls({ students, showGames = true, lessonId }: { student
                 </button>
               ) : null}
               <button type="button" className="btn-primary min-h-10 px-3 text-sm" onClick={() => share(s)}>
-                Send link
+                {done?.id === s.id && done.what === "send" ? "✓ Link copied" : "Send link"}
               </button>
-              <button type="button" className="btn-secondary min-h-10 px-3 text-sm" onClick={() => copy(s)}>
-                Copy
+              <button
+                type="button"
+                className={`${done?.id === s.id && done.what === "copy" ? "btn-primary" : "btn-secondary"} min-h-10 px-3 text-sm`}
+                onClick={() => copy(s)}
+              >
+                {done?.id === s.id && done.what === "copy" ? "✓ Copied" : "Copy"}
               </button>
               <button type="button" className="btn-secondary min-h-10 px-3 text-sm" onClick={() => preview(s)}>
                 Preview

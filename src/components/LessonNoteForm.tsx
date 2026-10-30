@@ -347,7 +347,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
             </ol>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button type="button" className="btn-primary flex-1" onClick={preparePrompt} disabled={notesEmpty}>
-                Copy prompt for ChatGPT
+                {flash?.startsWith("Prompt copied") ? "✓ Prompt copied" : "Copy prompt for ChatGPT"}
               </button>
               <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" className="btn-secondary flex-1">
                 Open ChatGPT ↗
@@ -380,7 +380,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
           </button>
           <button
             type="button"
-            className="btn-secondary flex-1"
+            className={`${flash?.startsWith("Message copied") ? "btn-primary" : "btn-secondary"} flex-1`}
             disabled={!finalMsg.trim()}
             onClick={async () => {
               const ok = await copy(finalMsg);
@@ -388,7 +388,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
               setTimeout(() => setFlash(null), 4000);
             }}
           >
-            Copy final message
+            {flash?.startsWith("Message copied") ? "✓ Copied" : "Copy final message"}
           </button>
         </div>
         <label className="flex min-h-12 items-center gap-3 rounded-xl bg-surface-2 px-3">

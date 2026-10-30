@@ -10,8 +10,14 @@ export const COLOR_NAMES: Record<string, string> = {
   "#ea580c": "orange",
   "#9333ea": "purple",
   "#facc15": "yellow",
+  "#4ade80": "green",
+  "#f472b6": "pink",
+  "#60a5fa": "blue",
+  "#fb923c": "orange",
 };
 export const HIGHLIGHT = "#facc15";
+/** Highlighter colours (see-through when drawn). */
+export const HL_COLORS = ["#facc15", "#4ade80", "#f472b6", "#60a5fa", "#fb923c"] as const;
 export const SIZES = { thin: 0.003, thick: 0.007 } as const;
 
 export type Tool = "pen" | "hl" | "text" | "eraser" | "pointer";
@@ -30,6 +36,9 @@ export type Live = {
   go_to?: number | null;
   go_at?: string | null;
   updated_at?: string;
+  /** Tutor only: countdown end time and length. */
+  timer_end?: string | null;
+  timer_secs?: number | null;
 };
 
 export type BoardInfo = { id: string; title: string; pages: number; aspect: number; layout: number[]; urls?: string[] };
@@ -66,7 +75,7 @@ export function removePage(layout: number[], id: number): number[] | null {
   if (pageKind(id) === "slide" || !layout.includes(id)) return null;
   return layout.filter((x) => x !== id);
 }
-export type BoardPoll = { board: BoardInfo | null; marks: Mark[]; rev: number; other: Live | null };
+export type BoardPoll = { board: BoardInfo | null; marks: Mark[]; rev: number; other: Live | null; now?: string };
 
 export const MAX_POINTS = 4000; // numbers (x,y pairs × 2) in one line
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

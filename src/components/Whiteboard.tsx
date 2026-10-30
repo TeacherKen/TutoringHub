@@ -11,6 +11,7 @@ import {
   COLORS,
   COLOR_NAMES,
   HIGHLIGHT,
+  HL_COLORS,
   SIZES,
   TOOL_NAMES,
   hitsMark,
@@ -106,6 +107,29 @@ function drawMark(ctx: CanvasRenderingContext2D, m: MarkData, W: number, H: numb
   ctx.restore();
 }
 
+/** A short, gentle "time's up" sound. */
+function beep() {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    for (const [i, f] of [880, 660, 880].entries()) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.25);
+      g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + i * 0.25 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.25 + 0.22);
+      o.connect(g).connect(ctx.destination);
+      o.start(ctx.currentTime + i * 0.25);
+      o.stop(ctx.currentTime + i * 0.25 + 0.24);
+    }
+    setTimeout(() => void ctx.close(), 1200);
+  } catch {
+    /* no sound — the screen still shows "Time's up!" */
+  }
+}
+
 async function post(api: string, body: unknown) {
   try {
     await fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -154,6 +178,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const [page, setPage] = useState(0);
   const [tool, setTool] = useState<Tool>("pen");
   const [color, setColor] = useState<string>(isTutor ? "#dc2626" : "#2563eb");
+  const [hlColor, setHlColor] = useState<string>(HIGHLIGHT);
+  const [brought, setBrought] = useState<number | null>(null);
+  const [timer, setTimer] = useState<{ endsAt: number; total: number } | null>(null);
+  const [timerMenu, setTimerMenu] = useState(false);
+  const [clock, setClock] = useState(0);
+  const timerSetAt = useRef(0);
+  const beepedFor = useRef(0);
+  const redoStack = useRef<{ page: number; data: MarkData }[]>([]);
+  const keys = useRef<{ undo: () => void; redo: () => void }>({ undo: () => {}, redo: () => {} });
   const [size, setSize] = useState<keyof typeof SIZES>("thin");
   const [other, setOther] = useState<Live | null>(null);
   const [follow, setFollow] = useState(true);
@@ -182,10 +215,10 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const channel = useRef<RealtimeChannel | null>(null);
   const rtOk = useRef(false);
   const lastRt = useRef(0);
-  const stateRef = useRef({ page, tool, color, follow });
+  const stateRef = useRef({ page, tool, color, follow, hlColor });
   useLayoutEffect(() => {
-    stateRef.current = { page, tool, color, follow };
-  }, [page, tool, color, follow]);
+    stateRef.current = { page, tool, color, follow, hlColor };
+  }, [page, tool, color, follow, hlColor]);
 
   const bump = () => setVersion((v) => v + 1);
 
@@ -206,8 +239,8 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   }, [other]);
 
   function currentStroke(p: number[]): StrokeData {
-    const { tool: t, color: c } = stateRef.current;
-    return t === "hl" ? { t: "hl", c: HIGHLIGHT, w: HL_WIDTH, p } : { t: "pen", c, w: SIZES[size], p };
+    const { tool: t, color: c, hlColor: h } = stateRef.current;
+    return t === "hl" ? { t: "hl", c: h, w: HL_WIDTH, p } : { t: "pen", c, w: SIZES[size], p };
   }
 
   // Keep the canvas the same size as the page picture.
@@ -313,6 +346,13 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         const layout = (payload.layout as unknown[]).filter((n): n is number => Number.isInteger(n));
         if (layout.length) applyLayout(layout);
       })
+      .on("broadcast", { event: "timer" }, ({ payload }) => {
+        if (payload?.who !== "tutor" || isTutor) return;
+        timerSetAt.current = Date.now();
+        const left = Number(payload.secsLeft);
+        if (payload.stop || !(left > 0)) setTimer(null);
+        else setTimer({ endsAt: Date.now() + left * 1000, total: Number(payload.total) || left });
+      })
       .on("broadcast", { event: "go" }, ({ payload }) => {
         if (isTutor || payload?.who !== "tutor" || !Number.isInteger(payload.page)) return;
         setPage(payload.page as number);
@@ -337,7 +377,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       lastLive.current = t0;
       const { page: pg, tool: t, color: c } = stateRef.current;
       const stroke = drawing.current && (t === "pen" || t === "hl") ? currentStroke(drawing.current.slice(-1200)) : null;
-      const live = { page: pg, tool: t, color: t === "hl" ? HIGHLIGHT : c, stroke, ...extra };
+      const live = { page: pg, tool: t, color: t === "hl" ? stateRef.current.hlColor : c, stroke, ...extra };
       const sentLive = broadcast("live", { live });
       if (extra.go_to != null) broadcast("go", { page: extra.go_to as number });
       // Save it too (so a screen that joins later knows) — but not every bit of a line when live works.
@@ -352,7 +392,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
   useEffect(() => {
     sendLive();
-  }, [page, tool, color, sendLive]);
+  }, [page, tool, color, hlColor, sendLive]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -455,6 +495,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         const liveFresh = rtOk.current && Date.now() - lastRt.current < 5000;
         if (data.other && !liveFresh) applyOther(data.other, false);
         else if (!data.other) setOther(null);
+        if (!isTutor && Date.now() - timerSetAt.current > 4000) {
+          // Mr Ken's countdown (the live connection usually got here first).
+          const end = data.other?.timer_end ? Date.parse(data.other.timer_end) : NaN;
+          const serverNow = data.now ? Date.parse(data.now) : Date.now();
+          if (Number.isFinite(end) && end - serverNow > -5000) {
+            const endsAt = Date.now() + (end - serverNow);
+            setTimer((t) => (t && Math.abs(t.endsAt - endsAt) < 1500 ? t : { endsAt, total: Number(data.other?.timer_secs) || 60 }));
+          } else setTimer((t) => (t && t.endsAt > Date.now() - 8000 && data.other?.timer_end === undefined ? t : null));
+        }
         if (data.other && !isTutor) {
           // Mr Ken pressed "Bring here" (the live connection usually got there first).
           if (lastGoAt.current === undefined) lastGoAt.current = data.other.go_at ?? null;
@@ -482,6 +531,47 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       clearInterval(refreshUrls);
     };
   }, [api, isTutor, me, applyOther, applyLayout]);
+
+  // ---- Keyboard: Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl+Y redo ----------------------
+  useLayoutEffect(() => {
+    keys.current = { undo, redo };
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        e.preventDefault();
+        keys.current.undo();
+      } else if ((k === "z" && e.shiftKey) || k === "y") {
+        e.preventDefault();
+        keys.current.redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // ---- Countdown clock -------------------------------------------------------------------
+  const timerOn = timer != null;
+  useEffect(() => {
+    if (!timerOn) return;
+    const id = setInterval(() => {
+      const t = Date.now();
+      setClock(t);
+      setTimer((cur) => {
+        if (!cur) return cur;
+        if (t >= cur.endsAt && Math.abs(beepedFor.current - cur.endsAt) > 3000) {
+          beepedFor.current = cur.endsAt; // once per countdown
+          beep();
+        }
+        return t > cur.endsAt + 6000 ? null : cur; // "Time's up!" shows for 6 seconds
+      });
+    }, 250);
+    return () => clearInterval(id);
+  }, [timerOn]);
 
   // ---- Full screen ---------------------------------------------------------------
   // The page grows to fill the screen; the browser's own full screen hides the tabs too.
@@ -643,6 +733,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   }
 
   function addMark(data: MarkData) {
+    redoStack.current = []; // something new: nothing to redo
     const id = crypto.randomUUID();
     const m: Mark = { id, page, author: me, data };
     marks.current.set(id, m);
@@ -662,15 +753,41 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   function undo() {
     while (mine.current.length) {
       const id = mine.current.pop()!;
-      if (marks.current.has(id)) {
+      const m = marks.current.get(id);
+      if (m) {
         marks.current.delete(id);
         removed.current.add(id);
+        redoStack.current.push({ page: m.page, data: m.data });
         bump();
         broadcast("del", { ids: [id] });
         save({ op: "del", ids: [id] });
         return;
       }
     }
+  }
+
+  function redo() {
+    const m = redoStack.current.pop();
+    if (!m) return;
+    const id = crypto.randomUUID();
+    const mark: Mark = { id, page: m.page, author: me, data: m.data };
+    marks.current.set(id, mark);
+    mine.current.push(id);
+    bump();
+    broadcast("mark", { mark });
+    save({ op: "add", mark: { id, page: m.page, data: m.data } });
+  }
+
+  /** Tutor: start a countdown (seconds) on both screens, or stop it (0). */
+  function startTimer(secs: number) {
+    setTimerMenu(false);
+    timerSetAt.current = Date.now();
+    setTimer(secs ? { endsAt: Date.now() + secs * 1000, total: secs } : null);
+    broadcast("timer", secs ? { secsLeft: secs, total: secs } : { stop: true });
+    void fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "timer", secs }) })
+      .then((r) => (r.ok ? null : r.json()))
+      .then((r: { error?: string } | null) => r?.error && setSaving(r.error))
+      .catch(() => {});
   }
 
   function clearPage() {
@@ -771,6 +888,8 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const otherPos = other ? board.layout.indexOf(other.page) + 1 : 0;
   const ago = other?.updated_at && now ? Math.round((now - new Date(other.updated_at).getTime()) / 1000) : null;
   const here = ago != null && ago < 25;
+  const secsLeft = timer && clock ? Math.max(0, Math.ceil((timer.endsAt - clock) / 1000)) : timer ? timer.total : 0;
+  const mmss = `${Math.floor(secsLeft / 60)}:${String(secsLeft % 60).padStart(2, "0")}`;
   const myMarksOnPage = [...marks.current.values()].some((m) => m.page === page && (isTutor || m.author === "student"));
   const btn = (active: boolean) =>
     `flex ${full ? "h-11 min-w-11" : "h-12 min-w-12"} items-center justify-center rounded-xl border px-3 text-base font-medium ${active ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`;
@@ -807,11 +926,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
             </label>
             <button
               type="button"
-              className="btn-secondary min-h-9 px-3 text-sm"
-              onClick={() => sendLive({ go_to: page })}
+              className={`${brought === page ? "btn-primary" : "btn-secondary"} min-h-9 px-3 text-sm`}
+              onClick={() => {
+                sendLive({ go_to: page });
+                setBrought(page);
+                setTimeout(() => setBrought((b) => (b === page ? null : b)), 2500);
+              }}
               title={`Move ${otherName}'s screen to this page`}
             >
-              Bring {otherName} to page {pos + 1}
+              {brought === page ? `✓ Sent — ${otherName} is going to page ${pos + 1}` : `Bring ${otherName} to page ${pos + 1}`}
             </button>
             {saveLessonId ? (
               <button type="button" className="btn-primary min-h-9 px-3 text-sm" onClick={saveWork} disabled={saving?.startsWith("Saving")}>
@@ -863,6 +986,17 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
               <span className={`absolute left-6 top-0 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium text-white ${isTutor ? "bg-blue-600" : "bg-red-600"}`}>
                 {otherName}
               </span>
+            </div>
+          ) : null}
+          {timer ? (
+            <div
+              role="timer"
+              aria-live="polite"
+              className={`pointer-events-none absolute right-3 top-3 z-20 rounded-2xl px-4 py-2 text-2xl font-bold tabular-nums shadow-lg sm:text-4xl ${
+                secsLeft === 0 ? "animate-pulse bg-red-600 text-white" : secsLeft <= 10 ? "bg-red-600 text-white" : "bg-white/95 text-gray-900 ring-2 ring-gray-200"
+              }`}
+            >
+              {secsLeft === 0 ? "⏰ Time's up!" : `⏱ ${mmss}`}
             </div>
           ) : null}
           {textAt ? (
@@ -946,6 +1080,22 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           ))}
         </div>
 
+        {tool === "hl" ? (
+          <div className="flex items-center gap-1.5 rounded-2xl border border-line bg-surface p-1.5">
+            {HL_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setHlColor(c)}
+                aria-label={`${COLOR_NAMES[c]} highlighter`}
+                aria-pressed={hlColor === c}
+                className="h-10 w-10 rounded-full border-4"
+                style={{ background: c, borderColor: hlColor === c ? "var(--color-accent, #0f766e)" : "transparent", outline: hlColor === c ? "2px solid white" : "none", outlineOffset: -6 }}
+              />
+            ))}
+          </div>
+        ) : null}
+
         {tool === "pen" || tool === "text" ? (
           <div className="flex items-center gap-1.5 rounded-2xl border border-line bg-surface p-1.5">
             {COLORS.map((c) => (
@@ -968,8 +1118,11 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         ) : null}
 
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
-          <button type="button" className={btn(false)} onClick={undo} title="Undo">
+          <button type="button" className={btn(false)} onClick={undo} title="Undo (Ctrl/⌘ + Z)">
             ↶ Undo
+          </button>
+          <button type="button" className={btn(false)} onClick={redo} title="Redo (Ctrl/⌘ + Shift + Z)" aria-label="Redo">
+            ↷
           </button>
           {confirmClear ? (
             <>
@@ -986,6 +1139,29 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
             </button>
           ) : null}
         </div>
+
+        {isTutor ? (
+          <div className="relative">
+            {timer ? (
+              <button type="button" className="btn-danger h-11 px-3" onClick={() => startTimer(0)}>
+                ⏹ Stop timer
+              </button>
+            ) : (
+              <button type="button" className={btn(timerMenu)} onClick={() => setTimerMenu(!timerMenu)} aria-expanded={timerMenu} title={`Countdown on ${otherName}'s screen`}>
+                ⏱ Timer
+              </button>
+            )}
+            {timerMenu ? (
+              <div className="absolute bottom-full left-1/2 z-30 mb-2 grid w-48 -translate-x-1/2 grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1 shadow-lg">
+                {[30, 60, 120, 180, 300, 600].map((s) => (
+                  <button key={s} type="button" className="min-h-11 rounded-lg px-3 hover:bg-surface-2" onClick={() => startTimer(s)}>
+                    {s < 60 ? `${s} sec` : `${s / 60} min`}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {full ? (
           <button type="button" className="btn-primary h-11 px-4" onClick={exitFull}>

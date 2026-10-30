@@ -38,7 +38,7 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
       .gt("rev", after)
       .order("rev")
       .limit(2000),
-    admin.from("board_live").select("page, tool, color, stroke, go_to, go_at, updated_at").eq("board_id", b.id).eq("who", other).maybeSingle<Live>(),
+    admin.from("board_live").select("*").eq("board_id", b.id).eq("who", other).maybeSingle<Live>(),
     withUrls
       ? admin.storage
           .from(MATERIALS_BUCKET)
@@ -56,6 +56,7 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
     marks: marks.map((m) => ({ ...m, rev: Number(m.rev) })),
     rev: marks.length ? Number(marks[marks.length - 1].rev) : after,
     other: liveRes.data ?? null,
+    now: new Date().toISOString(),
   };
 }
 
@@ -114,6 +115,23 @@ export async function changeBoard(b: BoardRow, me: Who, body: unknown): Promise<
     }
     const { error } = await admin.from("board_live").upsert(row, { onConflict: "board_id,who" });
     return { ok: !error };
+  }
+
+  if (req.op === "timer") {
+    // Mr Ken starts (seconds) or stops (0) a countdown that shows on both screens.
+    const secs = Number((body as { secs?: unknown }).secs);
+    if (me !== "tutor" || !Number.isInteger(secs) || secs < 0 || secs > 3600) return { ok: false };
+    const { error } = await admin.from("board_live").upsert(
+      {
+        board_id: b.id,
+        who: "tutor",
+        timer_end: secs ? new Date(Date.now() + secs * 1000).toISOString() : null,
+        timer_secs: secs || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "board_id,who" },
+    );
+    return error ? { ok: false, error: "Run database update 0014 first." } : { ok: true };
   }
 
   if (req.op === "addPage") {
