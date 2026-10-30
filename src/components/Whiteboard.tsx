@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { addMaterialFile } from "@/app/actions/lessons";
 import { MATERIALS_BUCKET } from "@/lib/constants";
+import { SaveQueue, type QueuedOp, type SendResult } from "@/lib/saveQueue";
 import {
   cleanMark,
   COLORS,
@@ -140,6 +141,12 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [pointer, setPointer] = useState<{ x: number; y: number; page: number } | null>(null);
+  const [unsaved, setUnsaved] = useState({ pending: 0, failing: false });
+  const [pencilOnly, setPencilOnly] = useState(false);
+  const queue = useRef<SaveQueue | null>(null);
+  const pencilRef = useRef(false);
+  const activePointer = useRef<number | null>(null);
+  const touches = useRef(new Set<number>());
   const pointerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPoint = useRef(0);
   const [board, setBoard] = useState<BoardInfo | null>(null);
@@ -354,6 +361,34 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     return () => clearInterval(id);
   }, [sendLive]);
 
+  // ---- Saving (with automatic retry) -----------------------------------------------
+  useEffect(() => {
+    const send = async (body: QueuedOp): Promise<SendResult> => {
+      try {
+        const r = await fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (r.ok) return "ok";
+        return r.status >= 500 || r.status === 429 || r.status === 403 || r.status === 408 ? "retry" : "drop";
+      } catch {
+        return "retry"; // no internet right now
+      }
+    };
+    const q = new SaveQueue(`tutoringhub-unsaved:${api}`, send, (pending, failing) => setUnsaved({ pending, failing }));
+    queue.current = q;
+    const online = () => void q.flush();
+    window.addEventListener("online", online);
+    return () => {
+      window.removeEventListener("online", online);
+      q.stop();
+      queue.current = null;
+    };
+  }, [api]);
+
+  function save(body: QueuedOp) {
+    const id = boardIdRef.current;
+    if (queue.current && id) queue.current.push(body, id);
+    else void post(api, body);
+  }
+
   // ---- Fetching changes ------------------------------------------------------
   useEffect(() => {
     let alive = true;
@@ -381,6 +416,19 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           mine.current = [];
           rev.current = 0;
           setPage(0);
+          // Writing that wasn't saved before a reload: show it again and keep sending it.
+          const q = queue.current;
+          if (q) {
+            q.keepOnly(data.board.id);
+            for (const op of q.restored(data.board.id)) {
+              if (op.op === "add") {
+                const m = op.mark as { id: string; page: number; data: MarkData };
+                marks.current.set(m.id, { id: m.id, page: m.page, author: me, data: m.data });
+                mine.current.push(m.id);
+              } else for (const id of op.ids) removed.current.add(id);
+            }
+            void q.flush();
+          }
           if (!data.board.urls) {
             needUrls = true;
             return void load();
@@ -433,7 +481,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       clearTimeout(timer);
       clearInterval(refreshUrls);
     };
-  }, [api, isTutor, applyOther, applyLayout]);
+  }, [api, isTutor, me, applyOther, applyLayout]);
 
   // ---- Full screen ---------------------------------------------------------------
   // The page grows to fill the screen; the browser's own full screen hides the tabs too.
@@ -492,7 +540,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     }
     bump();
     broadcast("del", { ids: hit });
-    void post(api, { op: "del", ids: hit });
+    save({ op: "del", ids: hit });
   }
 
   /** Show my pointer on the other screen (only over the live connection). */
@@ -503,11 +551,38 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     broadcast("point", { x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000, page });
   }
 
+  function capture(e: React.PointerEvent<HTMLCanvasElement>) {
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* some browsers refuse; drawing still works */
+    }
+  }
+
   function onDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!board || e.button > 0) return;
+    // Pencil mode: once an Apple Pencil / stylus is used, a hand resting on the screen doesn't draw.
+    if (e.pointerType === "pen" && !pencilRef.current) {
+      pencilRef.current = true;
+      setPencilOnly(true);
+    }
+    if (e.pointerType === "touch") {
+      if (pencilRef.current) return;
+      touches.current.add(e.pointerId);
+      if (touches.current.size > 1) {
+        // Two fingers at once (e.g. a pinch): don't draw a stray line.
+        drawing.current = null;
+        erasing.current = false;
+        activePointer.current = null;
+        render();
+        return;
+      }
+    }
+    if (activePointer.current !== null && activePointer.current !== e.pointerId) return;
+    activePointer.current = e.pointerId;
     const { x, y } = at(e);
     if (tool === "pointer") {
-      e.currentTarget.setPointerCapture(e.pointerId);
+      capture(e);
       point(x, y, true);
       return;
     }
@@ -516,7 +591,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       setTextValue("");
       return;
     }
-    e.currentTarget.setPointerCapture(e.pointerId);
+    capture(e);
     if (tool === "eraser") {
       erasing.current = true;
       eraseAt(x, y);
@@ -527,6 +602,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   }
 
   function onMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (activePointer.current !== null && activePointer.current !== e.pointerId) return;
     if (tool === "pointer") {
       // A mouse points just by moving; a finger or pen points while touching.
       if (e.pointerType === "mouse" || e.buttons) {
@@ -553,7 +629,10 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     if (Date.now() - lastLive.current > (rtOk.current ? LIVE_RT_MS : LIVE_MS)) sendLive();
   }
 
-  function onUp() {
+  function onUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    touches.current.delete(e.pointerId);
+    if (activePointer.current !== null && activePointer.current !== e.pointerId) return;
+    activePointer.current = null;
     erasing.current = false;
     const pts = drawing.current;
     drawing.current = null;
@@ -570,7 +649,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     mine.current.push(id);
     bump();
     broadcast("mark", { mark: m });
-    void post(api, { op: "add", mark: { id, page, data } });
+    save({ op: "add", mark: { id, page, data } });
   }
 
   function addText() {
@@ -588,23 +667,26 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         removed.current.add(id);
         bump();
         broadcast("del", { ids: [id] });
-        void post(api, { op: "del", ids: [id] });
+        save({ op: "del", ids: [id] });
         return;
       }
     }
   }
 
   function clearPage() {
+    const ids: string[] = [];
     for (const [id, m] of marks.current) {
       if (m.page === page && (isTutor || m.author === "student")) {
         marks.current.delete(id);
         removed.current.add(id);
+        ids.push(id);
       }
     }
     bump();
     setConfirmClear(false);
     broadcast("clear", { page });
-    void post(api, { op: "clear", page });
+    // Rub out exactly these lines (not anything drawn later), in batches the server accepts.
+    for (let i = 0; i < ids.length; i += 200) save({ op: "del", ids: ids.slice(i, i + 200) });
   }
 
   /** Go to the page at this position (pages can be added, so position ≠ page number). */
@@ -915,6 +997,22 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           </button>
         )}
       </div>
+      {unsaved.failing && unsaved.pending ? (
+        <p role="status" className="mx-auto w-fit rounded-xl bg-warn-soft px-3 py-1.5 text-center text-sm text-warn">
+          ⚠ Not saved yet ({unsaved.pending}) — no internet? It will save by itself when the connection is back.
+        </p>
+      ) : null}
+      {pencilOnly ? (
+        <p className="text-center text-xs text-muted">
+          ✏️ Pencil mode: fingers won&apos;t draw.{" "}
+          <button type="button" className="underline" onClick={() => {
+              pencilRef.current = false;
+              setPencilOnly(false);
+            }}>
+            Let fingers draw again
+          </button>
+        </p>
+      ) : null}
       {saving && isTutor ? <p className="text-center text-sm text-accent">{saving}</p> : null}
       {!isTutor && !full ? <p className="text-center text-xs text-muted">Mr Ken can see your writing.</p> : null}
     </div>
