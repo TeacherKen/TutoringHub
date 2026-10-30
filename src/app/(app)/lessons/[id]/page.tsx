@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getLesson, getProgress, getSettings, getStudents, lessonMode, lessonNames, lessonPlace } from "@/lib/data";
+import { getLesson, getMoneyData, getProgress, getSettings, getStudents, lessonMode, lessonNames, lessonPlace } from "@/lib/data";
 import { MATERIALS_BUCKET, tutorName } from "@/lib/env";
 import { bkkDateKey, fmtLongDay, fmtTime, hoursBetween, isPast } from "@/lib/time";
 import { LessonNoteForm } from "@/components/LessonNoteForm";
@@ -10,6 +10,7 @@ import { Materials, type MaterialView } from "@/components/Materials";
 import { RoomControls } from "@/components/RoomControls";
 import { aiAvailable } from "@/lib/ai";
 import { progressLine } from "@/lib/progress";
+import { thb } from "@/lib/earnings";
 import { roomStudent } from "@/lib/roomStudent";
 import { addLessonStudent, removeLessonStudent, setUsesHours } from "@/app/actions/lessons";
 import { setIgnored } from "@/app/actions/calendar";
@@ -22,7 +23,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
 
   const supabase = await createClient();
   const studentIds = lesson.lesson_students.map((ls) => ls.student_id);
-  const [students, settings, { data: mats }, { data: recentTopics }, prev, progress] = await Promise.all([
+  const [students, settings, { data: mats }, { data: recentTopics }, prev, progress, money] = await Promise.all([
     getStudents({ activeOnly: true }),
     getSettings(),
     supabase.from("lesson_materials").select("*").eq("lesson_id", id).order("created_at"),
@@ -36,7 +37,9 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
           .not("lessons.next_time", "is", null)
       : Promise.resolve({ data: [] }),
     getProgress(studentIds),
+    getMoneyData(),
   ]);
+  const earned = money.lessons.find((l) => l.id === lesson.id);
 
   const materials: MaterialView[] = await Promise.all(
     (mats ?? []).map(async (m) => {
@@ -83,6 +86,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
           {mode ? <span className="chip">{mode === "onsite" ? "Onsite" : "Online"}</span> : null}
           {place ? <span className="chip">{place}</span> : null}
           {lesson.is_preply ? <span className="chip-accent">Preply</span> : null}
+          {earned?.value != null ? <span className="chip-ok">This class: {thb(earned.value)}</span> : null}
           {lesson.title && lesson.title !== lessonNames(lesson) ? <span className="chip">“{lesson.title}”</span> : null}
         </div>
       </header>

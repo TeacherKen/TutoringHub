@@ -50,6 +50,9 @@ export async function saveFeedbackSettings(_: SettingsState, form: FormData): Pr
     })
     .eq("id", 1);
   if (error) return { error: "Couldn't save." };
+  // Separate, so saving still works before database update 0011.
+  const weeks = Number(form.get("renew_weeks"));
+  if (Number.isFinite(weeks) && weeks >= 0 && weeks <= 12) await supabase.from("settings").update({ renew_weeks: weeks }).eq("id", 1);
   revalidatePath("/", "layout");
   return { ok: "Saved." };
 }

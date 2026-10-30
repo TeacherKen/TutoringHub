@@ -37,6 +37,16 @@ function studentFields(form: FormData) {
 
 export type FormState = { error?: string; ok?: string } | null;
 
+/** Price per hour is saved on its own, so saving still works before database update 0011. */
+async function saveRate(supabase: Awaited<ReturnType<typeof createClient>>, id: string, form: FormData) {
+  if (!form.has("hourly_rate_thb")) return;
+  const raw = String(form.get("hourly_rate_thb") ?? "").trim();
+  const n = Number(raw);
+  const rate = raw === "" ? null : Number.isFinite(n) && n >= 0 && n <= 100000 ? Math.round(n * 100) / 100 : undefined;
+  if (rate === undefined) return;
+  await supabase.from("students").update({ hourly_rate_thb: rate }).eq("id", id);
+}
+
 export async function createStudent(_: FormState, form: FormData): Promise<FormState> {
   await assertTutor();
   const fields = studentFields(form);
@@ -59,6 +69,7 @@ export async function createStudent(_: FormState, form: FormData): Promise<FormS
       ? { error: `You already have a student called ${fields.first_name}. Use a different nickname.` }
       : { error: "Couldn't save. Please try again." };
   }
+  await saveRate(supabase, data.id, form);
   await syncCalendar();
   revalidatePath("/", "layout");
   redirect(`/students/${data.id}`);
@@ -76,6 +87,7 @@ export async function updateStudent(_: FormState, form: FormData): Promise<FormS
       ? { error: `You already have a student called ${fields.first_name}.` }
       : { error: "Couldn't save. Please try again." };
   }
+  await saveRate(supabase, id, form);
   await syncCalendar();
   revalidatePath("/", "layout");
   return { ok: "Saved." };

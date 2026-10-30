@@ -87,6 +87,7 @@ export function FeedbackSettingsForm(props: {
   allowEmoji: boolean;
   template: string | null;
   lowHours: number;
+  renewWeeks?: number;
   trackFrom: string | null;
 }) {
   const [state, action, pending] = useActionState<SettingsState, FormData>(saveFeedbackSettings, null);
@@ -107,6 +108,10 @@ export function FeedbackSettingsForm(props: {
         <label>
           <span className="label">Warn when hours left are at or below</span>
           <input name="low_hours_threshold" type="number" step="0.5" min="0" className="input" defaultValue={props.lowHours} />
+        </label>
+        <label>
+          <span className="label">Remind me this many weeks before a package runs out</span>
+          <input name="renew_weeks" type="number" step="1" min="0" max="12" className="input" defaultValue={props.renewWeeks ?? 2} />
         </label>
         <label>
           <span className="label">Remind me about notes for lessons from</span>

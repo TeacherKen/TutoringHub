@@ -129,6 +129,7 @@ export default async function SettingsPage() {
           allowEmoji={settings.allow_emoji}
           template={settings.prompt_template}
           lowHours={Number(settings.low_hours_threshold)}
+          renewWeeks={Number(settings.renew_weeks ?? 2)}
           trackFrom={settings.track_from}
         />
       </section>

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/auth";
 import { syncIfStale } from "@/lib/calendar/sync";
-import { getAccountSummaries, getLessons, getSettings, getStudents, lessonNames, needsNote } from "@/lib/data";
+import { getLessons, getMoneyData, getSettings, getStudents, lessonNames, needsNote } from "@/lib/data";
+import { renewSoon } from "@/lib/earnings";
 import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, fmtLongDay, fmtTime, mondayOf, todayKey } from "@/lib/time";
 import { LessonCard } from "@/components/LessonCard";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -15,10 +16,10 @@ export default async function Home() {
   await syncIfStale();
   const today = todayKey();
   const weekEnd = addDays(mondayOf(today), 7);
-  const [lessons, settings, accounts, students] = await Promise.all([
+  const [lessons, settings, money, students] = await Promise.all([
     getLessons(bkkStartOfDay(addDays(today, -14)).toISOString(), bkkStartOfDay(weekEnd).toISOString()),
     getSettings(),
-    getAccountSummaries(),
+    getMoneyData(),
     getStudents({ activeOnly: true }),
   ]);
 
@@ -30,7 +31,7 @@ export default async function Home() {
   const tracked = (l: { start_at: string }) => bkkDateKey(l.start_at) >= trackFrom;
   const missing = matched.filter((l) => tracked(l) && needsNote(l));
   const unsent = matched.filter((l) => tracked(l) && l.status === "done" && !l.sent_at && bkkDateKey(l.start_at) <= today);
-  const low = accounts.filter((a) => a.packages.length > 0 && a.balance.left <= Number(settings.low_hours_threshold));
+  const low = money.accounts.filter((a) => renewSoon(a, today, Number(settings.low_hours_threshold), Number(settings.renew_weeks ?? 2)));
   const unmatched = lessons.filter(
     (l) => l.lesson_students.length === 0 && bkkDateKey(l.start_at) >= (trackFrom > addDays(today, -14) ? trackFrom : addDays(today, -14)),
   );
@@ -91,13 +92,15 @@ export default async function Home() {
               </Group>
             ) : null}
             {low.length ? (
-              <Group title="Low on hours">
+              <Group title="Package ending soon — send a renewal message">
                 {low.map((a) => (
                   <AttentionLink
                     key={a.id}
-                    href={a.students[0] ? `/students/${a.students[0].id}#hours` : "/students"}
-                    text={`${a.name} · ${fmtHours(a.balance.left)} left`}
-                    danger={a.balance.left < 0}
+                    href={a.studentIds[0] ? `/students/${a.studentIds[0]}#hours` : "/students"}
+                    text={`${a.name} · ${a.leftHours > 0 ? `${fmtHours(a.leftHours)} left` : "hours used up"}${
+                      a.leftHours > 0 && a.forecast.endDate ? ` · runs out around ${fmtDay(a.forecast.endDate)}` : ""
+                    }`}
+                    danger={a.leftHours <= 0}
                   />
                 ))}
               </Group>

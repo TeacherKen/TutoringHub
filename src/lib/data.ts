@@ -62,6 +62,7 @@ export type Settings = {
   last_synced_at: string | null;
   last_sync_error: string | null;
   track_from: string | null;
+  renew_weeks?: number;
 };
 
 const LESSON_SELECT =
@@ -243,4 +244,70 @@ export async function getProgress(studentIds: string[]) {
     out.set(id, mergeProgress(mine, lessons));
   }
   return { byStudent: out, ready: !saved.error };
+}
+
+/** Everything the Money page needs: earnings per class, package progress and forecasts. */
+export async function getMoneyData() {
+  const { computeEarnings } = await import("@/lib/earnings");
+  const { addDays, todayKey: today, bkkStartOfDay } = await import("@/lib/time");
+  const supabase = await createClient();
+  const [{ data: accounts }, { data: students }, { data: packages }, { data: adjustments }] = await Promise.all([
+    supabase.from("hour_accounts").select("id, name").order("name"),
+    supabase.from("students").select("*").order("first_name"),
+    supabase.from("packages").select("*").order("start_date"),
+    supabase.from("hour_adjustments").select("hour_account_id, hours"),
+  ]);
+  const t = today();
+  const pk = (packages ?? []) as Package[];
+  // From the earliest package (to use packages up in order) or the start of last month, whichever is earlier.
+  const lastMonth = `${addDays(`${t.slice(0, 7)}-01`, -1).slice(0, 7)}-01`;
+  const from = [pk.map((p) => p.start_date).sort()[0], lastMonth].filter(Boolean).sort()[0]!;
+
+  type Row = { id: string; start_at: string; end_at: string; status: string; length_hours: number | null; lesson_students: { student_id: string; uses_hours: boolean }[] };
+  const toLesson = (l: Row) => ({
+    id: l.id,
+    start_at: l.start_at,
+    end_at: l.end_at,
+    status: l.status,
+    length_hours: l.length_hours,
+    charged: (l.lesson_students ?? []).filter((x) => x.uses_hours).map((x) => x.student_id),
+  });
+  const past: Row[] = [];
+  for (let fromRow = 0; ; fromRow += 1000) {
+    const { data: page } = await supabase
+      .from("lessons")
+      .select("id, start_at, end_at, status, length_hours, lesson_students(student_id, uses_hours)")
+      .gte("start_at", bkkStartOfDay(from).toISOString())
+      .in("status", [...CHARGED_STATUSES])
+      .eq("ignored", false)
+      .order("start_at")
+      .range(fromRow, fromRow + 999);
+    past.push(...((page ?? []) as Row[]));
+    if (!page || page.length < 1000) break;
+  }
+  const { data: next } = await supabase
+    .from("lessons")
+    .select("id, start_at, end_at, status, length_hours, lesson_students(student_id, uses_hours)")
+    .gte("start_at", new Date().toISOString())
+    .lte("start_at", bkkStartOfDay(addDays(t, 120)).toISOString())
+    .eq("status", "scheduled")
+    .eq("ignored", false)
+    .eq("in_calendar", true)
+    .order("start_at");
+
+  const adj = (adjustments ?? []) as { hour_account_id: string; hours: number }[];
+  const st = (students ?? []) as (Student & { hourly_rate_thb?: number | null })[];
+  const result = computeEarnings({
+    accounts: (accounts ?? []).map((a) => ({
+      id: a.id as string,
+      name: a.name as string,
+      adjusted: adj.filter((x) => x.hour_account_id === a.id).reduce((s, x) => s + Number(x.hours), 0),
+    })),
+    students: st,
+    packages: pk,
+    lessons: past.map(toLesson),
+    upcoming: ((next ?? []) as Row[]).map(toLesson),
+    today: t,
+  });
+  return { ...result, students: st, packages: pk, today: t };
 }

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getAccountSummaries, getProgress, getSettings, getStudents, type Lesson } from "@/lib/data";
+import { getAccountSummaries, getMoneyData, getProgress, getSettings, getStudents, type Lesson } from "@/lib/data";
+import { renewSoon, thb as baht } from "@/lib/earnings";
 import { TopicProgress } from "@/components/TopicProgress";
 import { MonthlyReport } from "@/components/MonthlyReport";
 import { groupByMonth } from "@/lib/monthlyReport";
@@ -25,7 +26,7 @@ const thb = (n: number) => `฿${Number(n).toLocaleString("en-US")}`;
 export default async function StudentPage({ params }: PageProps<"/students/[id]">) {
   await requireTutor();
   const { id } = await params;
-  const [students, accounts, settings, progress] = await Promise.all([getStudents(), getAccountSummaries(), getSettings(), getProgress([id])]);
+  const [students, accounts, settings, progress, money] = await Promise.all([getStudents(), getAccountSummaries(), getSettings(), getProgress([id]), getMoneyData()]);
   const student = students.find((s) => s.id === id);
   if (!student) notFound();
   const account = accounts.find((a) => a.id === student.hour_account_id);
@@ -60,7 +61,9 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         homework: l.homework,
       })),
   );
-  const low = bal && account.packages.length > 0 && bal.left <= Number(settings.low_hours_threshold);
+  const acctMoney = money.accounts.find((a) => a.id === student.hour_account_id);
+  const curPkg = acctMoney?.packages.find((p) => p.state === "current");
+  const low = bal && account.packages.length > 0 && (bal.left <= Number(settings.low_hours_threshold) || (acctMoney ? renewSoon(acctMoney, money.today, Number(settings.low_hours_threshold), Number(settings.renew_weeks ?? 2)) : false));
 
   return (
     <div className="space-y-6">
@@ -118,6 +121,17 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
               <p className="rounded-xl bg-danger-soft p-3 text-sm text-danger">Hours have run out — {fmtHours(-bal.left)} over.</p>
             ) : low ? (
               <p className="rounded-xl bg-warn-soft p-3 text-sm text-warn">Running low — time to send a renewal message.</p>
+            ) : null}
+            {acctMoney && acctMoney.leftHours > 0 && acctMoney.forecast.endDate ? (
+              <p className="text-sm">
+                About {acctMoney.forecast.lessonsLeft} more {acctMoney.forecast.lessonsLeft === 1 ? "lesson" : "lessons"} · runs out around{" "}
+                <strong>{fmtDay(acctMoney.forecast.endDate)}</strong>
+              </p>
+            ) : null}
+            {curPkg && curPkg.price != null && curPkg.usedValue != null ? (
+              <p className="text-sm text-muted">
+                This package: {baht(curPkg.usedValue)} of {baht(curPkg.price)} earned · {acctMoney?.earned ? `${baht(acctMoney.earned)} earned from all packages` : ""}
+              </p>
             ) : null}
             {account.packages.length ? (
               <RenewalMessage
