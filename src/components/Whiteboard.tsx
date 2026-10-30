@@ -139,6 +139,9 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const [pageMenu, setPageMenu] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
+  const [pointer, setPointer] = useState<{ x: number; y: number; page: number } | null>(null);
+  const pointerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPoint = useRef(0);
   const [board, setBoard] = useState<BoardInfo | null>(null);
   const [missing, setMissing] = useState(false);
   const [page, setPage] = useState(0);
@@ -289,6 +292,14 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         if (payload?.who !== other || !Number.isInteger(payload.page)) return;
         for (const [id, m] of marks.current) if (m.page === payload.page && (other === "tutor" || m.author === "student")) marks.current.delete(id);
         bump();
+      })
+      .on("broadcast", { event: "point" }, ({ payload }) => {
+        if (payload?.who !== other) return;
+        if (pointerTimer.current) clearTimeout(pointerTimer.current);
+        const ok = typeof payload.x === "number" && typeof payload.y === "number" && Number.isInteger(payload.page);
+        if (payload.hide || !ok) return setPointer(null);
+        setPointer({ x: Math.min(1, Math.max(0, payload.x)), y: Math.min(1, Math.max(0, payload.y)), page: payload.page });
+        pointerTimer.current = setTimeout(() => setPointer(null), 2500);
       })
       .on("broadcast", { event: "layout" }, ({ payload }) => {
         if (payload?.who !== other || !Array.isArray(payload.layout)) return;
@@ -484,9 +495,22 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     void post(api, { op: "del", ids: hit });
   }
 
+  /** Show my pointer on the other screen (only over the live connection). */
+  function point(x: number, y: number, force = false) {
+    const t = Date.now();
+    if (!force && t - lastPoint.current < 50) return;
+    lastPoint.current = t;
+    broadcast("point", { x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000, page });
+  }
+
   function onDown(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!board || e.button > 0) return;
     const { x, y } = at(e);
+    if (tool === "pointer") {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      point(x, y, true);
+      return;
+    }
     if (tool === "text") {
       setTextAt({ x, y });
       setTextValue("");
@@ -503,6 +527,14 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   }
 
   function onMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (tool === "pointer") {
+      // A mouse points just by moving; a finger or pen points while touching.
+      if (e.pointerType === "mouse" || e.buttons) {
+        const { x, y } = at(e);
+        point(x, y);
+      }
+      return;
+    }
     if (erasing.current) {
       const { x, y } = at(e);
       eraseAt(x, y);
@@ -731,12 +763,26 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           <canvas
             ref={canvas}
             className="absolute inset-0 h-full w-full"
-            style={{ touchAction: "none", cursor: tool === "text" ? "text" : tool === "eraser" ? "cell" : "crosshair" }}
+            style={{ touchAction: "none", cursor: tool === "text" ? "text" : tool === "eraser" ? "cell" : tool === "pointer" ? "pointer" : "crosshair" }}
             onPointerDown={onDown}
             onPointerMove={onMove}
             onPointerUp={onUp}
             onPointerCancel={onUp}
+            onPointerLeave={() => tool === "pointer" && broadcast("point", { hide: true })}
           />
+          {pointer && pointer.page === page ? (
+            <div
+              className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${pointer.x * 100}%`, top: `${pointer.y * 100}%` }}
+              aria-hidden
+            >
+              <span className={`absolute -inset-2 animate-ping rounded-full opacity-60 ${isTutor ? "bg-blue-500" : "bg-red-500"}`} />
+              <span className={`relative block h-5 w-5 rounded-full border-2 border-white shadow-lg ${isTutor ? "bg-blue-600" : "bg-red-600"}`} />
+              <span className={`absolute left-6 top-0 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-medium text-white ${isTutor ? "bg-blue-600" : "bg-red-600"}`}>
+                {otherName}
+              </span>
+            </div>
+          ) : null}
           {textAt ? (
             <form
               className="absolute z-10 flex gap-1 rounded-xl border border-accent bg-surface p-1 shadow-lg"
@@ -807,8 +853,11 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         </div>
 
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
-          {(["pen", "hl", "text", "eraser"] as const).map((t) => (
-            <button key={t} type="button" className={btn(tool === t)} onClick={() => setTool(t)} aria-pressed={tool === t} title={TOOL_NAMES[t]}>
+          {(["pen", "hl", "text", "eraser", "pointer"] as const).map((t) => (
+            <button key={t} type="button" className={btn(tool === t)} onClick={() => {
+                if (tool === "pointer" && t !== "pointer") broadcast("point", { hide: true });
+                setTool(t);
+              }} aria-pressed={tool === t} title={TOOL_NAMES[t]}>
               <span aria-hidden>{TOOL_NAMES[t].split(" ")[0]}</span>
               <span className="sr-only">{TOOL_NAMES[t]}</span>
             </button>

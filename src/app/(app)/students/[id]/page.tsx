@@ -4,6 +4,10 @@ import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountSummaries, getProgress, getSettings, getStudents, type Lesson } from "@/lib/data";
 import { TopicProgress } from "@/components/TopicProgress";
+import { MonthlyReport } from "@/components/MonthlyReport";
+import { groupByMonth } from "@/lib/monthlyReport";
+import { progressLine } from "@/lib/progress";
+import { aiAvailable } from "@/lib/ai";
 import { lessonLength } from "@/lib/hours";
 import { bkkDateKey, fmtDate, fmtDay, fmtHours, fmtTime, isPast, todayKey } from "@/lib/time";
 import { StudentForm } from "@/components/StudentForm";
@@ -29,7 +33,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
   const supabase = await createClient();
   const { data: links } = await supabase
     .from("lesson_students")
-    .select("lessons(id, start_at, end_at, status, length_hours, learned, next_time, homework, topics, ignored, in_calendar, sent_at)")
+    .select("lessons(id, start_at, end_at, status, length_hours, learned, next_time, homework, topics, how_it_went, ignored, in_calendar, sent_at)")
     .eq("student_id", id);
   const lessons = ((links ?? []).map((l) => l.lessons) as unknown as Lesson[])
     .filter((l) => l && !l.ignored && (l.in_calendar || l.status !== "scheduled"))
@@ -42,6 +46,20 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
   const bal = account?.balance;
   const { data: recent } = await supabase.from("lessons").select("topics").neq("topics", "{}").order("start_at", { ascending: false }).limit(80);
   const topicIdeas = [...new Set((recent ?? []).flatMap((r) => r.topics as string[]))].slice(0, 40);
+  const monthOf = (iso: string) => bkkDateKey(iso).slice(0, 7);
+  const months = groupByMonth(
+    past
+      .filter((l) => l.status === "done")
+      .map((l) => ({
+        month: monthOf(l.start_at),
+        monthLabel: new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "Asia/Bangkok" }).format(new Date(l.start_at)),
+        date: fmtDay(bkkDateKey(l.start_at)),
+        learned: l.learned,
+        topics: l.topics ?? [],
+        how: l.how_it_went,
+        homework: l.homework,
+      })),
+  );
   const low = bal && account.packages.length > 0 && bal.left <= Number(settings.low_hours_threshold);
 
   return (
@@ -229,6 +247,22 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
           </Link>
         ))}
       </section>
+
+      <MonthlyReport
+        months={months}
+        aiEnabled={aiAvailable()}
+        base={{
+          studentName: student.first_name,
+          parentName: student.parent_name,
+          level: student.level,
+          progress: progressLine(progress.byStudent.get(student.id) ?? []),
+          nextPlan: latestPlan ?? null,
+          hoursLeft: account && account.packages.length ? (bal?.left ?? null) : null,
+          tutorName: tutorName(),
+          tone: settings.tone,
+          allowEmoji: settings.allow_emoji,
+        }}
+      />
 
       <details className="card">
         <summary className="cursor-pointer font-medium">Edit details</summary>

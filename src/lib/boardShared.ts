@@ -14,8 +14,8 @@ export const COLOR_NAMES: Record<string, string> = {
 export const HIGHLIGHT = "#facc15";
 export const SIZES = { thin: 0.003, thick: 0.007 } as const;
 
-export type Tool = "pen" | "hl" | "text" | "eraser";
-export const TOOL_NAMES: Record<string, string> = { pen: "✏️ Pen", hl: "🖍️ Highlighter", text: "🔤 Typing", eraser: "🧽 Eraser" };
+export type Tool = "pen" | "hl" | "text" | "eraser" | "pointer";
+export const TOOL_NAMES: Record<string, string> = { pen: "✏️ Pen", hl: "🖍️ Highlighter", text: "🔤 Typing", eraser: "🧽 Eraser", pointer: "👆 Point" };
 
 export type StrokeData = { t: "pen" | "hl"; c: string; w: number; p: number[] };
 export type TextData = { t: "text"; c: string; s: number; x: number; y: number; text: string };

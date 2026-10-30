@@ -44,6 +44,27 @@ export function snapshotDocument(doc: Document, baseHref: string): string {
       copy[i].setAttribute("data-th-scroll", `${Math.round(el.scrollLeft)}:${Math.round(el.scrollTop)}`);
     }
   });
+  // Pop-ups opened with showModal() float above the page; a copy loses that, so mark them
+  // (while both trees still match) and put them back on top with a dimmed background.
+  const origDialogs = doc.documentElement.querySelectorAll("dialog");
+  const copyDialogs = clone.querySelectorAll("dialog");
+  origDialogs.forEach((d, i) => {
+    const c = copyDialogs[i];
+    if (!c || !d.open) return;
+    let modal = false;
+    try {
+      modal = d.matches(":modal");
+    } catch {
+      modal = true;
+    }
+    c.setAttribute("open", "");
+    if (modal) {
+      c.setAttribute("data-th-modal", "");
+      const backdrop = doc.createElement("div");
+      backdrop.setAttribute("data-th-backdrop", "");
+      c.before(backdrop);
+    }
+  });
   clean(clone);
   let head = clone.querySelector("head");
   if (!head) {
@@ -52,6 +73,13 @@ export function snapshotDocument(doc: Document, baseHref: string): string {
   }
   const base = doc.createElement("base");
   base.setAttribute("href", baseHref);
+  // Zero-strength rules (:where), so the game's own pop-up styles still win, like in the real game.
+  const modalStyle = doc.createElement("style");
+  modalStyle.textContent =
+    ":where(dialog[data-th-modal]){position:fixed;inset:0;margin:auto;max-width:calc(100% - 2em);max-height:calc(100% - 2em);overflow:auto;z-index:2147483647}" +
+    "dialog[data-th-modal]{z-index:2147483647}" +
+    "div[data-th-backdrop]{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2147483646}";
+  head.prepend(modalStyle);
   head.prepend(base);
   // Remember what part of the page the student can see, so the tutor sees the same view.
   const win = doc.defaultView;
