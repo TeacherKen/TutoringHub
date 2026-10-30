@@ -15,7 +15,6 @@ export function SmartSlides({ studentId, name, currentId }: { studentId: string;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [full, setFull] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = async () => {
@@ -109,12 +108,7 @@ export function SmartSlides({ studentId, name, currentId }: { studentId: string;
       {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       {open && cur ? (
-        <div className={full ? "fixed inset-0 z-50 overflow-auto bg-bg p-4" : "rounded-xl border border-line bg-bg p-2"}>
-          <div className="mb-2 flex justify-end">
-            <button type="button" className="btn-quiet min-h-9 px-3 text-sm" onClick={() => setFull(!full)}>
-              {full ? "✕ Close full screen" : "⛶ Full screen"}
-            </button>
-          </div>
+        <div className="rounded-xl border border-line bg-bg p-2">
           <Whiteboard key={cur.id} api={`/api/board/${cur.id}`} me="tutor" otherName={name} />
         </div>
       ) : null}

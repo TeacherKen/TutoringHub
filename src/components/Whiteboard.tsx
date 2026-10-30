@@ -92,6 +92,9 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
   const [textAt, setTextAt] = useState<{ x: number; y: number } | null>(null);
   const [textValue, setTextValue] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  const [full, setFull] = useState(false);
+  const [stage, setStage] = useState({ w: 0, h: 0 });
+  const stageRef = useRef<HTMLDivElement>(null);
   const [, setVersion] = useState(0);
   const [now, setNow] = useState(0);
 
@@ -255,6 +258,42 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
     };
   }, [api, isTutor]);
 
+  // ---- Full screen ---------------------------------------------------------------
+  // The page grows to fill the screen; the browser's own full screen hides the tabs too.
+  function enterFull() {
+    setFull(true);
+    try {
+      void document.documentElement.requestFullscreen?.({ navigationUI: "hide" }).catch(() => {});
+    } catch {
+      /* not supported (e.g. iPhone) — the big view still works */
+    }
+  }
+  function exitFull() {
+    setFull(false);
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  }
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !document.fullscreenElement && setFull(false);
+    const onFs = () => !document.fullscreenElement && setFull(false);
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onFs);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFs);
+      document.body.style.overflow = prev;
+    };
+  }, [full]);
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || !full) return;
+    const ro = new ResizeObserver(([e]) => setStage({ w: e.contentRect.width, h: e.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [full, board]);
+
   // ---- Pointer input -----------------------------------------------------------
   function at(e: React.PointerEvent | PointerEvent) {
     const r = canvas.current!.getBoundingClientRect();
@@ -382,12 +421,18 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
   const here = ago != null && ago < 25;
   const myMarksOnPage = [...marks.current.values()].some((m) => m.page === page && (isTutor || m.author === "student"));
   const btn = (active: boolean) =>
-    `flex h-12 min-w-12 items-center justify-center rounded-xl border px-3 text-base font-medium ${active ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`;
+    `flex ${full ? "h-11 min-w-11" : "h-12 min-w-12"} items-center justify-center rounded-xl border px-3 text-base font-medium ${active ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`;
+  // In full screen the page is as big as fits; otherwise it fits the window height.
+  const pageWidth = full
+    ? stage.w && stage.h
+      ? `${Math.floor(Math.min(stage.w, stage.h / board.aspect))}px`
+      : "100%"
+    : `min(100%, calc(${isTutor ? 70 : 78}dvh / ${board.aspect}))`;
 
   return (
-    <div className="space-y-3">
+    <div className={full ? "fixed inset-0 z-50 flex flex-col gap-2 bg-bg p-2 sm:p-3" : "space-y-3"}>
       {isTutor ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 p-3 text-sm">
+        <div className={`flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 text-sm ${full ? "px-3 py-1.5" : "p-3"}`}>
           <span>
             {here && other ? (
               <>
@@ -420,7 +465,8 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
         </div>
       ) : null}
 
-      <div className="mx-auto" style={{ width: `min(100%, calc(${isTutor ? 70 : 74}dvh / ${board.aspect}))` }}>
+      <div ref={stageRef} className={full ? "flex min-h-0 flex-1 items-center justify-center" : ""}>
+      <div className="mx-auto" style={{ width: pageWidth }}>
         <div ref={box} className="relative w-full select-none overflow-hidden rounded-2xl border border-line bg-white" style={{ aspectRatio: `1 / ${board.aspect}` }}>
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -466,9 +512,10 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
           ) : null}
         </div>
       </div>
+      </div>
 
       {/* Tools — big buttons for small hands */}
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      <div className={`flex flex-wrap items-center justify-center ${full ? "gap-1.5" : "gap-2"}`}>
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
           <button type="button" className={btn(false)} onClick={() => goPage(page - 1)} disabled={page === 0} aria-label="Previous page">
             ◀
@@ -530,8 +577,18 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
             </button>
           ) : null}
         </div>
+
+        {full ? (
+          <button type="button" className="btn-primary h-11 px-4" onClick={exitFull}>
+            ✕ Smaller
+          </button>
+        ) : (
+          <button type="button" className="btn-primary h-12 px-4" onClick={enterFull}>
+            ⛶ Full screen
+          </button>
+        )}
       </div>
-      {!isTutor ? <p className="text-center text-xs text-muted">Mr Ken can see your writing.</p> : null}
+      {!isTutor && !full ? <p className="text-center text-xs text-muted">Mr Ken can see your writing.</p> : null}
     </div>
   );
 }

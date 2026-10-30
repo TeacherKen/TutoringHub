@@ -102,7 +102,7 @@ export function Room({ token, initial }: { token: string; initial: RoomData }) {
   const current = onBoard ? undefined : slides[Math.min(Math.max(0, slide), Math.max(0, slides.length - 1))];
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 pb-8 pt-4">
+    <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 pb-8 pt-4">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Hi {room.firstName}!</h1>
