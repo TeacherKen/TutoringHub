@@ -210,6 +210,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const history = useRef<{ add: Mark[]; del: Mark[] }[]>([]);
   const future = useRef<{ add: Mark[]; del: Mark[] }[]>([]);
   const eraseStep = useRef<Mark[] | null>(null);
+  const lastErase = useRef<{ x: number; y: number } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const selectedRef = useRef<string | null>(null);
   const drag = useRef<{ id: string; mode: "move" | "handle"; handle: number; x: number; y: number; preview: MarkData | null } | null>(null);
@@ -678,15 +679,14 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
   }
 
+  /** Rub out the top thing under the eraser (the one drawn last) — one at a time. */
   function eraseAt(x: number, y: number) {
     if (!board) return;
-    const hit: string[] = [];
-    for (const m of marks.current.values()) {
-      if (m.page !== page) continue;
-      if (!isTutor && m.author !== "student") continue;
-      if (hitsMark(m.data, x, y, ERASE_R, board.aspect)) hit.push(m.id);
-    }
-    if (!hit.length) return;
+    lastErase.current = { x, y };
+    const list = [...marks.current.values()].filter((m) => m.page === page && (isTutor || m.author === "student")).reverse();
+    const top = list.find((m) => hitsMark(m.data, x, y, ERASE_R, board.aspect));
+    if (!top) return;
+    const hit = [top.id];
     for (const id of hit) {
       const m = marks.current.get(id);
       if (m) eraseStep.current?.push(m);
@@ -828,8 +828,10 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       return;
     }
     if (erasing.current) {
+      // Dragging erases what it passes over, but staying on one spot doesn't dig through the layers.
       const { x, y } = at(e);
-      eraseAt(x, y);
+      const last = lastErase.current;
+      if (!last || Math.hypot(x - last.x, (y - last.y) * (board?.aspect ?? 1)) > 0.01) eraseAt(x, y);
       return;
     }
     if (tool === "select") {
