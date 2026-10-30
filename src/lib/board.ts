@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { MATERIALS_BUCKET } from "@/lib/constants";
-import { boardLayout, cleanLive, cleanMark, insertPage, isUuid, removePage, type BoardInfo, type BoardPoll, type Live, type Mark } from "@/lib/boardShared";
+import { BOARD_KEEP_DAYS, boardExpired, boardLayout, cleanLive, cleanMark, insertPage, isUuid, removePage, type BoardInfo, type BoardPoll, type Live, type Mark } from "@/lib/boardShared";
 
 // Smart slides on the server. Both the student's room (private link) and Mr Ken's
 // view (signed in) come through here, after their own checks, using the admin client.
@@ -13,13 +13,13 @@ type Who = "student" | "tutor";
 export const boardFolder = (studentId: string, boardId: string) => `boards/${studentId}/${boardId}`;
 export const pagePath = (studentId: string, boardId: string, page: number) => `${boardFolder(studentId, boardId)}/${page + 1}.jpg`;
 
-type BoardRow = { id: string; student_id: string; title: string; pages: number; aspect: number | string; layout?: number[] | null };
+type BoardRow = { id: string; student_id: string; title: string; pages: number; aspect: number | string; layout?: number[] | null; created_at?: string };
 
 export async function getBoardRow(boardId: string): Promise<BoardRow | null> {
   if (!isUuid(boardId)) return null;
   const admin = createAdminClient();
   // "layout" arrives with database update 0010; work without it until then.
-  for (const cols of ["id, student_id, title, pages, aspect, layout", "id, student_id, title, pages, aspect"]) {
+  for (const cols of ["id, student_id, title, pages, aspect, created_at, layout", "id, student_id, title, pages, aspect, created_at"]) {
     const { data, error } = await admin.from("boards").select(cols).eq("id", boardId).maybeSingle<BoardRow>();
     if (!error) return data ?? null;
   }
@@ -140,5 +140,26 @@ export async function changeBoard(b: BoardRow, me: Who, body: unknown): Promise<
 export async function boardForToken(token: string): Promise<BoardRow | null> {
   const { data } = await createAdminClient().from("students").select("active, board_id").eq("room_token", token).maybeSingle();
   if (!data?.active || !data.board_id) return null;
-  return getBoardRow(data.board_id as string);
+  const b = await getBoardRow(data.board_id as string);
+  return b && b.created_at && boardExpired(b.created_at) ? null : b; // past 4 weeks: gone from the room
+}
+
+let lastCleanup = 0;
+
+/** Delete smart slides older than 4 weeks: their page pictures, writing and the record. */
+export async function cleanupOldBoards(force = false): Promise<number> {
+  if (!force && Date.now() - lastCleanup < 30 * 60_000) return 0;
+  lastCleanup = Date.now();
+  const admin = createAdminClient();
+  const cutoff = new Date(Date.now() - BOARD_KEEP_DAYS * 86_400_000).toISOString();
+  const { data } = await admin.from("boards").select("id, student_id, pages").lt("created_at", cutoff).limit(40);
+  let removed = 0;
+  for (const b of (data ?? []) as { id: string; student_id: string; pages: number }[]) {
+    const paths = Array.from({ length: b.pages }, (_, i) => pagePath(b.student_id, b.id, i));
+    const { error: fileErr } = await admin.storage.from(MATERIALS_BUCKET).remove(paths);
+    if (fileErr) continue; // try again next time rather than leave files without a record
+    const { error } = await admin.from("boards").delete().eq("id", b.id); // writing goes with it
+    if (!error) removed++;
+  }
+  return removed;
 }

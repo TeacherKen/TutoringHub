@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/client";
 import { MATERIALS_BUCKET } from "@/lib/constants";
 import { createBoard, deleteBoard, listBoards, setCurrentBoard, type BoardSummary } from "@/app/actions/boards";
 import { Whiteboard } from "./Whiteboard";
+import { boardExpiry } from "@/lib/boardShared";
+
+const day = (d: Date | string) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
 const MAX_MB = 40;
 
@@ -77,6 +80,7 @@ export function SmartSlides({ studentId, name, currentId, lessonId }: { studentI
           <span className="chip-accent max-w-full truncate">
             {cur.title} · {cur.pages} {cur.pages === 1 ? "page" : "pages"}
           </span>
+          <span className="text-xs text-muted">Deletes itself on {day(boardExpiry(cur.created_at))}</span>
           <button type="button" className={open ? "btn-secondary min-h-10 px-3 text-sm" : "btn-primary min-h-10 px-3 text-sm"} onClick={() => setOpen(!open)}>
             {open ? "Hide" : "Watch & write"}
           </button>
@@ -122,7 +126,7 @@ export function SmartSlides({ studentId, name, currentId, lessonId }: { studentI
               .map((b) => (
                 <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface p-2">
                   <span className="truncate">
-                    {b.title} · {new Date(b.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                    {b.title} · added {day(b.created_at)} · deletes {day(boardExpiry(b.created_at))}
                   </span>
                   <span className="flex gap-3">
                     <button

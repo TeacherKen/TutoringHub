@@ -49,3 +49,13 @@ describe("smart slides: added pages", () => {
     expect(cleanLive({ page: 2001, tool: "pen" }, [0, 2000])).toBeNull();
   });
 });
+
+import { boardExpired, boardExpiry } from "@/lib/boardShared";
+describe("smart slides delete after 4 weeks", () => {
+  it("added 1 Oct → deleted 29 Oct", () => {
+    const added = "2026-10-01T03:00:00Z";
+    expect(boardExpiry(added).toISOString().slice(0, 10)).toBe("2026-10-29");
+    expect(boardExpired(added, Date.parse("2026-10-28T23:00:00Z"))).toBe(false);
+    expect(boardExpired(added, Date.parse("2026-10-29T03:00:00Z"))).toBe(true);
+  });
+});

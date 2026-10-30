@@ -4,7 +4,7 @@ import { assertTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/boardShared";
 import { MATERIALS_BUCKET } from "@/lib/constants";
-import { pagePath } from "@/lib/board";
+import { cleanupOldBoards, pagePath } from "@/lib/board";
 
 /** Called after the browser has turned a PDF into page pictures and uploaded them. */
 export async function createBoard(studentId: string, boardId: string, title: string, pages: number, aspect: number): Promise<{ ok?: boolean; error?: string }> {
@@ -53,6 +53,7 @@ export type BoardSummary = { id: string; title: string; pages: number; created_a
 export async function listBoards(studentId: string): Promise<{ boards: BoardSummary[]; ready: boolean }> {
   await assertTutor();
   if (!isUuid(studentId)) return { boards: [], ready: true };
+  await cleanupOldBoards().catch(() => 0);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("boards")

@@ -123,3 +123,9 @@ export function hitsMark(m: MarkData, x: number, y: number, r: number, aspect: n
   }
   return false;
 }
+
+// Smart slides delete themselves 4 weeks after upload, so old PDFs don't pile up.
+// (Pictures saved with "Save work to lesson" are kept — they belong to the lesson.)
+export const BOARD_KEEP_DAYS = 28;
+export const boardExpiry = (createdAt: string): Date => new Date(new Date(createdAt).getTime() + BOARD_KEEP_DAYS * 86_400_000);
+export const boardExpired = (createdAt: string, now = Date.now()): boolean => boardExpiry(createdAt).getTime() <= now;
