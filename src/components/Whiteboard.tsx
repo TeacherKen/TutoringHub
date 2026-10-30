@@ -16,6 +16,11 @@ import {
   TOOL_NAMES,
   hitsMark,
   snapLine,
+  grabsMark,
+  handlesOf,
+  markBounds,
+  moveHandle,
+  translateMark,
   pageKind,
   type BoardInfo,
   type BoardPoll,
@@ -201,8 +206,14 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const [clock, setClock] = useState(0);
   const timerSetAt = useRef(0);
   const beepedFor = useRef(0);
-  const redoStack = useRef<{ page: number; data: MarkData }[]>([]);
-  const keys = useRef<{ undo: () => void; redo: () => void }>({ undo: () => {}, redo: () => {} });
+  // Undo history: each step lists the marks it added and the marks it took away.
+  const history = useRef<{ add: Mark[]; del: Mark[] }[]>([]);
+  const future = useRef<{ add: Mark[]; del: Mark[] }[]>([]);
+  const eraseStep = useRef<Mark[] | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const selectedRef = useRef<string | null>(null);
+  const drag = useRef<{ id: string; mode: "move" | "handle"; handle: number; x: number; y: number; preview: MarkData | null } | null>(null);
+  const keys = useRef<{ undo: () => void; redo: () => void; del: () => void }>({ undo: () => {}, redo: () => {}, del: () => {} });
   const [size, setSize] = useState<keyof typeof SIZES>("thin");
   const [other, setOther] = useState<Live | null>(null);
   const [follow, setFollow] = useState(true);
@@ -217,7 +228,6 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
   const marks = useRef(new Map<string, Mark>());
   const removed = useRef(new Set<string>());
-  const mine = useRef<string[]>([]);
   const rev = useRef(0);
   const boardIdRef = useRef<string | null>(null);
   const lastGoAt = useRef<string | null | undefined>(undefined);
@@ -248,9 +258,34 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
     const pg = stateRef.current.page;
-    for (const m of marks.current.values()) if (m.page === pg) drawMark(ctx, m.data, W, H);
+    const d = drag.current;
+    for (const m of marks.current.values()) {
+      if (m.page !== pg) continue;
+      drawMark(ctx, d?.preview && d.id === m.id ? d.preview : m.data, W, H);
+    }
     if (other?.stroke && other.page === pg) drawMark(ctx, other.stroke, W, H, 0.6);
     if (drawing.current) drawMark(ctx, currentStroke(drawing.current), W, H);
+    // The selected mark: a dashed box around it, and dots to drag for resizing.
+    const sel = selectedRef.current ? marks.current.get(selectedRef.current) : null;
+    if (sel && sel.page === pg && stateRef.current.tool === "select") {
+      const data = d?.preview && d.id === sel.id ? d.preview : sel.data;
+      const aspect = H / W;
+      const b = markBounds(data, aspect);
+      ctx.save();
+      ctx.strokeStyle = "#0f766e";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(b.x1 * W - 4, b.y1 * H - 4, (b.x2 - b.x1) * W + 8, (b.y2 - b.y1) * H + 8);
+      ctx.setLineDash([]);
+      for (const [hx, hy] of handlesOf(data)) {
+        ctx.beginPath();
+        ctx.arc(hx * W, hy * H, 7, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [other]);
 
@@ -476,7 +511,8 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           boardIdRef.current = data.board.id;
           marks.current.clear();
           removed.current.clear();
-          mine.current = [];
+          history.current = [];
+          future.current = [];
           rev.current = 0;
           setPage(0);
           // Writing that wasn't saved before a reload: show it again and keep sending it.
@@ -487,7 +523,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
               if (op.op === "add") {
                 const m = op.mark as { id: string; page: number; data: MarkData };
                 marks.current.set(m.id, { id: m.id, page: m.page, author: me, data: m.data });
-                mine.current.push(m.id);
+                history.current.push({ add: [{ id: m.id, page: m.page, author: me, data: m.data }], del: [] });
               } else for (const id of op.ids) removed.current.add(id);
             }
             void q.flush();
@@ -557,12 +593,16 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
   // ---- Keyboard: Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl+Y redo ----------------------
   useLayoutEffect(() => {
-    keys.current = { undo, redo };
+    keys.current = { undo, redo, del: deleteSelected };
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if ((e.key === "Delete" || e.key === "Backspace") && !e.metaKey && !e.ctrlKey) {
+        keys.current.del();
+        return;
+      }
       if (!(e.metaKey || e.ctrlKey)) return;
       const k = e.key.toLowerCase();
       if (k === "z" && !e.shiftKey) {
@@ -648,12 +688,56 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     }
     if (!hit.length) return;
     for (const id of hit) {
+      const m = marks.current.get(id);
+      if (m) eraseStep.current?.push(m);
       marks.current.delete(id);
       removed.current.add(id);
     }
     bump();
     broadcast("del", { ids: hit });
     save({ op: "del", ids: hit });
+  }
+
+  // ---- ✋ Move: pick, drag, resize ------------------------------------------------------
+  function select(id: string | null) {
+    selectedRef.current = id;
+    setSelected(id);
+  }
+
+  /** The topmost mark under (x, y) that I'm allowed to move. */
+  function pickAt(x: number, y: number): Mark | null {
+    if (!board) return null;
+    const list = [...marks.current.values()].filter((m) => m.page === page && (isTutor || m.author === "student")).reverse();
+    return list.find((m) => grabsMark(m.data, x, y, 0.018, board.aspect)) ?? null;
+  }
+
+  /** Swap a mark for a changed copy (a new id, so both screens and the server stay simple). */
+  function replaceMark(old: Mark, data: MarkData): Mark {
+    const m: Mark = { id: crypto.randomUUID(), page: old.page, author: me, data };
+    marks.current.delete(old.id);
+    removed.current.add(old.id);
+    marks.current.set(m.id, m);
+    broadcast("del", { ids: [old.id] });
+    broadcast("mark", { mark: m });
+    save({ op: "del", ids: [old.id] });
+    save({ op: "add", mark: { id: m.id, page: m.page, data } });
+    history.current.push({ add: [m], del: [old] });
+    future.current = [];
+    bump();
+    return m;
+  }
+
+  function deleteSelected() {
+    const m = selectedRef.current ? marks.current.get(selectedRef.current) : null;
+    if (!m) return;
+    marks.current.delete(m.id);
+    removed.current.add(m.id);
+    broadcast("del", { ids: [m.id] });
+    save({ op: "del", ids: [m.id] });
+    history.current.push({ add: [], del: [m] });
+    future.current = [];
+    select(null);
+    bump();
   }
 
   /** Show my pointer on the other screen (only over the live connection). */
@@ -705,8 +789,27 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       return;
     }
     capture(e);
+    if (tool === "select") {
+      const cur = selectedRef.current ? marks.current.get(selectedRef.current) : null;
+      // A resize dot of the selected line or box?
+      if (cur) {
+        const W = sizeRef.current.W || 1;
+        const H = sizeRef.current.H || 1;
+        const h = handlesOf(cur.data).findIndex(([hx, hy]) => Math.hypot((hx - x) * W, (hy - y) * H) < 16);
+        if (h >= 0) {
+          drag.current = { id: cur.id, mode: "handle", handle: h, x, y, preview: null };
+          return;
+        }
+      }
+      const hit = pickAt(x, y);
+      select(hit?.id ?? null);
+      drag.current = hit ? { id: hit.id, mode: "move", handle: -1, x, y, preview: null } : null;
+      render();
+      return;
+    }
     if (tool === "eraser") {
       erasing.current = true;
+      eraseStep.current = [];
       eraseAt(x, y);
       return;
     }
@@ -727,6 +830,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     if (erasing.current) {
       const { x, y } = at(e);
       eraseAt(x, y);
+      return;
+    }
+    if (tool === "select") {
+      const d = drag.current;
+      const m = d ? marks.current.get(d.id) : null;
+      if (!d || !m || !board) return;
+      const { x, y } = at(e);
+      d.preview = d.mode === "handle" ? moveHandle(m.data, d.handle, x, y, board.aspect) : translateMark(m.data, x - d.x, y - d.y, board.aspect);
+      render();
       return;
     }
     const pts = drawing.current;
@@ -755,7 +867,20 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     touches.current.delete(e.pointerId);
     if (activePointer.current !== null && activePointer.current !== e.pointerId) return;
     activePointer.current = null;
+    if (erasing.current && eraseStep.current?.length) {
+      history.current.push({ add: [], del: eraseStep.current });
+      future.current = [];
+    }
+    eraseStep.current = null;
     erasing.current = false;
+    if (tool === "select") {
+      const d = drag.current;
+      drag.current = null;
+      const m = d ? marks.current.get(d.id) : null;
+      if (d && m && d.preview && JSON.stringify(d.preview) !== JSON.stringify(m.data)) select(replaceMark(m, d.preview).id);
+      render();
+      return;
+    }
     const pts = drawing.current;
     drawing.current = null;
     if (!pts) return;
@@ -772,11 +897,11 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   }
 
   function addMark(data: MarkData) {
-    redoStack.current = []; // something new: nothing to redo
+    future.current = []; // something new: nothing to redo
     const id = crypto.randomUUID();
     const m: Mark = { id, page, author: me, data };
     marks.current.set(id, m);
-    mine.current.push(id);
+    history.current.push({ add: [m], del: [] });
     bump();
     broadcast("mark", { mark: m });
     save({ op: "add", mark: { id, page, data } });
@@ -789,32 +914,48 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     setTextValue("");
   }
 
+  /** Reverse one step: take away what it added, put back (as copies) what it took away. Returns the opposite step. */
+  function reverse(step: { add: Mark[]; del: Mark[] }): { add: Mark[]; del: Mark[] } | null {
+    const gone = step.add.filter((m) => marks.current.has(m.id));
+    const back = step.del.map((m) => ({ id: crypto.randomUUID(), page: m.page, author: me, data: m.data }) as Mark);
+    if (!gone.length && !back.length) return null;
+    if (gone.length) {
+      for (const m of gone) {
+        marks.current.delete(m.id);
+        removed.current.add(m.id);
+      }
+      const ids = gone.map((m) => m.id);
+      broadcast("del", { ids });
+      for (let i = 0; i < ids.length; i += 200) save({ op: "del", ids: ids.slice(i, i + 200) });
+    }
+    for (const m of back) {
+      marks.current.set(m.id, m);
+      broadcast("mark", { mark: m });
+      save({ op: "add", mark: { id: m.id, page: m.page, data: m.data } });
+    }
+    select(null);
+    bump();
+    return { add: back, del: gone };
+  }
+
   function undo() {
-    while (mine.current.length) {
-      const id = mine.current.pop()!;
-      const m = marks.current.get(id);
-      if (m) {
-        marks.current.delete(id);
-        removed.current.add(id);
-        redoStack.current.push({ page: m.page, data: m.data });
-        bump();
-        broadcast("del", { ids: [id] });
-        save({ op: "del", ids: [id] });
+    while (history.current.length) {
+      const opposite = reverse(history.current.pop()!);
+      if (opposite) {
+        future.current.push(opposite);
         return;
       }
     }
   }
 
   function redo() {
-    const m = redoStack.current.pop();
-    if (!m) return;
-    const id = crypto.randomUUID();
-    const mark: Mark = { id, page: m.page, author: me, data: m.data };
-    marks.current.set(id, mark);
-    mine.current.push(id);
-    bump();
-    broadcast("mark", { mark });
-    save({ op: "add", mark: { id, page: m.page, data: m.data } });
+    while (future.current.length) {
+      const opposite = reverse(future.current.pop()!);
+      if (opposite) {
+        history.current.push(opposite);
+        return;
+      }
+    }
   }
 
   /** Tutor: start a countdown (seconds) on both screens, or stop it (0). */
@@ -831,13 +972,20 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
   function clearPage() {
     const ids: string[] = [];
+    const gone: Mark[] = [];
     for (const [id, m] of marks.current) {
       if (m.page === page && (isTutor || m.author === "student")) {
         marks.current.delete(id);
         removed.current.add(id);
         ids.push(id);
+        gone.push(m);
       }
     }
+    if (gone.length) {
+      history.current.push({ add: [], del: gone }); // Undo brings it all back
+      future.current = [];
+    }
+    select(null);
     bump();
     setConfirmClear(false);
     broadcast("clear", { page });
@@ -853,6 +1001,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     setPage(next);
     setPageMenu(false);
     setConfirmRemove(false);
+    select(null);
     setTextAt(null);
   }
 
@@ -1007,7 +1156,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           <canvas
             ref={canvas}
             className="absolute inset-0 h-full w-full"
-            style={{ touchAction: "none", cursor: tool === "text" ? "text" : tool === "eraser" ? "cell" : tool === "pointer" ? "pointer" : "crosshair" }}
+            style={{ touchAction: "none", cursor: tool === "text" ? "text" : tool === "eraser" ? "cell" : tool === "pointer" ? "pointer" : tool === "select" ? "move" : "crosshair" }}
             onPointerDown={onDown}
             onPointerMove={onMove}
             onPointerUp={onUp}
@@ -1108,9 +1257,10 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         </div>
 
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
-          {(["pen", "hl", "line", "rect", "text", "eraser", "pointer"] as const).map((t) => (
+          {(["select", "pen", "hl", "line", "rect", "text", "eraser", "pointer"] as const).map((t) => (
             <button key={t} type="button" className={btn(tool === t)} onClick={() => {
                 if (tool === "pointer" && t !== "pointer") broadcast("point", { hide: true });
+                if (t !== "select") select(null);
                 setTool(t);
               }} aria-pressed={tool === t} title={TOOL_NAMES[t]}>
               <span aria-hidden>{TOOL_NAMES[t].split(" ")[0]}</span>
@@ -1157,6 +1307,11 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         ) : null}
 
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
+          {selected && tool === "select" ? (
+            <button type="button" className="btn-danger h-11 px-3 text-sm" onClick={deleteSelected} title="Delete what's selected (Delete key)">
+              🗑 Delete
+            </button>
+          ) : null}
           <button type="button" className={btn(false)} onClick={undo} title="Undo (Ctrl/⌘ + Z)">
             ↶ Undo
           </button>

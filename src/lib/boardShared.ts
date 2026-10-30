@@ -20,8 +20,8 @@ export const HIGHLIGHT = "#facc15";
 export const HL_COLORS = ["#facc15", "#4ade80", "#f472b6", "#60a5fa", "#fb923c"] as const;
 export const SIZES = { thin: 0.003, thick: 0.007 } as const;
 
-export type Tool = "pen" | "hl" | "line" | "rect" | "text" | "eraser" | "pointer";
-export const TOOL_NAMES: Record<string, string> = { pen: "✏️ Pen", hl: "🖍️ Highlighter", text: "🔤 Typing", eraser: "🧽 Eraser", pointer: "👆 Point", line: "📏 Line", rect: "▭ Box" };
+export type Tool = "select" | "pen" | "hl" | "line" | "rect" | "text" | "eraser" | "pointer";
+export const TOOL_NAMES: Record<string, string> = { pen: "✏️ Pen", hl: "🖍️ Highlighter", text: "🔤 Typing", eraser: "🧽 Eraser", pointer: "👆 Point", line: "📏 Line", rect: "▭ Box", select: "✋ Move" };
 
 /** pen / highlighter: a path of points; line / rect: two corners [x1, y1, x2, y2]. */
 export type StrokeData = { t: "pen" | "hl" | "line" | "rect"; c: string; w: number; p: number[] };
@@ -146,6 +146,76 @@ export function hitsMark(m: MarkData, x: number, y: number, r: number, aspect: n
     if (dx * dx + dy * dy <= rr * rr) return true;
   }
   return false;
+}
+
+// ---- Moving and resizing (the ✋ Move tool) -------------------------------------------
+export type Box = { x1: number; y1: number; x2: number; y2: number };
+const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+const r4b = (n: number) => Math.round(n * 10000) / 10000;
+
+/** The rectangle around a mark (fractions of the page). */
+export function markBounds(m: MarkData, aspect: number): Box {
+  if (m.t === "text") {
+    const w = m.s * 0.55 * m.text.length;
+    return { x1: m.x, y1: m.y - m.s / aspect, x2: Math.min(1, m.x + w), y2: m.y + (m.s * 0.25) / aspect };
+  }
+  let x1 = 1, y1 = 1, x2 = 0, y2 = 0;
+  for (let i = 0; i < m.p.length; i += 2) {
+    x1 = Math.min(x1, m.p[i]);
+    x2 = Math.max(x2, m.p[i]);
+    y1 = Math.min(y1, m.p[i + 1]);
+    y2 = Math.max(y2, m.p[i + 1]);
+  }
+  const pad = m.w / 2;
+  return { x1: x1 - pad, y1: y1 - pad / aspect, x2: x2 + pad, y2: y2 + pad / aspect };
+}
+
+/** Is (x, y) on this mark, or inside a box / word? Used to pick something to move. */
+export function grabsMark(m: MarkData, x: number, y: number, r: number, aspect: number): boolean {
+  if (m.t === "rect" || m.t === "text") {
+    const b = markBounds(m, aspect);
+    if (x >= b.x1 - r && x <= b.x2 + r && y >= b.y1 - r / aspect && y <= b.y2 + r / aspect) return true;
+  }
+  return hitsMark(m, x, y, r, aspect);
+}
+
+/** The same mark moved by (dx, dy), kept on the page. */
+export function translateMark(m: MarkData, dx: number, dy: number, aspect: number): MarkData {
+  const b = markBounds(m, aspect);
+  const ddx = Math.min(Math.max(dx, -b.x1), 1 - b.x2);
+  const ddy = Math.min(Math.max(dy, -b.y1), 1 - b.y2);
+  if (m.t === "text") return { ...m, x: r4b(m.x + ddx), y: r4b(m.y + ddy) };
+  return { ...m, p: m.p.map((v, i) => r4b(v + (i % 2 ? ddy : ddx))) };
+}
+
+/** Grab points for resizing: the two ends of a line, the four corners of a box. */
+export function handlesOf(m: MarkData): [number, number][] {
+  if (m.t === "line") return [[m.p[0], m.p[1]], [m.p[2], m.p[3]]];
+  if (m.t === "rect") {
+    const [x1, y1, x2, y2] = m.p;
+    return [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+  }
+  return [];
+}
+
+/** Drag handle number `h` to (x, y). */
+export function moveHandle(m: MarkData, h: number, x: number, y: number, aspect: number): MarkData {
+  if (m.t !== "line" && m.t !== "rect") return m;
+  const p = [...m.p];
+  const cx = r4b(clamp01(x));
+  const cy = r4b(clamp01(y));
+  if (m.t === "line") {
+    const [fx, fy] = h === 0 ? [p[2], p[3]] : [p[0], p[1]];
+    const [sx, sy] = snapLine(fx, fy, cx, cy, aspect);
+    if (h === 0) [p[0], p[1]] = [sx, sy];
+    else [p[2], p[3]] = [sx, sy];
+  } else {
+    const xi = h === 0 || h === 3 ? 0 : 2;
+    const yi = h === 0 || h === 1 ? 1 : 3;
+    p[xi] = cx;
+    p[yi] = cy;
+  }
+  return { ...m, p };
 }
 
 /** Distance from point (px, py) to the segment a–b (all in page-width units). */

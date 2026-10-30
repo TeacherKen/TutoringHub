@@ -76,3 +76,22 @@ describe("bar-model tools", () => {
     expect(snapLine(0.1, 0.1, 0.4, 0.6, 0.5625)).toEqual([0.4, 0.6]);
   });
 });
+
+import { grabsMark, moveHandle, translateMark } from "@/lib/boardShared";
+describe("moving and resizing drawings", () => {
+  const box = { t: "rect" as const, c: "#000000", w: 0.003, p: [0.1, 0.1, 0.3, 0.2] };
+  it("grabs a box anywhere inside it", () => {
+    expect(grabsMark(box, 0.2, 0.15, 0.01, 0.5625)).toBe(true);
+    expect(grabsMark(box, 0.6, 0.6, 0.01, 0.5625)).toBe(false);
+  });
+  it("moves a mark but keeps it on the page", () => {
+    expect(translateMark(box, 0.1, 0.05, 0.5625)).toMatchObject({ p: [0.2, 0.15, 0.4, 0.25] });
+    const far = translateMark(box, 5, 5, 0.5625) as typeof box;
+    expect(Math.max(...far.p)).toBeLessThanOrEqual(1);
+  });
+  it("drags a box corner and a line end", () => {
+    expect(moveHandle(box, 2, 0.5, 0.4, 0.5625)).toMatchObject({ p: [0.1, 0.1, 0.5, 0.4] });
+    const line = { t: "line" as const, c: "#000000", w: 0.003, p: [0.1, 0.5, 0.4, 0.5] };
+    expect(moveHandle(line, 1, 0.7, 0.505, 0.5625)).toMatchObject({ p: [0.1, 0.5, 0.7, 0.5] }); // stays flat
+  });
+});
