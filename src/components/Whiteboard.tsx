@@ -1,6 +1,9 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 import {
+  cleanMark,
   COLORS,
   COLOR_NAMES,
   HIGHLIGHT,
@@ -17,10 +20,14 @@ import {
 } from "@/lib/boardShared";
 
 // Smart slides: page pictures with a drawing layer on top. The student and Mr Ken
-// both use this; each screen checks for the other's changes every second.
+// both use this. Changes go straight to the other screen over a live connection
+// (Supabase Realtime), and are also saved through the app's server, which each
+// screen checks every few seconds to catch anything the live connection missed.
 
-const POLL_MS = 1000;
+const POLL_MS = 1000; // when the live connection isn't working
+const POLL_LIVE_MS = 3000; // when it is
 const LIVE_MS = 400;
+const LIVE_RT_MS = 70;
 const HEARTBEAT_MS = 8000;
 const HL_WIDTH = 0.022;
 const TEXT_SIZE = 0.03;
@@ -110,6 +117,10 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
   const erasing = useRef(false);
   const sizeRef = useRef({ W: 0, H: 0, dpr: 1 });
   const lastLive = useRef(0);
+  const lastHttpLive = useRef(0);
+  const channel = useRef<RealtimeChannel | null>(null);
+  const rtOk = useRef(false);
+  const lastRt = useRef(0);
   const stateRef = useRef({ page, tool, color, follow });
   useLayoutEffect(() => {
     stateRef.current = { page, tool, color, follow };
@@ -161,17 +172,101 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
     render();
   });
 
+  // ---- Live connection ---------------------------------------------------------------
+  const broadcast = useCallback((event: string, payload: Record<string, unknown>) => {
+    const ch = channel.current;
+    if (!ch || !rtOk.current) return false;
+    void ch.send({ type: "broadcast", event, payload: { ...payload, who: me } });
+    return true;
+  }, [me]);
+
+  /** Something the other person is doing right now (page, tool, line being drawn). */
+  const applyOther = useCallback(
+    (o: Live, fromLive: boolean) => {
+      if (fromLive) lastRt.current = Date.now();
+      setOther(o);
+      setNow(Date.now());
+      const st = stateRef.current;
+      if (isTutor && st.follow && o.page !== st.page && !drawing.current) setPage(o.page);
+    },
+    [isTutor],
+  );
+
+  const boardId = board?.id;
+  useEffect(() => {
+    if (!boardId) return;
+    let sb: ReturnType<typeof createClient>;
+    try {
+      sb = createClient();
+    } catch {
+      return; // no live connection — checking every second still works
+    }
+    const other = isTutor ? "student" : "tutor";
+    const ch = sb.channel(`tutoringhub-board-${boardId}`, { config: { broadcast: { self: false, ack: false } } });
+    ch.on("broadcast", { event: "live" }, ({ payload }) => {
+      if (payload?.who !== other || !payload.live) return;
+      const l = payload.live as Live;
+      if (!Number.isInteger(l.page)) return;
+      const stroke = l.stroke ? cleanMark(l.stroke) : null;
+      applyOther({ ...l, stroke: stroke && stroke.t !== "text" ? stroke : null, updated_at: new Date().toISOString() }, true);
+    })
+      .on("broadcast", { event: "mark" }, ({ payload }) => {
+        const m = payload?.mark as Mark | undefined;
+        if (payload?.who !== other || !m || typeof m.id !== "string" || !Number.isInteger(m.page) || removed.current.has(m.id)) return;
+        const data = cleanMark(m.data);
+        if (!data) return;
+        marks.current.set(m.id, { id: m.id, page: m.page, author: other, data });
+        bump();
+      })
+      .on("broadcast", { event: "del" }, ({ payload }) => {
+        if (payload?.who !== other || !Array.isArray(payload.ids)) return;
+        let changed = false;
+        for (const id of payload.ids as string[]) {
+          const m = marks.current.get(id);
+          if (m && (other === "tutor" || m.author === "student")) changed = marks.current.delete(id) || changed;
+        }
+        if (changed) bump();
+      })
+      .on("broadcast", { event: "clear" }, ({ payload }) => {
+        if (payload?.who !== other || !Number.isInteger(payload.page)) return;
+        for (const [id, m] of marks.current) if (m.page === payload.page && (other === "tutor" || m.author === "student")) marks.current.delete(id);
+        bump();
+      })
+      .on("broadcast", { event: "go" }, ({ payload }) => {
+        if (isTutor || payload?.who !== "tutor" || !Number.isInteger(payload.page)) return;
+        setPage(payload.page as number);
+        setTextAt(null);
+      })
+      .subscribe((status) => {
+        rtOk.current = status === "SUBSCRIBED";
+      });
+    channel.current = ch;
+    return () => {
+      rtOk.current = false;
+      channel.current = null;
+      void sb.removeChannel(ch);
+    };
+  }, [boardId, isTutor, applyOther]);
+
   // ---- Telling the other screen what I'm doing ------------------------------
   const sendLive = useCallback(
     (extra: Record<string, unknown> = {}) => {
       if (!boardIdRef.current) return;
-      lastLive.current = Date.now();
+      const t0 = Date.now();
+      lastLive.current = t0;
       const { page: pg, tool: t, color: c } = stateRef.current;
       const stroke = drawing.current && (t === "pen" || t === "hl") ? currentStroke(drawing.current.slice(-1200)) : null;
-      void post(api, { op: "live", live: { page: pg, tool: t, color: t === "hl" ? HIGHLIGHT : c, stroke, ...extra } });
+      const live = { page: pg, tool: t, color: t === "hl" ? HIGHLIGHT : c, stroke, ...extra };
+      const sentLive = broadcast("live", { live });
+      if (extra.go_to != null) broadcast("go", { page: extra.go_to as number });
+      // Save it too (so a screen that joins later knows) — but not every bit of a line when live works.
+      if (!sentLive || !stroke || extra.go_to != null || t0 - lastHttpLive.current > HEARTBEAT_MS) {
+        lastHttpLive.current = t0;
+        void post(api, { op: "live", live });
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api, size],
+    [api, size, broadcast],
   );
 
   useEffect(() => {
@@ -189,7 +284,10 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
   useEffect(() => {
     let alive = true;
     let needUrls = true;
+    let busy = false;
     const load = async () => {
+      if (busy) return;
+      busy = true;
       try {
         const res = await fetch(`${api}?after=${rev.current}${needUrls ? "&urls=1" : ""}`, { cache: "no-store" });
         if (!res.ok || !alive) return;
@@ -229,34 +327,37 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
         }
         rev.current = Math.max(rev.current, data.rev);
         if (changed) bump();
-        setOther(data.other);
         setNow(Date.now());
-        const st = stateRef.current;
-        if (data.other) {
-          if (!isTutor) {
-            // Mr Ken pressed "Bring here".
-            if (lastGoAt.current === undefined) lastGoAt.current = data.other.go_at ?? null;
-            else if (data.other.go_at && data.other.go_at !== lastGoAt.current && data.other.go_to != null) {
-              lastGoAt.current = data.other.go_at;
-              setPage(data.other.go_to);
-            }
-          } else if (st.follow && data.other.page !== st.page && !drawing.current) {
-            setPage(data.other.page);
+        const liveFresh = rtOk.current && Date.now() - lastRt.current < 5000;
+        if (data.other && !liveFresh) applyOther(data.other, false);
+        else if (!data.other) setOther(null);
+        if (data.other && !isTutor) {
+          // Mr Ken pressed "Bring here" (the live connection usually got there first).
+          if (lastGoAt.current === undefined) lastGoAt.current = data.other.go_at ?? null;
+          else if (data.other.go_at && data.other.go_at !== lastGoAt.current) {
+            lastGoAt.current = data.other.go_at;
+            if (!rtOk.current && data.other.go_to != null) setPage(data.other.go_to);
           }
         }
       } catch {
         /* try again next time */
+      } finally {
+        busy = false;
       }
     };
-    load();
-    const id = setInterval(load, POLL_MS);
+    let timer: ReturnType<typeof setTimeout>;
+    const loop = async () => {
+      await load();
+      if (alive) timer = setTimeout(loop, rtOk.current ? POLL_LIVE_MS : POLL_MS);
+    };
+    void loop();
     const refreshUrls = setInterval(() => (needUrls = true), 4 * 3600_000);
     return () => {
       alive = false;
-      clearInterval(id);
+      clearTimeout(timer);
       clearInterval(refreshUrls);
     };
-  }, [api, isTutor]);
+  }, [api, isTutor, applyOther]);
 
   // ---- Full screen ---------------------------------------------------------------
   // The page grows to fill the screen; the browser's own full screen hides the tabs too.
@@ -314,6 +415,7 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
       removed.current.add(id);
     }
     bump();
+    broadcast("del", { ids: hit });
     void post(api, { op: "del", ids: hit });
   }
 
@@ -351,7 +453,7 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
       if (Math.abs(x - lx) + Math.abs(y - ly) > 0.0015 && pts.length < 3998) pts.push(x, y);
     }
     render();
-    if (Date.now() - lastLive.current > LIVE_MS) sendLive();
+    if (Date.now() - lastLive.current > (rtOk.current ? LIVE_RT_MS : LIVE_MS)) sendLive();
   }
 
   function onUp() {
@@ -370,6 +472,7 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
     marks.current.set(id, m);
     mine.current.push(id);
     bump();
+    broadcast("mark", { mark: m });
     void post(api, { op: "add", mark: { id, page, data } });
   }
 
@@ -387,6 +490,7 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
         marks.current.delete(id);
         removed.current.add(id);
         bump();
+        broadcast("del", { ids: [id] });
         void post(api, { op: "del", ids: [id] });
         return;
       }
@@ -402,6 +506,7 @@ export function Whiteboard({ api, me, otherName, empty }: Props) {
     }
     bump();
     setConfirmClear(false);
+    broadcast("clear", { page });
     void post(api, { op: "clear", page });
   }
 
