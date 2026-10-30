@@ -115,6 +115,7 @@ export async function GET() {
     { header: "Paid on", key: "paid", width: 12 },
     { header: "Paid by", key: "by", width: 14 },
     { header: "Receipt", key: "receipt", width: 13 },
+    { header: "Hours used before the app", key: "before", width: 14 },
     { header: "Note", key: "note", width: 30 },
   ]);
   for (const p of money.packages as (typeof money.packages[number] & { receipt_no?: string | null })[]) {
@@ -126,6 +127,7 @@ export async function GET() {
       paid: p.paid_on ?? "Not paid yet",
       by: p.paid_by ? (PAID_BY[p.paid_by] ?? p.paid_by) : "",
       receipt: p.receipt_no ?? "",
+      before: Number((p as { hours_used_before?: number | null }).hours_used_before ?? 0) || null,
       note: p.note ?? "",
     });
   }
@@ -137,7 +139,7 @@ export async function GET() {
     { header: "Contact", key: "contact", width: 22 },
     { header: "Onsite / online", key: "mode", width: 14 },
     { header: "Private / Preply", key: "source", width: 15 },
-    { header: "Price per hour (฿)", key: "rate", width: 16 },
+    { header: "Price per class (฿)", key: "rate", width: 17 },
     { header: "Book", key: "book", width: 28 },
     { header: "Active", key: "active", width: 8 },
   ]);
@@ -149,7 +151,7 @@ export async function GET() {
       contact: [s.contact_app, s.contact].filter(Boolean).join(": "),
       mode: s.mode,
       source: s.source,
-      rate: s.hourly_rate_thb != null ? Number(s.hourly_rate_thb) : null,
+      rate: s.class_price_thb != null ? Number(s.class_price_thb) : null,
       book: s.book ?? "",
       active: s.active ? "Yes" : "No",
     });

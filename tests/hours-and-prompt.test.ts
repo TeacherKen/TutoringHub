@@ -124,3 +124,11 @@ describe("renewal message", () => {
     );
   });
 });
+
+describe("package started before the app", () => {
+  it("counts hours already used", () => {
+    const b = accountBalance(["j"], [{ hours: 24, start_date: "2026-10-29", hours_used_before: 22.5 }], [], [L("1", "2026-11-02T03:00:00Z", "done", ["j"], 1.5)]);
+    expect(b.used).toBe(24);
+    expect(b.left).toBe(0);
+  });
+});

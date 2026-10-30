@@ -168,6 +168,9 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
                         {p.paid_on ? ` · paid ${fmtDate(`${p.paid_on}T12:00:00+07:00`)}` : ""}
                         {p.paid_by ? ` · ${PAID_BY[p.paid_by]}` : ""}
                         {p.note ? ` · ${p.note}` : ""}
+                        {Number((p as { hours_used_before?: number | null }).hours_used_before ?? 0) > 0
+                          ? ` · ${Number((p as { hours_used_before?: number | null }).hours_used_before)} h used before TutoringHub`
+                          : ""}
                       </div>
                       {!p.paid_on ? (
                         <form action={markPackagePaid} className="mt-2 flex flex-wrap items-center gap-2">

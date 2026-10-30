@@ -2,7 +2,7 @@ import { bkkDateKey, hoursBetween } from "./time";
 
 export const CHARGED_STATUSES = ["done", "cancelled_charged", "no_show"] as const;
 
-export type HoursPackage = { hours: number; start_date: string };
+export type HoursPackage = { hours: number; start_date: string; hours_used_before?: number | string | null };
 export type HoursAdjustment = { hours: number };
 export type HoursLesson = {
   id: string;
@@ -45,7 +45,8 @@ export function accountBalance(
   const startDate = packages.length ? packages.map((p) => p.start_date).sort()[0] : null;
   const members = new Set(accountStudentIds);
 
-  let used = 0;
+  // Hours a package had already used before TutoringHub started counting it.
+  let used = packages.reduce((s, p) => s + Math.min(Number(p.hours), Math.max(0, Number(p.hours_used_before ?? 0) || 0)), 0);
   const counted: string[] = [];
   if (startDate) {
     for (const l of lessons) {

@@ -58,16 +58,16 @@ export function StudentForm({ student, action, submitLabel }: Props) {
       >
         <input name="keywords" className="input" defaultValue={s?.keywords.join(", ") ?? ""} placeholder="Leave empty to use the first name" />
       </Field>
-      <Field label="Price per hour (฿)" hint="Only for students without a package, e.g. Preply: what you receive per hour after Preply's cut. Used on the Money page.">
+      <Field label="Price per class (฿)" hint="Only for students without a package, e.g. Preply: what you receive per class after Preply's cut. Used on the Money page.">
         <input
-          name="hourly_rate_thb"
+          name="class_price_thb"
           type="number"
           min="0"
           step="1"
           inputMode="numeric"
           className="input"
-          placeholder="e.g. 600"
-          defaultValue={(s as { hourly_rate_thb?: number | null } | undefined)?.hourly_rate_thb ?? ""}
+          placeholder="e.g. 1500"
+          defaultValue={(s as { class_price_thb?: number | null } | undefined)?.class_price_thb ?? ""}
         />
       </Field>
       <Field label="Book or syllabus">

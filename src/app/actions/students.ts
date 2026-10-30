@@ -40,14 +40,14 @@ export type FormState = { error?: string; ok?: string } | null;
 
 const PAID_BY = ["bank_transfer", "promptpay", "cash", "preply", "other"];
 
-/** Price per hour is saved on its own, so saving still works before database update 0011. */
+/** Price per class is saved on its own, so saving still works before database update 0013. */
 async function saveRate(supabase: Awaited<ReturnType<typeof createClient>>, id: string, form: FormData) {
-  if (!form.has("hourly_rate_thb")) return;
-  const raw = String(form.get("hourly_rate_thb") ?? "").trim();
+  if (!form.has("class_price_thb")) return;
+  const raw = String(form.get("class_price_thb") ?? "").trim();
   const n = Number(raw);
-  const rate = raw === "" ? null : Number.isFinite(n) && n >= 0 && n <= 100000 ? Math.round(n * 100) / 100 : undefined;
-  if (rate === undefined) return;
-  await supabase.from("students").update({ hourly_rate_thb: rate }).eq("id", id);
+  const price = raw === "" ? null : Number.isFinite(n) && n >= 0 && n <= 100000 ? Math.round(n * 100) / 100 : undefined;
+  if (price === undefined) return;
+  await supabase.from("students").update({ class_price_thb: price }).eq("id", id);
 }
 
 export async function createStudent(_: FormState, form: FormData): Promise<FormState> {
@@ -199,6 +199,8 @@ export async function addPackage(_: FormState, form: FormData): Promise<FormStat
     ({ data, error } = await supabase.from("packages").insert({ ...row, paid_by: "bank_transfer" }).select("id").single());
   }
   if (error || !data) return { error: "Couldn't save the package." };
+  const before = Number(form.get("hours_used_before") ?? 0);
+  if (before > 0 && before <= hours) await supabase.from("packages").update({ hours_used_before: before }).eq("id", data.id);
   if (paidOnOk) await assignReceipt(supabase, data.id as string, paidOnOk);
   revalidatePath("/", "layout");
   return { ok: unpaid ? "Package added — waiting for payment." : "Package added." };

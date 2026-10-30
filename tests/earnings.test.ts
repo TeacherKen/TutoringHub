@@ -111,3 +111,38 @@ describe("receipt numbers", () => {
     expect(nextReceiptNo(["R-2026-041"], 2027)).toBe("R-2027-001");
   });
 });
+
+describe("packages that started before the app, and Preply prices per class", () => {
+  it("counts hours already used, and values earlier classes without using hours twice", () => {
+    const r = computeEarnings({
+      accounts,
+      students,
+      packages: [{ id: "p", hour_account_id: "A", hours: 24, price_thb: 40800, start_date: "2026-10-29", paid_on: "2026-08-27", hours_used_before: 22.5 }],
+      lessons: [
+        L("old", "2026-10-28T10:00:00Z", ["j"], "done", 1.5), // already inside the 22.5 h
+        L("new", "2026-11-02T10:00:00Z", ["j"], "done", 1.5), // the last 1.5 h
+      ],
+      upcoming: [],
+      today: "2026-11-02",
+    });
+    const a = r.accounts.find((x) => x.id === "A")!;
+    expect(a.leftHours).toBe(0);
+    expect(a.packages[0]).toMatchObject({ usedHours: 24, usedValue: 40800, state: "used" });
+    expect(r.lessons.map((l) => [l.id, l.value])).toEqual([
+      ["old", 2550],
+      ["new", 2550],
+    ]);
+  });
+
+  it("uses a flat price per class for Preply students", () => {
+    const r = computeEarnings({
+      accounts,
+      students: [{ id: "a", first_name: "Alice", hour_account_id: "AL", class_price_thb: 1500 }],
+      packages: [],
+      lessons: [L("p1", "2026-10-31T10:00:00Z", ["a"], "done", 0.75)],
+      upcoming: [],
+      today: "2026-10-31",
+    });
+    expect(r.lessons[0].value).toBe(1500);
+  });
+});

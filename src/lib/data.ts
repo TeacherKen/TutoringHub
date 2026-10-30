@@ -299,7 +299,7 @@ export async function getMoneyData() {
     .order("start_at");
 
   const adj = (adjustments ?? []) as { hour_account_id: string; hours: number }[];
-  const st = (students ?? []) as (Student & { hourly_rate_thb?: number | null })[];
+  const st = (students ?? []) as (Student & { hourly_rate_thb?: number | null; class_price_thb?: number | null })[];
   const result = computeEarnings({
     accounts: (accounts ?? []).map((a) => ({
       id: a.id as string,

@@ -90,7 +90,7 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
         ) : null}
         {unpriced.length ? (
           <p className="rounded-xl bg-surface-2 p-3">
-            No price yet for {unpriced.join(", ")}. Add a package, or a price per hour in their details (e.g. for Preply).{" "}
+            No price yet for {unpriced.join(", ")}. Add a package, or a price per class in their details (e.g. for Preply).{" "}
             <Link href="/students" className="text-accent underline">
               Students
             </Link>

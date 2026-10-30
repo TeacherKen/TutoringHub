@@ -2,13 +2,29 @@
 //
 // - A class taught from a package is worth that package's price per hour
 //   (price ÷ hours). Packages are used up oldest first.
-// - A student without a package (e.g. Preply) uses their own "price per hour", if set.
+// - A student without a package (e.g. Preply) uses their own "price per class" (or per hour), if set.
+// - A package can start with hours already used before TutoringHub was set up.
 // - Only lessons marked done, cancelled-but-charged or no-show count, like package hours.
 import { CHARGED_STATUSES, lessonLength } from "./hours";
 import { addDays, bkkDateKey } from "./time";
 
-export type EarnStudent = { id: string; first_name: string; hour_account_id: string | null; hourly_rate_thb?: number | string | null };
-export type EarnPackage = { id: string; hour_account_id: string; hours: number | string; price_thb: number | string | null; start_date: string; paid_on?: string | null };
+export type EarnStudent = {
+  id: string;
+  first_name: string;
+  hour_account_id: string | null;
+  hourly_rate_thb?: number | string | null;
+  class_price_thb?: number | string | null;
+};
+export type EarnPackage = {
+  id: string;
+  hour_account_id: string;
+  hours: number | string;
+  price_thb: number | string | null;
+  start_date: string;
+  paid_on?: string | null;
+  /** Hours used before TutoringHub started counting this package. */
+  hours_used_before?: number | string | null;
+};
 export type EarnAccount = { id: string; name: string; adjusted: number };
 export type EarnLesson = {
   id: string;
@@ -101,20 +117,34 @@ export function computeEarnings(input: {
       .map((p) => {
         const hours = Number(p.hours);
         const price = num(p.price_thb);
-        return { p, hours, price, rate: price != null && hours > 0 ? price / hours : null, left: hours };
+        const before = Math.min(hours, Math.max(0, num(p.hours_used_before) ?? 0));
+        return { p, hours, price, before, rate: price != null && hours > 0 ? price / hours : null, left: hours - before };
       });
     const bought = pk.reduce((s, p) => s + p.hours, 0);
     const paid = pk.reduce((s, p) => s + (p.price ?? 0), 0);
-    let used = 0;
-    let earned = 0;
+    let used = pk.reduce((s, x) => s + x.before, 0);
+    let earned = pk.reduce((s, x) => s + (x.rate != null ? x.before * x.rate : 0), 0);
 
     if (pk.length) {
       const first = pk[0].p.start_date;
-      let i = 0;
+      let i = pk.findIndex((x) => x.left > 1e-9);
+      if (i < 0) i = pk.length;
       for (const l of lessons) {
-        if (bkkDateKey(l.start_at) < first) continue;
         const who = l.charged.filter((id) => memberSet.has(id));
         if (!who.length) continue;
+        const date = bkkDateKey(l.start_at);
+        if (date < first) {
+          // Before the app started counting (already in "hours used before"): worth the
+          // rate of the package that was paid for by then, without using hours again.
+          const paidBy = [...pk].reverse().find((x) => x.rate != null && (x.p.paid_on ?? x.p.start_date) <= date);
+          if (paidBy) {
+            const v = part(l.id);
+            v.value += lessonLength({ ...l, length_hours: num(l.length_hours) }) * paidBy.rate!;
+            v.priced = true;
+            for (const id of who) coveredByPackage.add(`${l.id}:${id}`);
+          }
+          continue;
+        }
         for (const id of who) coveredByPackage.add(`${l.id}:${id}`);
         let need = lessonLength({ ...l, length_hours: num(l.length_hours) });
         used += need;
@@ -178,15 +208,19 @@ export function computeEarnings(input: {
     };
   });
 
-  // Students paying per lesson (no package, or before their first package): price per hour.
+  // Students paying per lesson (no package, e.g. Preply): price per class, or per hour.
   for (const l of lessons) {
     for (const id of l.charged) {
       if (coveredByPackage.has(`${l.id}:${id}`)) continue;
       const s = studentById.get(id);
-      const rate = num(s?.hourly_rate_thb);
+      const perClass = num(s?.class_price_thb);
+      const perHour = num(s?.hourly_rate_thb);
       const v = part(l.id);
-      if (rate != null) {
-        v.value += rate * lessonLength({ ...l, length_hours: num(l.length_hours) });
+      if (perClass != null) {
+        v.value += perClass;
+        v.priced = true;
+      } else if (perHour != null) {
+        v.value += perHour * lessonLength({ ...l, length_hours: num(l.length_hours) });
         v.priced = true;
       } else if (s) v.unpriced.push(s.first_name);
     }
