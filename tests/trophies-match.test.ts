@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addRound, newTrophies, roundStars, shelf, statsFrom, trophies, type RoundRow } from "@/lib/trophies";
-import { factKey, type FactState } from "@/lib/facts";
+import { answerFor, factKey, makeQuestion, questionParts, questionWithAnswer, type FactState } from "@/lib/facts";
 import { scoreAnswer } from "@/lib/match";
 
 const at = (d: string) => `${d}T10:00:00.000Z`;
@@ -70,7 +70,7 @@ describe("match answers", () => {
   const p = { tables: [3, 4], goals: 2, misses: 1, powers: 0, streak: 2, best_streak: 2 };
 
   it("adds a goal, a streak and a power shot for a quick right answer", () => {
-    expect(scoreAnswer(p, "3x7", 21, 2500)).toEqual({
+    expect(scoreAnswer(p, "3x7", "times", 21, 2500)).toEqual({
       correct: true,
       time: 2500,
       next: { goals: 3, misses: 1, powers: 1, streak: 3, best_streak: 3 },
@@ -78,12 +78,41 @@ describe("match answers", () => {
   });
 
   it("counts a wrong answer as a save and resets the streak", () => {
-    expect(scoreAnswer(p, "4x8", 30, 6000)?.next).toEqual({ goals: 2, misses: 2, powers: 0, streak: 0, best_streak: 2 });
+    expect(scoreAnswer(p, "4x8", "times", 30, 6000)?.next).toEqual({ goals: 2, misses: 2, powers: 0, streak: 0, best_streak: 2 });
   });
 
   it("refuses facts from someone else's tables and nonsense", () => {
-    expect(scoreAnswer(p, "9x9", 81, 1000)).toBeNull();
-    expect(scoreAnswer(p, "3x7", NaN, 1000)).toBeNull();
-    expect(scoreAnswer(p, "drop table", 1, 1000)).toBeNull();
+    expect(scoreAnswer(p, "9x9", "times", 81, 1000)).toBeNull();
+    expect(scoreAnswer(p, "3x7", "times", NaN, 1000)).toBeNull();
+    expect(scoreAnswer(p, "drop table", "times", 1, 1000)).toBeNull();
+  });
+
+  it("checks division and missing-number answers, but only in the player's own game", () => {
+    const mixed = { ...p, mode: "mixed" };
+    expect(scoreAnswer(mixed, "4x6", "divide", 6, 3000)?.correct).toBe(true); // 24 ÷ 4 = 6
+    expect(scoreAnswer(mixed, "4x6", "divide", 24, 3000)?.correct).toBe(false);
+    expect(scoreAnswer(mixed, "4x6", "missingL", 6, 3000)?.correct).toBe(true); // ? × 4 = 24
+    expect(scoreAnswer({ ...p, mode: "divide" }, "4x6", "times", 24, 3000)).toBeNull(); // not this child's game
+    expect(scoreAnswer({ ...p, mode: "times" }, "4x6", "divide", 6, 3000)).toBeNull();
+  });
+});
+
+describe("game modes", () => {
+  it("writes each kind of question from the same fact", () => {
+    expect(questionWithAnswer({ fact: "4x6", kind: "times" })).toBe("4 × 6 = 24");
+    expect(questionWithAnswer({ fact: "4x6", kind: "divide" })).toBe("24 ÷ 4 = 6");
+    expect(questionWithAnswer({ fact: "4x6", kind: "missingL" })).toBe("6 × 4 = 24");
+    expect(questionWithAnswer({ fact: "4x6", kind: "missingR" })).toBe("4 × 6 = 24");
+    expect(questionParts({ fact: "4x6", kind: "missingL" })).toEqual([null, "×", "4", "=", "24"]);
+    expect(answerFor({ fact: "4x6", kind: "missingR" })).toBe(6);
+  });
+
+  it("only asks the kinds of question the mode allows", () => {
+    let i = 0;
+    const r = () => [0.1, 0.4, 0.6, 0.9][i++ % 4];
+    expect(Array.from({ length: 4 }, () => makeQuestion("3x5", "mixed", r).kind)).toEqual(["times", "divide", "missingL", "missingR"]);
+    expect(makeQuestion("3x5", "divide").kind).toBe("divide");
+    expect(["missingL", "missingR"]).toContain(makeQuestion("3x5", "missing").kind);
+    expect(makeQuestion("3x5", "times").kind).toBe("times");
   });
 });

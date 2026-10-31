@@ -21,6 +21,7 @@ export type Student = {
   games_open?: boolean;
   games_opened_at?: string | null;
   tt_tables?: number[] | null;
+  tt_mode?: string | null;
 };
 
 export type LessonStudent = {

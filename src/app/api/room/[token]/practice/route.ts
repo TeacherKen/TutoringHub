@@ -19,7 +19,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/room/[token]/pr
   if (!s) return NextResponse.json({ error: "not found" }, { status: 404 });
   const text = await req.text();
   if (text.length > 20_000) return NextResponse.json({ ok: false }, { status: 413 });
-  let body: { answers?: unknown; tables?: unknown; score?: unknown; total?: unknown; bestStreak?: unknown; powers?: unknown };
+  let body: { answers?: unknown; tables?: unknown; score?: unknown; total?: unknown; bestStreak?: unknown; powers?: unknown; mode?: unknown };
   try {
     body = JSON.parse(text);
   } catch {
@@ -31,6 +31,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/room/[token]/pr
   const ok = await savePractice(s.id, answers, cleanTables(body.tables), Number(body.score) || 0, total, {
     bestStreak: Number(body.bestStreak) || 0,
     powers: Number(body.powers) || 0,
+    mode: body.mode,
   });
   return NextResponse.json({ ok }, { status: ok ? 200 : 503, headers: noStore });
 }

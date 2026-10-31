@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
-import { cleanTables, updateFact, type Answer, type FactState } from "@/lib/facts";
+import { cleanMode, cleanTables, updateFact, type Answer, type FactState, type GameMode } from "@/lib/facts";
 import { isValidToken } from "@/lib/room";
 import { statsFrom, type RoundRow, type TrophyStats } from "@/lib/trophies";
 
@@ -11,15 +11,16 @@ export type PracticeData = {
   sessions: { score: number; total: number; tables: number[]; created_at: string }[];
   best: number | null; // highest practice score ever, for "New high score!"
   stats: TrophyStats; // for stars and trophies
+  mode: GameMode; // the game Mr Ken chose for this child
 };
 
-type Student = { id: string; first_name: string; tt_tables?: number[] | null };
+type Student = { id: string; first_name: string; tt_tables?: number[] | null; tt_mode?: string | null };
 const FACT_COLS = "fact, box, correct, wrong, avg_ms, due_at, last_seen";
 
 export async function studentForToken(token: string): Promise<Student | null> {
   if (!isValidToken(token)) return null;
   const admin = createAdminClient();
-  for (const cols of ["id, first_name, active, tt_tables", "id, first_name, active"]) {
+  for (const cols of ["id, first_name, active, tt_tables, tt_mode", "id, first_name, active, tt_tables", "id, first_name, active"]) {
     const { data, error } = await admin.from("students").select(cols).eq("room_token", token).maybeSingle<Student & { active: boolean }>();
     if (!error) return data?.active ? data : null;
   }
@@ -53,6 +54,7 @@ export async function getPractice(s: Student): Promise<PracticeData | null> {
       .map((r) => ({ score: r.score, total: r.total, tables: [], created_at: r.created_at })),
     best: practice.length ? Math.max(...practice.map((r) => Number(r.score))) : null,
     stats: statsFrom(rounds, facts),
+    mode: cleanMode(s.tt_mode),
   };
 }
 
@@ -73,7 +75,7 @@ export async function saveFacts(studentId: string, answers: Answer[]): Promise<b
   return !upErr;
 }
 
-export type RoundExtras = { bestStreak?: number; powers?: number; game?: "tt" | "match"; won?: boolean };
+export type RoundExtras = { bestStreak?: number; powers?: number; game?: string; won?: boolean };
 
 /** Add a finished round to the history. */
 export async function saveRound(studentId: string, tables: number[], score: number, total: number, extra: RoundExtras = {}): Promise<void> {
@@ -91,8 +93,9 @@ export async function saveRound(studentId: string, tables: number[], score: numb
 }
 
 /** Save a finished practice round: every answer updates that fact's box; the round goes in the history. */
-export async function savePractice(studentId: string, answers: Answer[], tables: number[], score: number, total: number, extra: RoundExtras = {}): Promise<boolean> {
+export async function savePractice(studentId: string, answers: Answer[], tables: number[], score: number, total: number, extra: RoundExtras & { mode?: unknown } = {}): Promise<boolean> {
   if (!(await saveFacts(studentId, answers))) return false;
-  await saveRound(studentId, tables, score, total, { ...extra, game: "tt" });
+  const mode = cleanMode(extra.mode);
+  await saveRound(studentId, tables, score, total, { bestStreak: extra.bestStreak, powers: extra.powers, game: mode === "times" ? "tt" : `tt-${mode}` });
   return true;
 }

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { pickRound, type FactState } from "@/lib/facts";
+import { makeQuestion, MODE_NAMES, pickRound, type FactState, type Question } from "@/lib/facts";
 import { setSoundOn, sfx, soundOn } from "@/lib/gameSound";
 import type { MatchState } from "@/lib/match";
 import { Stadium } from "./Stadium";
@@ -42,7 +42,7 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
   const [now, setNow] = useState(() => Date.parse(initial.now));
   const [sound, setSound] = useState(() => (typeof window === "undefined" ? true : soundOn()));
   const router = useRouter();
-  const [fact, setFact] = useState<string | null>(null);
+  const [fact, setFact] = useState<Question | null>(null);
   const [kickNo, setKickNo] = useState(0);
   const [myGoals, setMyGoals] = useState(0);
   const [confetti, setConfetti] = useState<Confetti[]>([]);
@@ -50,7 +50,7 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
   const [picking, setPicking] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [link, setLink] = useState("");
-  const queue = useRef<string[]>([]);
+  const queue = useRef<Question[]>([]);
   const progress = useRef<FactState[] | null>(null);
   const channel = useRef<RealtimeChannel | null>(null);
   const lastStatus = useRef(initial.status);
@@ -64,7 +64,7 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
   const nextFact = useCallback((s: MatchState) => {
     const p = s.me ? s.players.find((x) => x.id === s.me!.id) : undefined;
     if (!p || !s.me) return null;
-    if (!queue.current.length) queue.current = pickRound(p.tables, progress.current ?? [], new Date(), 20);
+    if (!queue.current.length) queue.current = pickRound(p.tables, progress.current ?? [], new Date(), 20).map((f) => makeQuestion(f, p.mode));
     return queue.current.shift() ?? null;
   }, []);
 
@@ -179,7 +179,7 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
         aim,
         onLand: (res) => res.correct && setMyGoals((g) => g + 1),
         onNext: (res) => {
-          if (!res.correct) queue.current.splice(2, 0, res.fact); // it comes back soon
+          if (!res.correct) queue.current.splice(2, 0, res.q); // it comes back soon
           setKickNo((n) => n + 1);
           setFact(nextFact(state));
         },
@@ -188,7 +188,7 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
       fetch(`/api/match/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "answer", device, fact, answer: Number(typed), ms: r.ms }),
+        body: JSON.stringify({ op: "answer", device, fact: fact.fact, kind: fact.kind, answer: Number(typed), ms: r.ms }),
       })
         .then(() => {
           nudge();
@@ -278,7 +278,7 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
                 <span className="text-3xl font-bold">{p.name}</span>
               </span>
               <span className="text-right text-sm font-semibold leading-tight text-white/65">
-                {claiming === p.id ? "Joining…" : p.joined ? "Playing on another device. Tap to switch here" : p.tables.map((t) => `${t}×`).join(" ")}
+                {claiming === p.id ? "Joining…" : p.joined ? "Playing on another device. Tap to switch here" : `${p.mode === "times" ? "" : `${MODE_NAMES[p.mode]} · `}${p.tables.map((t) => `${t}×`).join(" ")}`}
               </span>
             </button>
           ))}
@@ -347,7 +347,7 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
           board={board}
           target={state.target}
         />
-        <Controls fact={fact ?? `${me.tables[0]}x1`} typed={pen.typed} shot={pen.shot} clockKey={kickNo} onPress={pen.press} onKick={() => shoot()} locked={!fact} />
+        <Controls q={fact ?? { fact: `${me.tables[0]}x1`, kind: "times" }} typed={pen.typed} shot={pen.shot} clockKey={kickNo} onPress={pen.press} onKick={() => shoot()} locked={!fact} />
       </div>
     </section>
   );

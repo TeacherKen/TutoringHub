@@ -1,8 +1,8 @@
 "use client";
 import { useState, useTransition } from "react";
 import { MasteryGrid } from "./MasteryGrid";
-import { TABLES, level, type FactState } from "@/lib/facts";
-import { setStudentTables } from "@/app/actions/students";
+import { MODE_EXAMPLES, MODE_NAMES, MODES, TABLES, level, type FactState, type GameMode } from "@/lib/facts";
+import { setStudentMode, setStudentTables } from "@/app/actions/students";
 import { roundStars, shelf, trophies, type TrophyStats } from "@/lib/trophies";
 import { TrophyShelf } from "./Trophies";
 
@@ -20,6 +20,7 @@ export function TimesTablesCard({
   sessions,
   ready,
   stats,
+  initialMode,
 }: {
   studentId: string;
   name: string;
@@ -29,8 +30,10 @@ export function TimesTablesCard({
   sessions: Session[];
   ready: boolean;
   stats: TrophyStats;
+  initialMode: GameMode;
 }) {
   const [tables, setTables] = useState(initialTables);
+  const [mode, setMode] = useState(initialMode);
   const [saved, setSaved] = useState<"idle" | "saved" | "error">("idle");
   const [msg, setMsg] = useState("");
   const [pending, start] = useTransition();
@@ -49,6 +52,16 @@ export function TimesTablesCard({
   const won = shelfItems.filter((t) => t.got).length;
   const weak = progress.filter((p) => level(p) === "weak").map((p) => p.fact.replace("x", "×"));
   const shown = [...new Set([...tables, ...progress.map((p) => Number(p.fact.split("x")[0]))])].filter((t) => TABLES.includes(t as (typeof TABLES)[number])).sort((a, b) => a - b);
+
+  function chooseMode(m: GameMode) {
+    setMode(m);
+    setSaved("idle");
+    start(async () => {
+      const r = await setStudentMode(studentId, m);
+      setSaved(r.ok ? "saved" : "error");
+      setMsg(r.error ?? "");
+    });
+  }
 
   function toggle(t: number) {
     const next = tables.includes(t) ? tables.filter((x) => x !== t) : [...tables, t].sort((a, b) => a - b);
@@ -82,7 +95,7 @@ export function TimesTablesCard({
 
       <div className="space-y-2">
         <p className="text-sm">
-          Tables {name} starts with{" "}
+          Tables and game {name} starts with{" "}
           <span className="text-xs text-muted">{pending ? "Saving…" : saved === "saved" ? "✓ Saved" : saved === "error" ? msg || "Couldn't save" : "(they can change it in the game)"}</span>
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -100,6 +113,19 @@ export function TimesTablesCard({
               </button>
             );
           })}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {MODES.map((m) => (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={mode === m}
+              onClick={() => chooseMode(m)}
+              className={`min-h-10 rounded-xl border px-3 text-sm transition active:scale-95 ${mode === m ? "border-green-600 bg-green-600 text-white" : "border-line bg-surface"}`}
+            >
+              <span className="font-semibold">{MODE_NAMES[m]}</span> <span className={mode === m ? "text-white/80" : "text-muted"}>{MODE_EXAMPLES[m]}</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -121,7 +147,7 @@ export function TimesTablesCard({
             {sessions.map((s, i) => (
               <li key={i} className="flex justify-between py-1.5">
                 <span>
-                  {fmt(s.created_at)} · {s.game === "match" ? (s.won ? "Match, won" : "Match") : "Practice"} · {s.tables.map((t) => `${t}×`).join(" ")}
+                  {fmt(s.created_at)} · {s.game === "match" ? (s.won ? "Match, won" : "Match") : s.game === "tt-divide" ? "Divide" : s.game === "tt-missing" ? "Missing number" : s.game === "tt-mixed" ? "Mixed" : "Practice"} · {s.tables.map((t) => `${t}×`).join(" ")}
                 </span>
                 <span className="tabular-nums">
                   {s.game === "match" ? `${s.score} goals` : `${s.score}/${s.total}`} {"⭐".repeat(roundStars(s))}

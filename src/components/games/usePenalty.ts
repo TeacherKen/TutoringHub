@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FAST_MS, parseFact } from "@/lib/facts";
+import { answerFor, FAST_MS, type Question } from "@/lib/facts";
 import { sfx } from "@/lib/gameSound";
 import { TARGETS, type Shot } from "./Stadium";
 
@@ -8,14 +8,9 @@ import { TARGETS, type Shot } from "./Stadium";
 // question. Used by practice (on your own) and by head-to-head matches.
 
 export type Banner = { key: number; text: string; tone: "goal" | "saved"; sub?: string };
-export type KickResult = { fact: string; correct: boolean; ms: number; power: boolean; streak: number };
+export type KickResult = { q: Question; fact: string; correct: boolean; ms: number; power: boolean; streak: number };
 
 const FLY_MS = 700;
-
-export const answerOf = (fact: string) => {
-  const p = parseFact(fact)!;
-  return p[0] * p[1];
-};
 
 export function usePenalty({ holdGoal = 1350, holdSave = 2400 }: { holdGoal?: number; holdSave?: number } = {}) {
   const [typed, setTyped] = useState("");
@@ -54,16 +49,16 @@ export function usePenalty({ holdGoal = 1350, holdSave = 2400 }: { holdGoal?: nu
   }, []);
 
   /**
-   * Take the kick for `fact` with the typed answer. `counts` is false for second chances
+   * Take the kick for question `q` with the typed answer. `counts` is false for second chances
    * (they don't change the streak). `onLand` runs when the ball arrives; `onNext` when it's
    * time for the next question.
    */
   const kick = useCallback(
-    (fact: string, typedNow: string, opts: { aim?: number; counts?: boolean; onLand?: (r: KickResult) => void; onNext: (r: KickResult) => void }) => {
+    (q: Question, typedNow: string, opts: { aim?: number; counts?: boolean; onLand?: (r: KickResult) => void; onNext: (r: KickResult) => void }) => {
       if (busy.current || !typedNow) return null;
       busy.current = true;
       const ms = Date.now() - started.current;
-      const correct = Number(typedNow) === answerOf(fact);
+      const correct = Number(typedNow) === answerFor(q);
       const power = correct && ms < FAST_MS;
       const counts = opts.counts ?? true;
       const nextStreak = !counts ? streakRef.current : correct ? streakRef.current + 1 : 0;
@@ -71,7 +66,7 @@ export function usePenalty({ holdGoal = 1350, holdSave = 2400 }: { holdGoal?: nu
       const target = opts.aim ?? Math.floor(Math.random() * TARGETS.length);
       const others = TARGETS.map((_, n) => n).filter((n) => n !== target);
       const keeper = correct ? others[Math.floor(Math.random() * others.length)] : target;
-      const result: KickResult = { fact, correct, ms, power, streak: nextStreak };
+      const result: KickResult = { q, fact: q.fact, correct, ms, power, streak: nextStreak };
       setShot({ target, keeper, result: correct ? "goal" : "saved", power, stage: "fly" });
       if (power) sfx.power();
       else sfx.kick();

@@ -3,7 +3,7 @@ import type { Trophy, TrophyIcon } from "@/lib/trophies";
 // Medals for Football Times Tables. Won ones are gold; ones still to win are grey with a
 // small progress bar, so a child can see how close they are.
 
-const GLYPH: Record<Exclude<TrophyIcon, "table">, string> = {
+const GLYPH: Record<Exclude<TrophyIcon, "table" | "divide" | "missing">, string> = {
   ball: "M12 4.5l3.6 2.6-1.4 4.2H9.8L8.4 7.1zM12 4.5V2.8M15.6 7.1l2.3-1M14.2 11.3l1.8 2.6M9.8 11.3L8 13.9M8.4 7.1l-2.3-1",
   star: "M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.5l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z",
   flame: "M12 3c.6 3.2 4.6 4.8 4.6 9.2A4.6 4.6 0 0 1 12 17a4.6 4.6 0 0 1-4.6-4.8c0-2.3 1.4-3.3 2-5 .9 1.6 1.4 2.3 2.2 2.6C11.8 7.6 11.4 5.3 12 3z",
@@ -26,9 +26,9 @@ export function Medal({ t, size = 56 }: { t: Trophy; size?: number }) {
       </defs>
       <circle cx="24" cy="24" r="21" fill={`url(#${id})`} />
       <circle cx="24" cy="24" r="16.5" fill="none" stroke={gold ? "#fff4c2" : "#eef1f6"} strokeOpacity="0.8" strokeWidth="1.5" />
-      {t.icon === "table" ? (
-        <text x="24" y="30.5" textAnchor="middle" fontSize="17" fontWeight="800" fontFamily='"Barlow Condensed", system-ui, sans-serif' fill={gold ? "#7a4b00" : "#5d6676"}>
-          {t.table}×
+      {t.icon === "table" || t.icon === "divide" || t.icon === "missing" ? (
+        <text x="24" y={t.icon === "table" ? 30.5 : 32} textAnchor="middle" fontSize={t.icon === "table" ? 17 : 22} fontWeight="800" fontFamily='"Barlow Condensed", system-ui, sans-serif' fill={gold ? "#7a4b00" : "#5d6676"}>
+          {t.icon === "table" ? `${t.table}×` : t.icon === "divide" ? "÷" : "?"}
         </text>
       ) : (
         <g transform="translate(12 12)" fill={t.icon === "calendar" || t.icon === "cup" || t.icon === "ball" ? "none" : gold ? "#7a4b00" : "#5d6676"} stroke={gold ? "#7a4b00" : "#5d6676"} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round">

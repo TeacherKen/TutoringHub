@@ -22,9 +22,11 @@ export type TrophyStats = {
   wins: number;
   dayKeys: string[]; // Bangkok dates practised
   tableKnown: Record<number, number>; // facts known really well, per table
+  divideBest: number; // best score in a Divide round
+  missingBest: number; // best score in a Missing number round
 };
 
-export type TrophyIcon = "ball" | "star" | "flame" | "bolt" | "target" | "calendar" | "cup" | "table";
+export type TrophyIcon = "ball" | "star" | "flame" | "bolt" | "target" | "calendar" | "cup" | "table" | "divide" | "missing";
 export type Trophy = { id: string; name: string; how: string; icon: TrophyIcon; have: number; need: number; got: boolean; table?: number };
 
 const bkkDay = (iso: string) => new Date(Date.parse(iso) + 7 * 3_600_000).toISOString().slice(0, 10);
@@ -52,8 +54,12 @@ export function statsFrom(rounds: RoundRow[], progress: FactState[]): TrophyStat
     wins: rounds.filter((r) => r.game === "match" && r.won).length,
     dayKeys: [...new Set(rounds.map((r) => bkkDay(r.created_at)))].sort(),
     tableKnown: tableKnown(progress),
+    divideBest: bestIn(rounds, "tt-divide"),
+    missingBest: bestIn(rounds, "tt-missing"),
   };
 }
+
+const bestIn = (rounds: RoundRow[], game: string) => rounds.filter((r) => r.game === game).reduce((n, r) => Math.max(n, Number(r.score) || 0), 0);
 
 /** The same stats after one more round (used to show "New trophy!" straight away). */
 export function addRound(s: TrophyStats, r: RoundRow, progress: FactState[]): TrophyStats {
@@ -66,6 +72,8 @@ export function addRound(s: TrophyStats, r: RoundRow, progress: FactState[]): Tr
     wins: s.wins + (r.game === "match" && r.won ? 1 : 0),
     dayKeys: [...new Set([...s.dayKeys, bkkDay(r.created_at)])].sort(),
     tableKnown: tableKnown(progress),
+    divideBest: Math.max(s.divideBest ?? 0, r.game === "tt-divide" ? r.score : 0),
+    missingBest: Math.max(s.missingBest ?? 0, r.game === "tt-missing" ? r.score : 0),
   };
 }
 
@@ -92,6 +100,8 @@ export function trophies(s: TrophyStats): Trophy[] {
     t("days5", "Never misses training", "Practise on 5 different days", "calendar", s.dayKeys.length, 5),
     t("win1", "Match winner", "Win a head-to-head match", "cup", s.wins, 1),
     t("win5", "Champion", "Win 5 head-to-head matches", "cup", s.wins, 5),
+    t("divide", "Division ace", "Score 9 or more in Divide", "divide", s.divideBest ?? 0, 9),
+    t("missing", "Number detective", "Score 9 or more in Missing number", "missing", s.missingBest ?? 0, 9),
     ...TABLES.map((n) => t(`table${n}`, `${n}× master`, `Know every ${n}× fact really well`, "table", s.tableKnown[n] ?? 0, UP_TO, n)),
   ];
 }

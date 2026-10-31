@@ -28,7 +28,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/match/[token]">
     return NextResponse.json(await joinMatch(token, body.player, body.device), { headers: noStore });
   }
   if (body.op === "answer" && typeof body.fact === "string") {
-    return NextResponse.json(await answerMatch(token, body.device, body.fact, Number(body.answer), Number(body.ms)), { headers: noStore });
+    return NextResponse.json(await answerMatch(token, body.device, body.fact, body.kind, Number(body.answer), Number(body.ms)), { headers: noStore });
   }
   return NextResponse.json({ ok: false }, { status: 400 });
 }

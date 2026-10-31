@@ -106,3 +106,55 @@ export function level(p: FactState | undefined): "new" | "weak" | "learning" | "
   if (p.box <= 4) return "good";
   return "mastered";
 }
+
+// ---- Game modes ------------------------------------------------------------------------------
+// Every question is built from a times tables fact "t x n" (t = the table), so division and
+// missing-number questions count towards the same chart: 24 ÷ 4 and ? × 4 = 24 both practise 4 × 6.
+
+export const MODES = ["times", "divide", "missing", "mixed"] as const;
+export type GameMode = (typeof MODES)[number];
+export type QuestionKind = "times" | "divide" | "missingL" | "missingR";
+export type Question = { fact: string; kind: QuestionKind };
+
+export const MODE_NAMES: Record<GameMode, string> = { times: "Times", divide: "Divide", missing: "Missing number", mixed: "Mixed" };
+export const MODE_EXAMPLES: Record<GameMode, string> = { times: "4 × 6 = ?", divide: "24 ÷ 4 = ?", missing: "? × 4 = 24", mixed: "All three" };
+
+export const cleanMode = (m: unknown): GameMode => (MODES as readonly unknown[]).includes(m) ? (m as GameMode) : "times";
+
+/** Which kinds of question a mode may ask. */
+export function kindsFor(mode: GameMode): QuestionKind[] {
+  if (mode === "divide") return ["divide"];
+  if (mode === "missing") return ["missingL", "missingR"];
+  if (mode === "mixed") return ["times", "divide", "missingL", "missingR"];
+  return ["times"];
+}
+
+export function makeQuestion(fact: string, mode: GameMode, rand: () => number = Math.random): Question {
+  const kinds = kindsFor(mode);
+  return { fact, kind: kinds[Math.floor(rand() * kinds.length)] };
+}
+
+/** The number the child has to type. */
+export function answerFor(q: Question): number {
+  const [t, n] = parseFact(q.fact) ?? [0, 0];
+  return q.kind === "times" ? t * n : n;
+}
+
+/** The question in pieces; null marks the box the child fills in. */
+export function questionParts(q: Question): (string | null)[] {
+  const [t, n] = parseFact(q.fact) ?? [0, 0];
+  if (q.kind === "divide") return [String(t * n), "÷", String(t), "=", null];
+  if (q.kind === "missingL") return [null, "×", String(t), "=", String(t * n)];
+  if (q.kind === "missingR") return [String(t), "×", null, "=", String(t * n)];
+  return [String(t), "×", String(n), "=", null];
+}
+
+/** The question written out with its answer, e.g. "24 ÷ 4 = 6". */
+export function questionWithAnswer(q: Question): string {
+  const a = String(answerFor(q));
+  return questionParts(q)
+    .map((p) => p ?? a)
+    .join(" ");
+}
+
+export const isKind = (k: unknown): k is QuestionKind => k === "times" || k === "divide" || k === "missingL" || k === "missingR";

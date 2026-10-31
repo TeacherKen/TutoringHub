@@ -3,20 +3,20 @@ import "@fontsource/barlow-condensed/700.css";
 import "@fontsource/barlow-condensed/800-italic.css";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { TABLES } from "@/lib/facts";
+import { MODE_EXAMPLES, MODE_NAMES, MODES, TABLES, type GameMode } from "@/lib/facts";
 import { ensureRoomToken } from "@/app/actions/rooms";
 import { startMatch } from "@/app/actions/match";
 import { GLASS, PANEL } from "./Controls";
 import { KITS } from "./Stadium";
 
-type Kid = { id: string; name: string; token: string | null; tables: number[]; onsite: boolean };
+type Kid = { id: string; name: string; token: string | null; tables: number[]; mode: GameMode; onsite: boolean };
 export const SEAT_KITS = ["red", "blue", "yellow", "purple"].map((id) => KITS.find((k) => k.id === id)!);
 
 /** Mr Ken's Play page: tap a child to practise on this device, or set up a match between children. */
 export function PlayHub({ students }: { students: Kid[] }) {
   const router = useRouter();
   const [opening, setOpening] = useState<string | null>(null);
-  const [picked, setPicked] = useState<{ id: string; tables: number[] }[]>([]);
+  const [picked, setPicked] = useState<{ id: string; tables: number[]; mode: GameMode }[]>([]);
   const [target, setTarget] = useState(10);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -35,7 +35,7 @@ export function PlayHub({ students }: { students: Kid[] }) {
   }
 
   function toggle(k: Kid) {
-    setPicked((p) => (p.some((x) => x.id === k.id) ? p.filter((x) => x.id !== k.id) : p.length >= 4 ? p : [...p, { id: k.id, tables: k.tables }]));
+    setPicked((p) => (p.some((x) => x.id === k.id) ? p.filter((x) => x.id !== k.id) : p.length >= 4 ? p : [...p, { id: k.id, tables: k.tables, mode: k.mode }]));
   }
 
   function setTables(id: string, t: number) {
@@ -49,11 +49,15 @@ export function PlayHub({ students }: { students: Kid[] }) {
     );
   }
 
+  function setMode(id: string, mode: GameMode) {
+    setPicked((p) => p.map((x) => (x.id === id ? { ...x, mode } : x)));
+  }
+
   function create() {
     setError(null);
     start(async () => {
       const r = await startMatch(
-        picked.map((p) => ({ studentId: p.id, tables: p.tables })),
+        picked.map((p) => ({ studentId: p.id, tables: p.tables, mode: p.mode })),
         target,
       );
       if (r.token) router.push(`/match/${r.token}`);
@@ -81,7 +85,9 @@ export function PlayHub({ students }: { students: Kid[] }) {
               className={`font-sport flex min-h-16 items-center justify-between gap-2 rounded-xl px-4 text-left text-2xl font-bold transition active:scale-95 ${GLASS} hover:bg-white/15 disabled:opacity-60`}
             >
               <span className="truncate">{k.name}</span>
-              <span className="text-base font-semibold text-white/60">{opening === k.id ? "Opening…" : k.tables.map((t) => `${t}×`).join(" ")}</span>
+              <span className="text-right text-base font-semibold leading-tight text-white/60">
+                {opening === k.id ? "Opening…" : `${k.mode === "times" ? "" : `${MODE_NAMES[k.mode]} · `}${k.tables.map((t) => `${t}×`).join(" ")}`}
+              </span>
             </button>
           ))}
         </div>
@@ -117,11 +123,23 @@ export function PlayHub({ students }: { students: Kid[] }) {
             {picked.map((p, seat) => {
               const k = students.find((s) => s.id === p.id)!;
               return (
-                <div key={p.id} className="flex flex-wrap items-center gap-2">
+                <div key={p.id} className="flex flex-wrap items-center gap-2 border-b border-line pb-3 last:border-0">
                   <span className="flex w-24 items-center gap-2 font-medium">
                     <span className="h-3 w-3 rounded-full" style={{ background: SEAT_KITS[seat].shirt }} />
                     {k.name}
                   </span>
+                  <select
+                    value={p.mode}
+                    onChange={(e) => setMode(p.id, e.target.value as GameMode)}
+                    className="input min-h-9 w-auto py-1 text-sm"
+                    aria-label={`Game for ${k.name}`}
+                  >
+                    {MODES.map((m) => (
+                      <option key={m} value={m}>
+                        {MODE_NAMES[m]} ({MODE_EXAMPLES[m]})
+                      </option>
+                    ))}
+                  </select>
                   {TABLES.map((t) => {
                     const on = p.tables.includes(t);
                     return (

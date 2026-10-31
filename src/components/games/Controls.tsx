@@ -1,4 +1,5 @@
 "use client";
+import { answerFor, questionParts, type Question } from "@/lib/facts";
 import type { Shot } from "./Stadium";
 
 // The question and the big number pad, shared by practice and matches.
@@ -7,7 +8,7 @@ export const PANEL = "rounded-3xl bg-[radial-gradient(120%_90%_at_50%_0%,#18397a
 export const GLASS = "bg-white/[.07] ring-1 ring-inset ring-white/12";
 
 export function Controls({
-  fact,
+  q,
   typed,
   shot,
   second,
@@ -16,7 +17,7 @@ export function Controls({
   onKick,
   locked = false,
 }: {
-  fact: string;
+  q: Question;
   typed: string;
   shot: Shot | null;
   second?: boolean;
@@ -25,14 +26,25 @@ export function Controls({
   onKick: () => void;
   locked?: boolean;
 }) {
-  const [a, b] = fact.split("x").map(Number);
   const savedNow = shot?.result === "saved" && shot.stage === "after";
+  const answer = answerFor(q);
+  const said = questionParts(q)
+    .map((p) => p ?? answer)
+    .join(" ");
   return (
     <div className="flex flex-col gap-3">
       <div className={`${GLASS} flex flex-1 flex-col justify-center gap-3 rounded-2xl px-4 py-4 text-center`}>
         {second ? <p className="font-sport text-lg font-bold italic text-[#ffc629]">Second chance</p> : null}
-        <p className="font-sport text-[clamp(52px,8vw,88px)] font-extrabold italic leading-none tabular-nums" data-question>
-          {a} × {b} = <span className={savedNow ? "text-[#ff6b70]" : typed ? "text-[#ffc629]" : "text-white/35"}>{savedNow ? a * b : typed || "?"}</span>
+        <p className="font-sport text-[clamp(48px,7.5vw,84px)] font-extrabold italic leading-none tabular-nums" data-question data-answer={answer} aria-label={questionParts(q).map((p) => p ?? "what").join(" ")}>
+          {questionParts(q).map((p, n) =>
+            p === null ? (
+              <span key={n} className={`inline-block min-w-[0.8em] rounded-lg px-1 ${savedNow ? "text-[#ff6b70]" : typed ? "bg-white/10 text-[#ffc629]" : "bg-white/10 text-white/35"}`}>
+                {savedNow ? answer : typed || "?"}
+              </span>
+            ) : (
+              <span key={n}>{n ? " " : ""}{p}{n < 4 ? " " : ""}</span>
+            ),
+          )}
         </p>
         <div className="mx-auto w-full max-w-sm">
           <div className="h-2 overflow-hidden rounded-full bg-white/10">
@@ -41,7 +53,7 @@ export function Controls({
           <p className="mt-1.5 text-xs text-white/60">Answer while the bar is gold for a power shot</p>
         </div>
         <p className={`min-h-6 text-[15px] font-medium ${savedNow ? "text-[#ff8a8e]" : "text-white/85"}`}>
-          {savedNow ? `It's ${a * b}. You'll get it next time!` : shot ? "" : typed ? "Tap the goal to aim, or press Kick" : "Type your answer"}
+          {savedNow ? `${said}. You'll get it next time!` : shot ? "" : typed ? "Tap the goal to aim, or press Kick" : "Type your answer"}
         </p>
       </div>
 

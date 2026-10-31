@@ -3,14 +3,28 @@ import "@fontsource/barlow-condensed/700.css";
 import "@fontsource/barlow-condensed/700-italic.css";
 import "@fontsource/barlow-condensed/800-italic.css";
 import { useCallback, useEffect, useState } from "react";
-import { pickRound, TABLES, updateFact, type Answer, type FactState } from "@/lib/facts";
+import {
+  cleanMode,
+  makeQuestion,
+  MODE_EXAMPLES,
+  MODE_NAMES,
+  MODES,
+  pickRound,
+  questionWithAnswer,
+  TABLES,
+  updateFact,
+  type Answer,
+  type FactState,
+  type GameMode,
+  type Question,
+} from "@/lib/facts";
 import { setSoundOn, sfx, soundOn } from "@/lib/gameSound";
 import { addRound, newTrophies, shelf, trophies, type Trophy, type TrophyStats } from "@/lib/trophies";
 import { MasteryGrid } from "../MasteryGrid";
 import { Medal, TrophyShelf } from "../Trophies";
 import { KITS, Stadium, type Kit } from "./Stadium";
 import { ConfettiBurst, Controls, GLASS, makeConfetti, PANEL, Shirt, type Confetti } from "./Controls";
-import { answerOf, useKeys, usePenalty } from "./usePenalty";
+import { useKeys, usePenalty } from "./usePenalty";
 
 // ⚽ Football Times Tables: a penalty shootout. Type the answer, tap the goal to aim, score!
 // Facts answered wrong or slowly come back sooner (see lib/facts.ts).
@@ -22,19 +36,22 @@ type Data = {
   sessions: { score: number; total: number; created_at: string }[];
   best?: number | null;
   stats?: TrophyStats;
+  mode?: GameMode; // what Mr Ken chose for this child
 };
-type Kick = { fact: string; second: boolean };
+type Kick = { q: Question; second: boolean };
 type Result = { score: number; total: number; newHigh: boolean; first: boolean; won: Trophy[] };
 
 const KICKS = 10;
 const PENDING_KEY = "tutoringhub-tt-pending";
 const KIT_KEY = "tutoringhub-tt-kit";
+const MODE_KEY = "tutoringhub-tt-mode";
 
 export function FootballTables({ api }: { api: string }) {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tables, setTables] = useState<number[]>([]);
   const [kit, setKit] = useState<Kit>(KITS[1]);
+  const [mode, setMode] = useState<GameMode>("times");
   const [sound, setSound] = useState(true);
   const [stage, setStage] = useState<"setup" | "play" | "done">("setup");
   const [kicks, setKicks] = useState<Kick[]>([]);
@@ -66,6 +83,7 @@ export function FootballTables({ api }: { api: string }) {
         setTables((t) => (t.length ? t : d.tables));
         setSound(soundOn());
         setKit(readKit(api));
+        setMode(readMode(api) ?? cleanMode(d.mode));
       })
       .catch((e: unknown) => alive && setError(e instanceof Error ? e.message : "Couldn't load."));
     return () => {
@@ -76,7 +94,7 @@ export function FootballTables({ api }: { api: string }) {
   const { reset } = pen;
   function start() {
     if (!data || !tables.length) return;
-    setKicks(pickRound(tables, data.progress, new Date(), KICKS).map((fact) => ({ fact, second: false })));
+    setKicks(pickRound(tables, data.progress, new Date(), KICKS).map((fact) => ({ q: makeQuestion(fact, mode), second: false })));
     setI(0);
     setConfetti([]);
     setAnswers([]);
@@ -94,14 +112,14 @@ export function FootballTables({ api }: { api: string }) {
     (done: Answer[], scored: boolean[], bestStreak: number, powers: number) => {
       if (!data) return;
       const score = scored.filter(Boolean).length;
-      const body = { answers: done, tables, score, total: scored.length, bestStreak, powers };
+      const body = { answers: done, tables, score, total: scored.length, bestStreak, powers, mode };
       const map = new Map(data.progress.map((p) => [p.fact, p]));
       for (const a of done) map.set(a.fact, updateFact(map.get(a.fact), a, new Date()));
       const progress = [...map.values()];
       let won: Trophy[] = [];
       let stats = data.stats;
       if (stats) {
-        const after = addRound(stats, { score, total: scored.length, game: "tt", best_streak: bestStreak, powers, created_at: new Date().toISOString() }, progress);
+        const after = addRound(stats, { score, total: scored.length, game: mode === "times" ? "tt" : `tt-${mode}`, best_streak: bestStreak, powers, created_at: new Date().toISOString() }, progress);
         won = newTrophies(trophies(stats), trophies(after));
         stats = after;
       }
@@ -120,21 +138,21 @@ export function FootballTables({ api }: { api: string }) {
         })
         .catch(() => writePending(api, [...readPending(api), body])); // no internet: send it next time
     },
-    [api, tables, data, kit.shirt],
+    [api, tables, data, kit.shirt, mode],
   );
 
   const { kick: takeKick, typed } = pen;
   const shoot = useCallback(
     (aim?: number) => {
       if (!kick) return;
-      const r = takeKick(kick.fact, typed, {
+      const r = takeKick(kick.q, typed, {
         aim,
         counts: !kick.second,
         onNext: (res) => {
           const nextAnswers = [...answers, { fact: res.fact, correct: res.correct, ms: res.ms }];
           const nextGoals = kick.second ? goals : [...goals, res.correct];
           // Missed ones get a second chance at the end of the round.
-          const nextKicks = !res.correct && !kick.second ? [...kicks, { fact: kick.fact, second: true }] : kicks;
+          const nextKicks = !res.correct && !kick.second ? [...kicks, { q: kick.q, second: true }] : kicks;
           setAnswers(nextAnswers);
           setGoals(nextGoals);
           setKicks(nextKicks);
@@ -155,6 +173,16 @@ export function FootballTables({ api }: { api: string }) {
   function toggleSound() {
     setSoundOn(!sound);
     setSound(!sound);
+  }
+
+  function chooseMode(m: GameMode) {
+    setMode(m);
+    sfx.tap();
+    try {
+      localStorage.setItem(`${MODE_KEY}:${api}`, m);
+    } catch {
+      /* fine */
+    }
   }
 
   function chooseKit(k: Kit) {
@@ -186,7 +214,7 @@ export function FootballTables({ api }: { api: string }) {
         <div className={`${PANEL} space-y-6 px-5 py-6 text-center sm:px-8`}>
           <div>
             <h2 className="font-sport text-[clamp(34px,6vw,52px)] font-extrabold italic leading-none">Football Times Tables</h2>
-            <p className="mt-2 text-white/70">Every right answer is a goal. Choose your tables and your kit.</p>
+            <p className="mt-2 text-white/70">Every right answer is a goal. Choose your tables, your game and your kit.</p>
           </div>
           <div className="space-y-2.5">
             <p className="font-sport text-xl font-bold">Tables</p>
@@ -205,6 +233,26 @@ export function FootballTables({ api }: { api: string }) {
                     className={`font-sport h-14 min-w-14 rounded-xl px-3 text-2xl font-bold transition active:scale-95 ${on ? "bg-[#ffc629] text-[#0b1d42]" : `${GLASS} text-white hover:bg-white/15`}`}
                   >
                     {t}×
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-2.5">
+            <p className="font-sport text-xl font-bold">Game</p>
+            <div className="mx-auto grid max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">
+              {MODES.map((m) => {
+                const on = mode === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => chooseMode(m)}
+                    className={`flex min-h-16 flex-col items-center justify-center rounded-xl px-2 transition active:scale-95 ${on ? "bg-[#ffc629] text-[#0b1d42]" : `${GLASS} text-white hover:bg-white/15`}`}
+                  >
+                    <span className="font-sport text-xl font-bold leading-tight">{MODE_NAMES[m]}</span>
+                    <span className={`font-sport text-base leading-tight ${on ? "text-[#0b1d42]/70" : "text-white/60"}`}>{MODE_EXAMPLES[m]}</span>
                   </button>
                 );
               })}
@@ -273,7 +321,7 @@ export function FootballTables({ api }: { api: string }) {
   if (stage === "done" && result) {
     const { score } = result;
     const stars = score >= 9 ? 3 : score >= 7 ? 2 : score >= 5 ? 1 : 0;
-    const missed = [...new Set(answers.filter((a) => !a.correct).map((a) => a.fact))];
+    const missed = [...new Set(kicks.filter((k) => k.second).map((k) => questionWithAnswer(k.q)))];
     return (
       <section className="mx-auto w-full max-w-3xl space-y-4">
         <div className={`${PANEL} relative space-y-5 overflow-hidden px-5 py-7 text-center sm:px-8`}>
@@ -317,7 +365,7 @@ export function FootballTables({ api }: { api: string }) {
               <div className="flex flex-wrap justify-center gap-2">
                 {missed.map((f) => (
                   <span key={f} className="font-sport rounded-lg bg-white px-3 py-1 text-2xl font-bold text-[#0b1d42]">
-                    {f.replace("x", " × ")} = {answerOf(f)}
+                    {f}
                   </span>
                 ))}
               </div>
@@ -363,7 +411,7 @@ export function FootballTables({ api }: { api: string }) {
           sound={sound}
           onToggleSound={toggleSound}
         />
-        <Controls fact={kick?.fact ?? "2x2"} typed={pen.typed} shot={pen.shot} second={kick?.second} clockKey={i} onPress={pen.press} onKick={() => shoot()} />
+        <Controls q={kick?.q ?? { fact: "2x2", kind: "times" }} typed={pen.typed} shot={pen.shot} second={kick?.second} clockKey={i} onPress={pen.press} onKick={() => shoot()} />
       </div>
     </section>
   );
@@ -394,6 +442,15 @@ function readKit(api: string): Kit {
     return KITS.find((k) => k.id === id) ?? KITS[1];
   } catch {
     return KITS[1];
+  }
+}
+
+function readMode(api: string): GameMode | null {
+  try {
+    const m = localStorage.getItem(`${MODE_KEY}:${api}`);
+    return m ? cleanMode(m) : null;
+  } catch {
+    return null;
   }
 }
 

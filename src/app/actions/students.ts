@@ -274,3 +274,14 @@ export async function setStudentTables(studentId: string, tables: number[]): Pro
   revalidatePath(`/students/${studentId}`);
   return { ok: true };
 }
+
+/** The game Mr Ken wants this child to play by default (times, divide, missing number or mixed). */
+export async function setStudentMode(studentId: string, mode: string): Promise<{ ok?: boolean; error?: string }> {
+  await assertTutor();
+  const { cleanMode } = await import("@/lib/facts");
+  const supabase = await createClient();
+  const { error } = await supabase.from("students").update({ tt_mode: cleanMode(mode) }).eq("id", studentId);
+  if (error) return { error: "Run database update 0018 first." };
+  revalidatePath(`/students/${studentId}`);
+  return { ok: true };
+}

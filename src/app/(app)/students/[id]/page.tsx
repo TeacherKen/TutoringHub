@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAccountSummaries, getMoneyData, getProgress, getSettings, getStudents, getTimesTables, type Lesson } from "@/lib/data";
 import { TimesTablesCard } from "@/components/TimesTablesCard";
 import { WorksheetPhotos } from "@/components/WorksheetPhotos";
-import { cleanTables } from "@/lib/facts";
+import { cleanMode, cleanTables } from "@/lib/facts";
 import { renewSoon, thb as baht } from "@/lib/earnings";
 import { TopicProgress } from "@/components/TopicProgress";
 import { MonthlyReport } from "@/components/MonthlyReport";
@@ -119,6 +119,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         sessions={tt.sessions}
         ready={tt.ready}
         stats={tt.stats}
+        initialMode={cleanMode(student.tt_mode)}
       />
 
       {past[0] ? (

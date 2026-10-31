@@ -1,7 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
-import { cleanTables, FAST_MS, parseFact, type FactState } from "@/lib/facts";
+import { answerFor, cleanMode, cleanTables, FAST_MS, isKind, kindsFor, parseFact, type FactState, type GameMode, type QuestionKind } from "@/lib/facts";
 import { saveFacts, saveRound } from "@/lib/practice";
 
 // Head-to-head matches: two to four children race to score `target` goals, each on their own
@@ -16,7 +16,7 @@ const KEEP_DAYS = 2;
 export const isMatchToken = (t: string) => TOKEN_RE.test(t);
 export const isDeviceId = (d: unknown): d is string => typeof d === "string" && DEVICE_RE.test(d);
 
-export type MatchPlayer = { id: string; name: string; seat: number; tables: number[]; joined: boolean; goals: number; misses: number };
+export type MatchPlayer = { id: string; name: string; seat: number; tables: number[]; mode: GameMode; joined: boolean; goals: number; misses: number };
 export type MatchState = {
   token: string;
   status: "waiting" | "playing" | "done";
@@ -34,6 +34,7 @@ type PlayerRow = {
   student_id: string;
   seat: number;
   tables: number[];
+  mode?: string | null; // arrives with database update 0018
   device: string | null;
   goals: number;
   misses: number;
@@ -49,12 +50,24 @@ async function matchRow(token: string): Promise<MatchRow | null> {
 }
 
 async function playerRows(matchId: string): Promise<PlayerRow[]> {
-  const { data } = await createAdminClient()
+  const admin = createAdminClient();
+  for (const cols of ["student_id, seat, tables, mode, device, goals, misses, powers, streak, best_streak", "student_id, seat, tables, device, goals, misses, powers, streak, best_streak"]) {
+    const { data, error } = await admin.from("match_players").select(cols).eq("match_id", matchId).order("seat");
+    if (!error) return (data ?? []) as unknown as PlayerRow[];
+  }
+  return [];
+}
+
+/** Add players to a match (without game modes if database update 0018 hasn't been run). */
+async function addPlayers(rows: { match_id: string; student_id: string; seat: number; tables: number[]; mode: GameMode; device?: string | null }[]) {
+  const admin = createAdminClient();
+  const { error } = await admin.from("match_players").insert(rows);
+  if (!error) return null;
+  if (rows.some((r) => r.mode !== "times")) return error;
+  const { error: again } = await admin
     .from("match_players")
-    .select("student_id, seat, tables, device, goals, misses, powers, streak, best_streak")
-    .eq("match_id", matchId)
-    .order("seat");
-  return (data ?? []) as PlayerRow[];
+    .insert(rows.map((r) => ({ match_id: r.match_id, student_id: r.student_id, seat: r.seat, tables: r.tables, device: r.device ?? null })));
+  return again;
 }
 
 /** `withProgress`: also send this device's player's fact progress (only needed once). */
@@ -85,6 +98,7 @@ export async function getMatch(token: string, device?: string | null, withProgre
       name: nameOf.get(r.student_id) ?? "Player",
       seat: r.seat,
       tables: r.tables,
+      mode: cleanMode(r.mode),
       joined: !!r.device,
       goals: r.goals,
       misses: r.misses,
@@ -94,9 +108,9 @@ export async function getMatch(token: string, device?: string | null, withProgre
 }
 
 /** Mr Ken sets up a match (call only after checking he's signed in). */
-export async function createMatch(players: { studentId: string; tables: number[] }[], target: number): Promise<{ token?: string; error?: string }> {
+export async function createMatch(players: { studentId: string; tables: number[]; mode?: unknown }[], target: number): Promise<{ token?: string; error?: string }> {
   const list = players
-    .map((p) => ({ studentId: p.studentId, tables: cleanTables(p.tables) }))
+    .map((p) => ({ studentId: p.studentId, tables: cleanTables(p.tables), mode: cleanMode(p.mode) }))
     .filter((p, i, all) => p.tables.length && all.findIndex((q) => q.studentId === p.studentId) === i);
   if (list.length < 2 || list.length > 4) return { error: "Choose 2 to 4 players." };
   const goals = Math.max(3, Math.min(30, Math.round(target) || 10));
@@ -105,10 +119,10 @@ export async function createMatch(players: { studentId: string; tables: number[]
   const token = randomBytes(24).toString("base64url");
   const { data: m, error } = await admin.from("matches").insert({ token, target: goals }).select("id").single();
   if (error || !m) return { error: "Couldn't start a match. Has database update 0017 been run?" };
-  const { error: pErr } = await admin.from("match_players").insert(list.map((p, seat) => ({ match_id: m.id, student_id: p.studentId, seat, tables: p.tables })));
+  const pErr = await addPlayers(list.map((p, seat) => ({ match_id: m.id, student_id: p.studentId, seat, tables: p.tables, mode: p.mode })));
   if (pErr) {
     await admin.from("matches").delete().eq("id", m.id);
-    return { error: "Couldn't add the players." };
+    return { error: list.some((p) => p.mode !== "times") ? "Couldn't add the players. Has database update 0018 been run?" : "Couldn't add the players." };
   }
   return { token };
 }
@@ -135,13 +149,14 @@ export async function joinMatch(token: string, studentId: string, device: string
   return { ok: true };
 }
 
-type Tally = Pick<PlayerRow, "tables" | "goals" | "misses" | "powers" | "streak" | "best_streak">;
+type Tally = Pick<PlayerRow, "tables" | "mode" | "goals" | "misses" | "powers" | "streak" | "best_streak">;
 
-/** Check one answer for a player: only facts from their own tables count. */
-export function scoreAnswer(p: Tally, fact: string, answer: number, ms: number) {
+/** Check one answer for a player: only facts from their own tables, and only their game's kinds of question. */
+export function scoreAnswer(p: Tally, fact: string, kind: QuestionKind | unknown, answer: number, ms: number) {
   const f = parseFact(fact);
-  if (!f || !p.tables.includes(f[0]) || !Number.isInteger(answer)) return null;
-  const correct = f[0] * f[1] === answer;
+  const k: QuestionKind = isKind(kind) ? kind : "times";
+  if (!f || !p.tables.includes(f[0]) || !kindsFor(cleanMode(p.mode)).includes(k) || !Number.isInteger(answer)) return null;
+  const correct = answerFor({ fact, kind: k }) === answer;
   const time = Math.max(0, Math.min(120_000, Math.round(ms) || 0));
   const streak = correct ? p.streak + 1 : 0;
   return {
@@ -160,14 +175,14 @@ export function scoreAnswer(p: Tally, fact: string, answer: number, ms: number) 
 export type AnswerResult = { ok: boolean; correct?: boolean; goals?: number; done?: boolean; winner?: string | null };
 
 /** Check one answer, add the goal (or the save), and finish the match when someone reaches the target. */
-export async function answerMatch(token: string, device: string, fact: string, answer: number, ms: number): Promise<AnswerResult> {
+export async function answerMatch(token: string, device: string, fact: string, kind: unknown, answer: number, ms: number): Promise<AnswerResult> {
   const m = await matchRow(token);
   if (!m || !isDeviceId(device)) return { ok: false };
   if (m.status !== "playing") return { ok: false, done: m.status === "done", winner: m.winner };
   if (m.starts_at && Date.parse(m.starts_at) - 1500 > Date.now()) return { ok: false };
   const rows = await playerRows(m.id);
   const me = rows.find((r) => r.device === device);
-  const scored = me ? scoreAnswer(me, fact, answer, ms) : null;
+  const scored = me ? scoreAnswer(me, fact, kind, answer, ms) : null;
   if (!me || !scored) return { ok: false };
   const { correct, time } = scored;
   const next = { ...scored.next, updated_at: new Date().toISOString() };
@@ -207,7 +222,7 @@ export async function rematch(token: string): Promise<{ token?: string }> {
     .select("id")
     .single();
   if (error || !n) return {};
-  await admin.from("match_players").insert(rows.map((r) => ({ match_id: n.id, student_id: r.student_id, seat: r.seat, tables: r.tables, device: r.device })));
+  await addPlayers(rows.map((r) => ({ match_id: n.id, student_id: r.student_id, seat: r.seat, tables: r.tables, mode: cleanMode(r.mode), device: r.device })));
   const { data: linked } = await admin.from("matches").update({ next_token: fresh }).eq("id", m.id).is("next_token", null).select("id");
   if (!linked?.length) {
     // Someone else pressed Rematch at the same moment; use theirs.
