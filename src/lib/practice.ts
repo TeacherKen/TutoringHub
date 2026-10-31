@@ -3,7 +3,13 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { cleanTables, updateFact, type Answer, type FactState } from "@/lib/facts";
 import { isValidToken } from "@/lib/room";
 
-export type PracticeData = { name: string; tables: number[]; progress: FactState[]; sessions: { score: number; total: number; tables: number[]; created_at: string }[] };
+export type PracticeData = {
+  name: string;
+  tables: number[];
+  progress: FactState[];
+  sessions: { score: number; total: number; tables: number[]; created_at: string }[];
+  best: number | null; // highest score ever, for "New high score!"
+};
 
 type Student = { id: string; first_name: string; tt_tables?: number[] | null };
 
@@ -19,9 +25,10 @@ export async function studentForToken(token: string): Promise<Student | null> {
 
 export async function getPractice(s: Student): Promise<PracticeData | null> {
   const admin = createAdminClient();
-  const [{ data: progress, error }, { data: sessions }] = await Promise.all([
+  const [{ data: progress, error }, { data: sessions }, { data: top }] = await Promise.all([
     admin.from("fact_progress").select("fact, box, correct, wrong, avg_ms, due_at, last_seen").eq("student_id", s.id),
     admin.from("practice_sessions").select("score, total, tables, created_at").eq("student_id", s.id).order("created_at", { ascending: false }).limit(10),
+    admin.from("practice_sessions").select("score").eq("student_id", s.id).order("score", { ascending: false }).limit(1),
   ]);
   if (error) return null; // database update 0016 not run yet
   return {
@@ -29,6 +36,7 @@ export async function getPractice(s: Student): Promise<PracticeData | null> {
     tables: cleanTables(s.tt_tables ?? []).length ? cleanTables(s.tt_tables) : [2, 3, 4],
     progress: (progress ?? []) as FactState[],
     sessions: (sessions ?? []) as PracticeData["sessions"],
+    best: top?.[0] ? Number(top[0].score) : null,
   };
 }
 

@@ -120,3 +120,50 @@ textarea.input {
   min-height: 6rem;
   line-height: 1.35;
 }
+
+/* Football Times Tables animations */
+@keyframes tt-cheer {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-35%); }
+}
+@keyframes tt-net {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.05, 1.03) translateY(-1%); }
+  50% { transform: scale(0.98); }
+  75% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+@keyframes tt-pop {
+  0% { transform: scale(0.2) rotate(-8deg); opacity: 0; }
+  55% { transform: scale(1.25) rotate(3deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes tt-confetti {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; }
+}
+@keyframes tt-keeper {
+  0%, 100% { transform: translateX(-14%); }
+  50% { transform: translateX(14%); }
+}
+@keyframes tt-hop {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-18%); }
+  60% { transform: translateY(0); }
+  80% { transform: translateY(-8%); }
+}
+@keyframes tt-drain {
+  0% { width: 100%; background: #f97316; }
+  49.9% { background: #f97316; }
+  50% { background: #94a3b8; }
+  100% { width: 0%; background: #94a3b8; }
+}
+.tt-pop { animation: tt-pop 450ms cubic-bezier(.2, .9, .3, 1.2) both; }
+.tt-drain { animation: tt-drain 8s linear forwards; }
+@media (prefers-reduced-motion: no-preference) {
+  .tt-cheer { animation: tt-cheer 450ms ease-in-out 3; }
+  .tt-net { animation: tt-net 600ms ease-out; transform-origin: 50% 0; }
+  .tt-confetti { animation: tt-confetti 1300ms cubic-bezier(.1, .7, .3, 1) both; }
+  .tt-keeper { animation: tt-keeper 2.2s ease-in-out infinite; }
+  .tt-hop { animation: tt-hop 900ms ease-out; }
+}
