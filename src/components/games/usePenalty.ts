@@ -59,8 +59,8 @@ export function usePenalty({ holdGoal = 1350, holdSave = 2400 }: { holdGoal?: nu
       busy.current = true;
       const ms = Date.now() - started.current;
       const correct = Number(typedNow) === answerFor(q);
-      const power = correct && ms < FAST_MS;
       const counts = opts.counts ?? true;
+      const power = correct && counts && ms < FAST_MS; // not on a second chance: the answer was just shown
       const nextStreak = !counts ? streakRef.current : correct ? streakRef.current + 1 : 0;
       streakRef.current = nextStreak;
       const target = opts.aim ?? Math.floor(Math.random() * TARGETS.length);
@@ -116,9 +116,18 @@ export function useKeys(active: boolean, press: (k: string) => void, enter: () =
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (/^\d$/.test(e.key)) press(e.key);
-      else if (e.key === "Backspace") press("del");
-      else if (e.key === "Enter") enter();
+      // preventDefault: Enter must not also press a focused button (like the sound button),
+      // and Backspace must not go back a page.
+      if (/^\d$/.test(e.key)) {
+        e.preventDefault();
+        press(e.key);
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        press("del");
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        enter();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

@@ -8,6 +8,7 @@ import QRCode from "qrcode";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { makeQuestion, MODE_NAMES, pickRound, type FactState, type Question } from "@/lib/facts";
+import { randomId } from "@/lib/randomId";
 import { setSoundOn, sfx, soundOn } from "@/lib/gameSound";
 import type { MatchState } from "@/lib/match";
 import { Stadium } from "./Stadium";
@@ -20,18 +21,20 @@ import { SEAT_KITS } from "./PlayHub";
 // device says something happened).
 
 const DEVICE_KEY = "tutoringhub-device";
+let memoryDevice: string | null = null; // if this browser won't let us save it
 
 function deviceId(): string | null {
   if (typeof window === "undefined") return null;
   try {
     let id = localStorage.getItem(DEVICE_KEY);
     if (!id) {
-      id = crypto.randomUUID().replace(/-/g, "");
+      id = randomId().replace(/-/g, "");
       localStorage.setItem(DEVICE_KEY, id);
     }
     return id;
   } catch {
-    return null;
+    memoryDevice ??= randomId().replace(/-/g, "");
+    return memoryDevice;
   }
 }
 
@@ -44,13 +47,18 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
   const router = useRouter();
   const [fact, setFact] = useState<Question | null>(null);
   const [kickNo, setKickNo] = useState(0);
-  const [myGoals, setMyGoals] = useState(0);
+  const [confirmed, setConfirmed] = useState(0); // my goals as the server last told us
+  const [loaded, setLoaded] = useState(false);
   const [confetti, setConfetti] = useState<Confetti[]>([]);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [link, setLink] = useState("");
   const queue = useRef<Question[]>([]);
+  const factRef = useRef<Question | null>(null);
+  const sending = useRef<Promise<void>>(Promise.resolve());
+  const asked = useRef(0);
+  const shown = useRef(0);
   const progress = useRef<FactState[] | null>(null);
   const channel = useRef<RealtimeChannel | null>(null);
   const lastStatus = useRef(initial.status);
@@ -64,9 +72,25 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
   const nextFact = useCallback((s: MatchState) => {
     const p = s.me ? s.players.find((x) => x.id === s.me!.id) : undefined;
     if (!p || !s.me) return null;
-    if (!queue.current.length) queue.current = pickRound(p.tables, progress.current ?? [], new Date(), 20).map((f) => makeQuestion(f, p.mode));
+    if (!queue.current.length) queue.current = refill(s);
     return queue.current.shift() ?? null;
   }, []);
+
+  function refill(s: MatchState): Question[] {
+    const p = s.me ? s.players.find((x) => x.id === s.me!.id) : undefined;
+    return p ? pickRound(p.tables, progress.current ?? [], new Date(), 20).map((f) => makeQuestion(f, p.mode)) : [];
+  }
+
+  /** Show the next question and start its clock. */
+  const showNext = useCallback(
+    (s: MatchState) => {
+      const q = nextFact(s);
+      factRef.current = q;
+      setFact(q);
+      pen.started.current = Date.now();
+    },
+    [nextFact, pen.started],
+  );
 
   const apply = useCallback(
     (s: MatchState, full = false) => {
@@ -74,6 +98,7 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
       if (s.me && full) progress.current = s.me.progress;
       if (!s.me) progress.current = null;
       setState(s);
+      setLoaded(true);
       if (s.status === "done" && lastStatus.current !== "done") {
         const iWon = !!s.me && s.winner === s.me.id;
         if (iWon) {
@@ -89,8 +114,13 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
 
   const load = useCallback(async () => {
     const full = !progress.current;
+    const mine = ++asked.current;
     const res = await fetch(`/api/match/${token}?device=${device ?? ""}${full ? "&progress=1" : ""}`, { cache: "no-store" });
-    if (res.ok) apply((await res.json()) as MatchState, full);
+    if (!res.ok) return;
+    const s = (await res.json()) as MatchState;
+    if (mine < shown.current) return; // an older answer arrived late; we already have newer news
+    shown.current = mine;
+    apply(s, full);
   }, [token, device, apply]);
 
   // Check for changes every second (slower once the match is over).
@@ -98,7 +128,7 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
     let alive = true;
     const tick = () => void load().catch(() => undefined);
     const first = setTimeout(tick, 0);
-    const id = setInterval(() => alive && tick(), state.status === "done" ? 5000 : state.status === "playing" ? 1500 : 2000);
+    const id = setInterval(() => alive && tick(), state.status === "playing" ? 1500 : 2000);
     return () => {
       alive = false;
       clearTimeout(first);
@@ -130,10 +160,10 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
     const id = setInterval(() => {
       const t = Date.now();
       setNow(t);
-      if (state.startsAt && Date.parse(state.startsAt) <= t + offset) setFact((f) => f ?? nextFact(state));
+      if (!factRef.current && state.me && state.startsAt && Date.parse(state.startsAt) <= t + offset) showNext(state);
     }, 200);
     return () => clearInterval(id);
-  }, [state, offset, nextFact]);
+  }, [state, offset, showNext]);
 
   // Rematch: everyone moves to the new match together.
   useEffect(() => {
@@ -162,7 +192,9 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
       await fetch(`/api/match/${token}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "join", player: id, device }) });
       queue.current = [];
       progress.current = null;
+      factRef.current = null;
       setFact(null);
+      setConfirmed(0);
       await load();
       nudge();
     } finally {
@@ -177,26 +209,39 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
       if (!fact || !live || !device) return;
       const r = takeKick(fact, typed, {
         aim,
-        onLand: (res) => res.correct && setMyGoals((g) => g + 1),
         onNext: (res) => {
-          if (!res.correct) queue.current.splice(2, 0, res.q); // it comes back soon
+          if (!res.correct) {
+            // It comes back soon, but not straight away.
+            if (queue.current.length < 3) queue.current.push(...refill(state));
+            queue.current.splice(2, 0, res.q);
+          }
           setKickNo((n) => n + 1);
-          setFact(nextFact(state));
+          showNext(state);
         },
       });
       if (!r) return;
-      fetch(`/api/match/${token}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "answer", device, fact: fact.fact, kind: fact.kind, answer: Number(typed), ms: r.ms }),
-      })
-        .then(() => {
-          nudge();
-          return load();
-        })
-        .catch(() => undefined);
+      const body = JSON.stringify({ op: "answer", device, fact: fact.fact, kind: fact.kind, answer: Number(typed), ms: r.ms });
+      // One answer at a time, in order; try again if the internet blips.
+      sending.current = sending.current.then(async () => {
+        for (let attempt = 0; attempt < 4; attempt++) {
+          try {
+            const res = await fetch(`/api/match/${token}`, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+            if (res.ok) {
+              const j = (await res.json()) as { goals?: number };
+              if (typeof j.goals === "number") setConfirmed((g) => Math.max(g, j.goals!));
+              break;
+            }
+            if (res.status < 500) break; // the server said no (e.g. the match has ended)
+          } catch {
+            /* offline for a moment */
+          }
+          await new Promise((ok) => setTimeout(ok, 700 * (attempt + 1)));
+        }
+        nudge();
+        await load().catch(() => undefined);
+      });
     },
-    [fact, live, device, takeKick, typed, token, load, nextFact, state],
+    [fact, live, device, takeKick, typed, token, load, showNext, state],
   );
 
   useKeys(live && !pen.shot && state.status === "playing", pen.press, shoot);
@@ -207,11 +252,21 @@ export function Match({ token, initial }: { token: string; initial: MatchState }
   }
 
   const board = state.players.map((p) => ({
+    id: p.id,
     name: p.name,
-    goals: p.id === me?.id ? Math.max(p.goals, myGoals) : p.goals,
+    goals: p.id === me?.id ? Math.max(p.goals, confirmed) : p.goals,
     colour: SEAT_KITS[p.seat].shirt,
     me: p.id === me?.id,
   }));
+
+  // Until this device has checked who it is, don't flash "Who's playing?".
+  if (!loaded) {
+    return (
+      <section className={`${PANEL} px-5 py-16 text-center`}>
+        <p className="font-sport text-2xl font-bold italic text-white/70">Getting the match ready…</p>
+      </section>
+    );
+  }
 
   // ---- Full time -------------------------------------------------------------------------
   if (state.status === "done") {

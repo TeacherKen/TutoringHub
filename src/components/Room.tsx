@@ -79,7 +79,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
         setRoom(next);
         if (next.gamesOpen !== openRef.current) {
           openRef.current = next.gamesOpen;
-          if (next.gamesOpen) setTab("games");
+          if (next.gamesOpen) setTab((t) => (t === "practice" ? t : "games")); // don't end a practice round
           else {
             setTab((t) => (t === "games" ? "lesson" : t)); // don't pull them out of practice
             setGame(null);

@@ -32,7 +32,7 @@ export function Controls({
     .map((p) => p ?? answer)
     .join(" ");
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3" style={{ touchAction: "manipulation" }}>
       <div className={`${GLASS} flex flex-1 flex-col justify-center gap-3 rounded-2xl px-4 py-4 text-center`}>
         {second ? <p className="font-sport text-lg font-bold italic text-[#ffc629]">Second chance</p> : null}
         <p className="font-sport text-[clamp(48px,7.5vw,84px)] font-extrabold italic leading-none tabular-nums" data-question data-answer={answer} aria-label={questionParts(q).map((p) => p ?? "what").join(" ")}>

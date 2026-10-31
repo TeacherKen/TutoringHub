@@ -96,7 +96,7 @@ export function Stadium({
   sound: boolean;
   onToggleSound: () => void;
   /** In a head-to-head match: everyone's goals instead of "name vs keeper". */
-  board?: { name: string; goals: number; colour: string; me: boolean }[];
+  board?: { id: string; name: string; goals: number; colour: string; me: boolean }[];
   target?: number;
 }) {
   // Load every picture up front, so nothing pops in late during a kick.
@@ -277,7 +277,7 @@ export function Stadium({
       {board ? (
         <div className="font-sport pointer-events-none absolute left-[2.5%] top-[4%] space-y-[2px]">
           {board.map((p) => (
-            <div key={p.name} className={`flex items-stretch overflow-hidden rounded-[5px] text-[clamp(13px,1.9vw,20px)] font-bold leading-none shadow-[0_4px_14px_rgba(0,0,0,.35)] ${p.me ? "" : "opacity-90"}`}>
+            <div key={p.id} className={`flex items-stretch overflow-hidden rounded-[5px] text-[clamp(13px,1.9vw,20px)] font-bold leading-none shadow-[0_4px_14px_rgba(0,0,0,.35)] ${p.me ? "" : "opacity-90"}`}>
               <span className="w-[5px]" style={{ background: p.colour }} />
               <span className={`w-[7.5em] truncate px-2.5 py-[0.3em] uppercase tracking-wide ${p.me ? "bg-[#0b1d42] text-[#ffc629]" : "bg-[#0b1d42]/90 text-white"}`}>{p.name}</span>
               <span className="min-w-[1.8em] bg-white px-1.5 py-[0.3em] text-center font-extrabold tabular-nums text-[#0b1d42]">{p.goals}</span>

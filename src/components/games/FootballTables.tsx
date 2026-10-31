@@ -36,7 +36,7 @@ type Data = {
   sessions: { score: number; total: number; created_at: string }[];
   best?: number | null;
   stats?: TrophyStats;
-  mode?: GameMode; // what Mr Ken chose for this child
+  mode?: GameMode | null; // what Mr Ken chose for this child (null: not chosen)
 };
 type Kick = { q: Question; second: boolean };
 type Result = { score: number; total: number; newHigh: boolean; first: boolean; won: Trophy[] };
@@ -65,14 +65,8 @@ export function FootballTables({ api }: { api: string }) {
 
   useEffect(() => {
     let alive = true;
-    const post = (body: unknown) =>
-      fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => {
-        if (!r.ok) throw new Error("not saved");
-      });
-    // Rounds that couldn't be saved earlier (no internet) are sent first.
-    const pending = readPending(api);
-    Promise.all(pending.map(post))
-      .then(() => pending.length && writePending(api, []))
+    // Rounds that couldn't be saved earlier (no internet) are sent first, one at a time.
+    sendPending(api)
       .catch(() => undefined)
       .then(() => fetch(api, { cache: "no-store" }))
       .then(async (res) => {
@@ -83,7 +77,7 @@ export function FootballTables({ api }: { api: string }) {
         setTables((t) => (t.length ? t : d.tables));
         setSound(soundOn());
         setKit(readKit(api));
-        setMode(readMode(api) ?? cleanMode(d.mode));
+        setMode(d.mode ? cleanMode(d.mode) : (readMode(api) ?? "times")); // Mr Ken's choice first
       })
       .catch((e: unknown) => alive && setError(e instanceof Error ? e.message : "Couldn't load."));
     return () => {
@@ -451,6 +445,28 @@ function readMode(api: string): GameMode | null {
     return m ? cleanMode(m) : null;
   } catch {
     return null;
+  }
+}
+
+/** Send rounds saved on this device while offline, oldest first; each is removed once saved.
+ *  Only one send runs at a time, so a round is never sent twice at once. */
+const sendingNow = new Map<string, Promise<void>>();
+function sendPending(api: string): Promise<void> {
+  const running = sendingNow.get(api);
+  if (running) return running;
+  const job = sendPendingNow(api).finally(() => sendingNow.delete(api));
+  sendingNow.set(api, job);
+  return job;
+}
+
+async function sendPendingNow(api: string) {
+  for (let n = 0; n < 20; n++) {
+    const [next] = readPending(api);
+    if (!next) return;
+    const r = await fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }).catch(() => null);
+    if (!r) return; // still offline: try again next time
+    if (r.status >= 500) return; // server trouble: keep it for next time
+    writePending(api, readPending(api).slice(1)); // saved (or refused for good): take it off the list
   }
 }
 

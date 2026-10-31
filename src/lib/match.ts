@@ -233,7 +233,7 @@ export async function rematch(token: string): Promise<{ token?: string }> {
   const allJoined = rows.every((r) => r.device);
   const { data: n, error } = await admin
     .from("matches")
-    .insert({ token: fresh, target: m.target, ...(allJoined ? { status: "playing", starts_at: new Date(Date.now() + COUNTDOWN_MS + 1500).toISOString() } : {}) })
+    .insert({ token: fresh, target: m.target, ...(allJoined ? { status: "playing", starts_at: new Date(Date.now() + COUNTDOWN_MS + 4000).toISOString() } : {}) })
     .select("id")
     .single();
   if (error || !n) return {};

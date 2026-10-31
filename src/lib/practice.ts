@@ -11,7 +11,7 @@ export type PracticeData = {
   sessions: { score: number; total: number; tables: number[]; created_at: string }[];
   best: number | null; // highest practice score ever, for "New high score!"
   stats: TrophyStats; // for stars and trophies
-  mode: GameMode; // the game Mr Ken chose for this child
+  mode: GameMode | null; // the game Mr Ken chose for this child (null: he hasn't chosen)
 };
 
 type Student = { id: string; first_name: string; tt_tables?: number[] | null; tt_mode?: string | null };
@@ -71,7 +71,7 @@ export async function getPractice(s: Student): Promise<PracticeData | null> {
       .map((r) => ({ score: r.score, total: r.total, tables: [], created_at: r.created_at })),
     best: practice.length ? Math.max(...practice.map((r) => Number(r.score))) : null,
     stats: statsFrom(rounds, facts),
-    mode: cleanMode(s.tt_mode),
+    mode: s.tt_mode ? cleanMode(s.tt_mode) : null,
   };
 }
 
