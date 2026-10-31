@@ -67,9 +67,9 @@ export function FootballTables({ api }: { api: string }) {
         if (!r.ok) throw new Error("not saved");
       });
     // Rounds that couldn't be saved earlier (no internet) are sent first.
-    const pending = readPending();
+    const pending = readPending(api);
     Promise.all(pending.map(post))
-      .then(() => pending.length && writePending([]))
+      .then(() => pending.length && writePending(api, []))
       .catch(() => undefined)
       .then(() => fetch(api, { cache: "no-store" }))
       .then(async (res) => {
@@ -79,7 +79,7 @@ export function FootballTables({ api }: { api: string }) {
         setData(d);
         setTables((t) => (t.length ? t : d.tables));
         setSound(soundOn());
-        setKit(readKit());
+        setKit(readKit(api));
       })
       .catch((e: unknown) => alive && setError(e instanceof Error ? e.message : "Couldn't load."));
     return () => {
@@ -131,7 +131,7 @@ export function FootballTables({ api }: { api: string }) {
         .then((r) => {
           if (!r.ok) throw new Error();
         })
-        .catch(() => writePending([...readPending(), body])); // no internet: send it next time
+        .catch(() => writePending(api, [...readPending(api), body])); // no internet: send it next time
     },
     [api, tables, data?.best, kit.shirt],
   );
@@ -217,7 +217,7 @@ export function FootballTables({ api }: { api: string }) {
     setKit(k);
     sfx.tap();
     try {
-      localStorage.setItem(KIT_KEY, k.id);
+      localStorage.setItem(`${KIT_KEY}:${api}`, k.id);
     } catch {
       /* fine */
     }
@@ -478,26 +478,27 @@ function BallIcon() {
   );
 }
 
-function readKit(): Kit {
+// Saved per child, so brothers and sisters sharing one iPad keep their own kit and rounds.
+function readKit(api: string): Kit {
   try {
-    const id = localStorage.getItem(KIT_KEY);
+    const id = localStorage.getItem(`${KIT_KEY}:${api}`);
     return KITS.find((k) => k.id === id) ?? KITS[1];
   } catch {
     return KITS[1];
   }
 }
 
-function readPending(): unknown[] {
+function readPending(api: string): unknown[] {
   try {
-    return JSON.parse(localStorage.getItem(PENDING_KEY) ?? "[]") as unknown[];
+    return JSON.parse(localStorage.getItem(`${PENDING_KEY}:${api}`) ?? "[]") as unknown[];
   } catch {
     return [];
   }
 }
-function writePending(v: unknown[]) {
+function writePending(api: string, v: unknown[]) {
   try {
-    if (v.length) localStorage.setItem(PENDING_KEY, JSON.stringify(v.slice(-20)));
-    else localStorage.removeItem(PENDING_KEY);
+    if (v.length) localStorage.setItem(`${PENDING_KEY}:${api}`, JSON.stringify(v.slice(-20)));
+    else localStorage.removeItem(`${PENDING_KEY}:${api}`);
   } catch {
     /* storage blocked — fine */
   }
