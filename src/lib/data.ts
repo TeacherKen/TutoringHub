@@ -20,6 +20,7 @@ export type Student = {
   room_token?: string | null;
   games_open?: boolean;
   games_opened_at?: string | null;
+  tt_tables?: number[] | null;
 };
 
 export type LessonStudent = {
@@ -314,4 +315,19 @@ export async function getMoneyData() {
     today: t,
   });
   return { ...result, students: st, packages: pk, today: t };
+}
+
+/** Times tables practice for one student: every fact's box and the latest rounds. */
+export async function getTimesTables(studentId: string) {
+  type FactState = import("@/lib/facts").FactState;
+  const supabase = await createClient();
+  const [facts, sessions] = await Promise.all([
+    supabase.from("fact_progress").select("fact, box, correct, wrong, avg_ms, due_at, last_seen").eq("student_id", studentId),
+    supabase.from("practice_sessions").select("score, total, tables, created_at").eq("student_id", studentId).order("created_at", { ascending: false }).limit(8),
+  ]);
+  return {
+    ready: !facts.error,
+    progress: (facts.data ?? []) as FactState[],
+    sessions: (sessions.data ?? []) as { score: number; total: number; tables: number[]; created_at: string }[],
+  };
 }

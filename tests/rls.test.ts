@@ -49,7 +49,7 @@ beforeAll(async () => {
     "",
   );
   await db.exec(sql);
-  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql", "0007_pinned_slides.sql", "0008_topic_progress.sql", "0009_smart_slides.sql", "0010_board_pages.sql", "0011_money.sql", "0013_used_before_class_price.sql", "0014_board_timer.sql", "0015_prices_family_link.sql"]) {
+  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql", "0007_pinned_slides.sql", "0008_topic_progress.sql", "0009_smart_slides.sql", "0010_board_pages.sql", "0011_money.sql", "0013_used_before_class_price.sql", "0014_board_timer.sql", "0015_prices_family_link.sql", "0016_times_tables.sql"]) {
     await db.exec(readFileSync(join(__dirname, "../supabase/migrations", f), "utf8"));
   }
   // Supabase gives these grants by default; RLS does the real protection.
@@ -138,6 +138,21 @@ describe("viewer (family member)", () => {
     await as(TUTOR, "update board_marks set deleted = true");
     const after = await as<{ rev: string }>(TUTOR, "select rev from board_marks");
     expect(Number(after[0].rev)).toBeGreaterThan(Number(before[0].rev)); // rubbing out counts as a change
+  });
+  it("cannot see or change times tables practice", async () => {
+    const S = "00000000-0000-0000-0000-000000000001";
+    await as(TUTOR, `insert into fact_progress (student_id, fact, box, correct) values ('${S}', '7x8', 3, 4)`);
+    await as(TUTOR, `insert into practice_sessions (student_id, tables, score, total) values ('${S}', '{7,8}', 9, 10)`);
+    await as(TUTOR, `update students set tt_tables = '{7,8}' where id = '${S}'`);
+    expect((await as(TUTOR, "select * from fact_progress")).length).toBe(1);
+    for (const t of ["fact_progress", "practice_sessions"]) {
+      expect(await as(VIEWER, `select * from ${t}`)).toEqual([]);
+      expect(await as(PARENT, `select * from ${t}`)).toEqual([]);
+      await expect(as(null, `select * from ${t}`)).rejects.toThrow();
+    }
+    await as(VIEWER, "update fact_progress set box = 5");
+    expect((await as<{ box: number }>(TUTOR, "select box from fact_progress"))[0].box).toBe(3);
+    await expect(as(TUTOR, `insert into fact_progress (student_id, fact) values ('${S}', 'drop table')`)).rejects.toThrow();
   });
   it("cannot see family page links", async () => {
     await as(TUTOR, "update hour_accounts set family_token = 'secret-family-token-abcdefghij'");

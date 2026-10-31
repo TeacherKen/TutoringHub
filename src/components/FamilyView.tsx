@@ -1,4 +1,6 @@
 import { PromptPayQR } from "@/components/PromptPayQR";
+import { MasteryGrid } from "@/components/MasteryGrid";
+import { parseFact } from "@/lib/facts";
 import type { FamilyPage } from "@/lib/family";
 import { bkkDateKey, fmtDay, fmtTime } from "@/lib/time";
 
@@ -85,6 +87,24 @@ export function FamilyView({ f, tutor }: { f: FamilyPage; tutor: string }) {
                   {got.length ? <Topics title={`Confident with (${got.length})`} items={got.map((r) => r.name)} tone="chip-ok" mark="✓ " /> : null}
                   {learning.length ? <Topics title="Practising now" items={learning.map((r) => r.name)} tone="chip-warn" /> : null}
                   {next.length ? <Topics title="Coming up" items={next.map((r) => r.name)} tone="chip" /> : null}
+                </div>
+              );
+            })}
+        </section>
+      ) : null}
+
+      {f.children.some((c) => c.facts.length) ? (
+        <section className="space-y-3">
+          <h2 className="h2">⚽ Times tables</h2>
+          <p className="text-sm text-muted">Every square is one fact. Green means they know it quickly; red means it needs more practice.</p>
+          {f.children
+            .filter((c) => c.facts.length)
+            .map((c) => {
+              const tables = [...new Set(c.facts.map((x) => parseFact(x.fact)?.[0]).filter((t): t is number => t != null))].sort((a, b) => a - b);
+              return (
+                <div key={c.id} className="card space-y-2">
+                  {f.children.length > 1 ? <h3 className="font-medium">{c.name}</h3> : null}
+                  <MasteryGrid progress={c.facts} tables={tables} />
                 </div>
               );
             })}

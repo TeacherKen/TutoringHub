@@ -5,6 +5,7 @@ import { accountBalance, CHARGED_STATUSES, type HoursLesson } from "@/lib/hours"
 import { forecast, type EarnLesson } from "@/lib/earnings";
 import { mergeProgress, type TopicRow } from "@/lib/progress";
 import { bkkDateKey, bkkStartOfDay, todayKey } from "@/lib/time";
+import type { FactState } from "@/lib/facts";
 
 // A family's private page (opened with a link, no sign-in). It shows only:
 // first names, upcoming lesson times, messages Mr Ken marked as sent, saved work pictures,
@@ -17,7 +18,7 @@ export type FamilyPage = {
   accountId: string;
   familyName: string;
   consented: boolean;
-  children: { id: string; name: string; progress: TopicRow[] }[];
+  children: { id: string; name: string; progress: TopicRow[]; facts: FactState[] }[];
   upcoming: { start_at: string; end_at: string; names: string[] }[];
   messages: { date: string; names: string[]; text: string }[];
   work: { label: string; url: string; date: string }[];
@@ -52,7 +53,7 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   const ids = children.map((c) => c.id);
   const nameOf = new Map(children.map((c) => [c.id, c.first_name]));
 
-  const [{ data: links }, { data: pk }, { data: adj }, { data: saved }, { data: settings }] = await Promise.all([
+  const [{ data: links }, { data: pk }, { data: adj }, { data: saved }, { data: settings }, { data: factRows }] = await Promise.all([
     admin
       .from("lesson_students")
       .select("lessons!inner(id, start_at, end_at, status, length_hours, final_message, sent_at, topics, ignored, in_calendar, lesson_students(student_id, uses_hours))")
@@ -62,6 +63,7 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
     admin.from("hour_adjustments").select("hours").eq("hour_account_id", acct.id),
     admin.from("student_topics").select("student_id, name, status, updated_at").in("student_id", ids),
     admin.from("settings").select("*").eq("id", 1).maybeSingle(),
+    admin.from("fact_progress").select("student_id, fact, box, correct, wrong, avg_ms, due_at, last_seen").in("student_id", ids), // empty until update 0016
   ]);
 
   const lessons = new Map<string, LessonRow>();
@@ -100,9 +102,13 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
 
   // Topic progress per child.
   const savedRows = (saved ?? []) as { student_id: string; name: string; status: "next" | "learning" | "got_it"; updated_at: string }[];
+  const facts = (factRows ?? []) as (FactState & { student_id: string })[];
   const childRows = children.map((c) => ({
     id: c.id,
     name: c.first_name,
+    facts: facts
+      .filter((f) => f.student_id === c.id)
+      .map((f): FactState => ({ fact: f.fact, box: f.box, correct: f.correct, wrong: f.wrong, avg_ms: f.avg_ms, due_at: f.due_at, last_seen: f.last_seen })),
     progress: mergeProgress(
       savedRows.filter((s) => s.student_id === c.id),
       all.filter((l) => l.status !== "cancelled" && l.status !== "scheduled" && l.lesson_students.some((x) => x.student_id === c.id)),

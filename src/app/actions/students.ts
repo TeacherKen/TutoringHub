@@ -262,3 +262,15 @@ export async function addUnpaidPackage(accountId: string, hours: number, price: 
   revalidatePath("/", "layout");
   return { ok: true };
 }
+
+/** Which times tables a student practises by default (Football Times Tables). */
+export async function setStudentTables(studentId: string, tables: number[]): Promise<{ ok?: boolean; error?: string }> {
+  await assertTutor();
+  const { cleanTables } = await import("@/lib/facts");
+  const clean = cleanTables(tables);
+  const supabase = await createClient();
+  const { error } = await supabase.from("students").update({ tt_tables: clean.length ? clean : null }).eq("id", studentId);
+  if (error) return { error: "Run database update 0016 first." };
+  revalidatePath(`/students/${studentId}`);
+  return { ok: true };
+}

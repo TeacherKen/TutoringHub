@@ -10,8 +10,9 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-export default async function RoomPage({ params }: PageProps<"/room/[token]">) {
+export default async function RoomPage({ params, searchParams }: PageProps<"/room/[token]">) {
   const { token } = await params;
+  const { tab } = await searchParams;
   const room = await getRoom(token);
   if (!room) {
     return (
@@ -21,5 +22,5 @@ export default async function RoomPage({ params }: PageProps<"/room/[token]">) {
       </main>
     );
   }
-  return <Room token={token} initial={room} />;
+  return <Room token={token} initial={room} initialTab={tab === "practice" ? "practice" : undefined} />;
 }

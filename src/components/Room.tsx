@@ -6,6 +6,7 @@ import { QuickMaths } from "./games/QuickMaths";
 import { MiniSudoku } from "./games/MiniSudoku";
 import { snapshotDocument, snapshotElement } from "@/lib/snapshot";
 import { Whiteboard } from "./Whiteboard";
+import { FootballTables } from "./games/FootballTables";
 
 // Games with a `src` are Mr Ken's own games, copied into /public/games.
 const GAMES = [
@@ -21,9 +22,11 @@ const SCREEN_EVERY_MS = 2000;
 const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("en-GB", { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...opts }).format(new Date(iso));
 
-export function Room({ token, initial }: { token: string; initial: RoomData }) {
+type Tab = "lesson" | "practice" | "games";
+
+export function Room({ token, initial, initialTab }: { token: string; initial: RoomData; initialTab?: Tab }) {
   const [room, setRoom] = useState(initial);
-  const [tab, setTab] = useState<"lesson" | "games">(initial.gamesOpen ? "games" : "lesson");
+  const [tab, setTab] = useState<Tab>(initialTab ?? (initial.gamesOpen ? "games" : "lesson"));
   const [game, setGame] = useState<GameId | null>(null);
   const [slide, setSlide] = useState(-1); // -1 = smart slides (when there are some)
   const openRef = useRef(initial.gamesOpen);
@@ -78,7 +81,7 @@ export function Room({ token, initial }: { token: string; initial: RoomData }) {
           openRef.current = next.gamesOpen;
           if (next.gamesOpen) setTab("games");
           else {
-            setTab("lesson");
+            setTab((t) => (t === "games" ? "lesson" : t)); // don't pull them out of practice
             setGame(null);
           }
         }
@@ -124,6 +127,14 @@ export function Room({ token, initial }: { token: string; initial: RoomData }) {
             className={`min-h-11 rounded-lg px-4 text-sm font-medium ${tab === "lesson" ? "bg-accent text-accent-text" : "text-muted"}`}
           >
             Lesson
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === "practice"}
+            onClick={() => setTab("practice")}
+            className={`min-h-11 rounded-lg px-4 text-sm font-medium ${tab === "practice" ? "bg-accent text-accent-text" : "text-muted"}`}
+          >
+            ⚽ Practice
           </button>
           <button
             role="tab"
@@ -206,6 +217,8 @@ export function Room({ token, initial }: { token: string; initial: RoomData }) {
             </div>
           ) : null}
         </section>
+      ) : tab === "practice" ? (
+        <FootballTables api={`/api/room/${token}/practice`} />
       ) : !room.gamesOpen ? (
         <section className="card flex flex-1 flex-col items-center justify-center py-16 text-center">
           <p className="text-4xl" aria-hidden>

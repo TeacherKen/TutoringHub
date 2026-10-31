@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getAccountSummaries, getMoneyData, getProgress, getSettings, getStudents, type Lesson } from "@/lib/data";
+import { getAccountSummaries, getMoneyData, getProgress, getSettings, getStudents, getTimesTables, type Lesson } from "@/lib/data";
+import { TimesTablesCard } from "@/components/TimesTablesCard";
+import { cleanTables } from "@/lib/facts";
 import { renewSoon, thb as baht } from "@/lib/earnings";
 import { TopicProgress } from "@/components/TopicProgress";
 import { MonthlyReport } from "@/components/MonthlyReport";
@@ -28,7 +30,14 @@ const thb = (n: number) => `฿${Number(n).toLocaleString("en-US")}`;
 export default async function StudentPage({ params }: PageProps<"/students/[id]">) {
   await requireTutor();
   const { id } = await params;
-  const [students, accounts, settings, progress, money] = await Promise.all([getStudents(), getAccountSummaries(), getSettings(), getProgress([id]), getMoneyData()]);
+  const [students, accounts, settings, progress, money, tt] = await Promise.all([
+    getStudents(),
+    getAccountSummaries(),
+    getSettings(),
+    getProgress([id]),
+    getMoneyData(),
+    getTimesTables(id),
+  ]);
   const student = students.find((s) => s.id === id);
   if (!student) notFound();
   const account = accounts.find((a) => a.id === student.hour_account_id);
@@ -99,6 +108,16 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
       ) : null}
 
       <TopicProgress studentId={student.id} rows={progress.byStudent.get(student.id) ?? []} ready={progress.ready} suggestions={topicIdeas} />
+
+      <TimesTablesCard
+        studentId={student.id}
+        name={student.first_name}
+        roomToken={student.room_token ?? null}
+        initialTables={cleanTables(student.tt_tables ?? []).length ? cleanTables(student.tt_tables) : [2, 3, 4]}
+        progress={tt.progress}
+        sessions={tt.sessions}
+        ready={tt.ready}
+      />
 
       {student.private_notes || student.book ? (
         <section className="card space-y-2 text-sm">
