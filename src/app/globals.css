@@ -121,49 +121,81 @@ textarea.input {
   line-height: 1.35;
 }
 
-/* Football Times Tables animations */
-@keyframes tt-cheer {
-  0%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-35%); }
+/* Football Times Tables */
+@utility font-sport {
+  font-family: "Barlow Condensed", "Avenir Next Condensed", "Arial Narrow", sans-serif;
 }
 @keyframes tt-net {
   0% { transform: scale(1); }
-  25% { transform: scale(1.05, 1.03) translateY(-1%); }
-  50% { transform: scale(0.98); }
-  75% { transform: scale(1.02); }
+  25% { transform: scale(1.035, 1.025); }
+  50% { transform: scale(0.99); }
+  75% { transform: scale(1.012); }
   100% { transform: scale(1); }
 }
 @keyframes tt-pop {
-  0% { transform: scale(0.2) rotate(-8deg); opacity: 0; }
-  55% { transform: scale(1.25) rotate(3deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0); opacity: 1; }
+  0% { transform: scale(0.2); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes tt-slide {
+  0% { transform: translateX(-60vw) skewX(-12deg); opacity: 0; }
+  70% { transform: translateX(2%) skewX(-12deg); opacity: 1; }
+  100% { transform: translateX(0) skewX(-12deg); opacity: 1; }
+}
+@keyframes tt-shine {
+  0% { left: -40%; }
+  100% { left: 120%; }
 }
 @keyframes tt-confetti {
   0% { transform: translate(0, 0) rotate(0); opacity: 1; }
   100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; }
 }
 @keyframes tt-keeper {
-  0%, 100% { transform: translateX(-14%); }
-  50% { transform: translateX(14%); }
+  0%, 100% { transform: translateX(-12px); }
+  50% { transform: translateX(12px); }
 }
 @keyframes tt-hop {
   0%, 100% { transform: translateY(0); }
-  30% { transform: translateY(-18%); }
+  30% { transform: translateY(-22px); }
   60% { transform: translateY(0); }
-  80% { transform: translateY(-8%); }
+  80% { transform: translateY(-9px); }
+}
+@keyframes tt-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes tt-flash {
+  0%, 100% { opacity: 0; }
+  12% { opacity: 1; }
+  30% { opacity: 0; }
+}
+@keyframes tt-burst {
+  0% { opacity: 0; transform: scale(0.6); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.2); }
+}
+@keyframes tt-ring {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(2); opacity: 0; }
 }
 @keyframes tt-drain {
-  0% { width: 100%; background: #f97316; }
-  49.9% { background: #f97316; }
-  50% { background: #94a3b8; }
-  100% { width: 0%; background: #94a3b8; }
+  0% { width: 100%; background: #ffc629; }
+  49.9% { background: #ffc629; }
+  50% { background: rgba(255, 255, 255, 0.35); }
+  100% { width: 0%; background: rgba(255, 255, 255, 0.35); }
 }
-.tt-pop { animation: tt-pop 450ms cubic-bezier(.2, .9, .3, 1.2) both; }
+.tt-pop { animation: tt-pop 420ms cubic-bezier(.2, .9, .3, 1.2) both; }
+.tt-slide { animation: tt-slide 380ms cubic-bezier(.2, .9, .3, 1) both; }
+.tt-shine { animation: tt-shine 900ms 250ms ease-in-out both; }
 .tt-drain { animation: tt-drain 8s linear forwards; }
+.tt-flash { opacity: 0; animation: tt-flash 900ms ease-out both; }
+.tt-burst { transform-box: fill-box; transform-origin: center; animation: tt-burst 1100ms ease-out both; }
+.tt-ring { transform-box: fill-box; transform-origin: center; }
 @media (prefers-reduced-motion: no-preference) {
-  .tt-cheer { animation: tt-cheer 450ms ease-in-out 3; }
-  .tt-net { animation: tt-net 600ms ease-out; transform-origin: 50% 0; }
-  .tt-confetti { animation: tt-confetti 1300ms cubic-bezier(.1, .7, .3, 1) both; }
-  .tt-keeper { animation: tt-keeper 2.2s ease-in-out infinite; }
+  .tt-net { animation: tt-net 650ms ease-out; }
+  .tt-confetti { animation: tt-confetti 1400ms cubic-bezier(.1, .7, .3, 1) both; }
+  .tt-keeper { animation: tt-keeper 2.4s ease-in-out infinite; }
   .tt-hop { animation: tt-hop 900ms ease-out; }
+  .tt-bounce { animation: tt-bounce 380ms ease-in-out 3; }
+  .tt-ring { animation: tt-ring 1.2s ease-out infinite; }
 }
