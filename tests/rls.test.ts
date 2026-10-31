@@ -49,7 +49,7 @@ beforeAll(async () => {
     "",
   );
   await db.exec(sql);
-  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql", "0007_pinned_slides.sql", "0008_topic_progress.sql", "0009_smart_slides.sql", "0010_board_pages.sql", "0011_money.sql", "0013_used_before_class_price.sql", "0014_board_timer.sql", "0015_prices_family_link.sql", "0016_times_tables.sql"]) {
+  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql", "0007_pinned_slides.sql", "0008_topic_progress.sql", "0009_smart_slides.sql", "0010_board_pages.sql", "0011_money.sql", "0013_used_before_class_price.sql", "0014_board_timer.sql", "0015_prices_family_link.sql", "0016_times_tables.sql", "0017_matches_trophies.sql"]) {
     await db.exec(readFileSync(join(__dirname, "../supabase/migrations", f), "utf8"));
   }
   // Supabase gives these grants by default; RLS does the real protection.
@@ -153,6 +153,22 @@ describe("viewer (family member)", () => {
     await as(VIEWER, "update fact_progress set box = 5");
     expect((await as<{ box: number }>(TUTOR, "select box from fact_progress"))[0].box).toBe(3);
     await expect(as(TUTOR, `insert into fact_progress (student_id, fact) values ('${S}', 'drop table')`)).rejects.toThrow();
+  });
+  it("cannot see or change matches", async () => {
+    const S = "00000000-0000-0000-0000-000000000001";
+    const M = "00000000-0000-0000-0000-0000000000e1";
+    await as(TUTOR, `insert into matches (id, token) values ('${M}', 'match-token-abcdefghijklmnopqrstuvwx')`);
+    await as(TUTOR, `insert into match_players (match_id, student_id, seat, tables) values ('${M}', '${S}', 0, '{3,4}')`);
+    await as(TUTOR, `insert into practice_sessions (student_id, game, tables, score, total, best_streak, powers, won) values ('${S}', 'match', '{3}', 10, 12, 4, 3, true)`);
+    for (const t of ["matches", "match_players"]) {
+      expect(await as(VIEWER, `select * from ${t}`)).toEqual([]);
+      expect(await as(PARENT, `select * from ${t}`)).toEqual([]);
+      await expect(as(null, `select * from ${t}`)).rejects.toThrow();
+    }
+    await as(VIEWER, "update match_players set goals = 99");
+    expect((await as<{ goals: number }>(TUTOR, "select goals from match_players"))[0].goals).toBe(0);
+    await expect(as(TUTOR, `insert into matches (token) values ('short')`)).rejects.toThrow();
+    await expect(as(TUTOR, `insert into match_players (match_id, student_id, seat, tables) values ('${M}', '00000000-0000-0000-0000-000000000002', 0, '{3}')`)).rejects.toThrow();
   });
   it("cannot see family page links", async () => {
     await as(TUTOR, "update hour_accounts set family_token = 'secret-family-token-abcdefghij'");

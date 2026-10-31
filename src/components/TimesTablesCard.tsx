@@ -3,8 +3,10 @@ import { useState, useTransition } from "react";
 import { MasteryGrid } from "./MasteryGrid";
 import { TABLES, level, type FactState } from "@/lib/facts";
 import { setStudentTables } from "@/app/actions/students";
+import { roundStars, shelf, trophies, type TrophyStats } from "@/lib/trophies";
+import { TrophyShelf } from "./Trophies";
 
-type Session = { score: number; total: number; tables: number[]; created_at: string };
+type Session = { score: number; total: number; tables: number[]; created_at: string; game?: string | null; won?: boolean | null };
 
 const fmt = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Bangkok" }).format(new Date(iso));
 
@@ -17,6 +19,7 @@ export function TimesTablesCard({
   progress,
   sessions,
   ready,
+  stats,
 }: {
   studentId: string;
   name: string;
@@ -25,6 +28,7 @@ export function TimesTablesCard({
   progress: FactState[];
   sessions: Session[];
   ready: boolean;
+  stats: TrophyStats;
 }) {
   const [tables, setTables] = useState(initialTables);
   const [saved, setSaved] = useState<"idle" | "saved" | "error">("idle");
@@ -41,6 +45,8 @@ export function TimesTablesCard({
   }
 
   const known = progress.filter((p) => level(p) === "mastered").length;
+  const shelfItems = shelf(trophies(stats), tables);
+  const won = shelfItems.filter((t) => t.got).length;
   const weak = progress.filter((p) => level(p) === "weak").map((p) => p.fact.replace("x", "×"));
   const shown = [...new Set([...tables, ...progress.map((p) => Number(p.fact.split("x")[0]))])].filter((t) => TABLES.includes(t as (typeof TABLES)[number])).sort((a, b) => a - b);
 
@@ -99,6 +105,15 @@ export function TimesTablesCard({
 
       {shown.length ? <MasteryGrid progress={progress} tables={shown} /> : null}
 
+      {stats.rounds ? (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">
+            Trophies <span className="font-normal text-muted">· {stats.stars} stars · {won} won</span>
+          </h3>
+          <TrophyShelf items={shelfItems} />
+        </div>
+      ) : null}
+
       {sessions.length ? (
         <div className="space-y-1">
           <h3 className="text-sm font-medium">Recent rounds</h3>
@@ -106,10 +121,10 @@ export function TimesTablesCard({
             {sessions.map((s, i) => (
               <li key={i} className="flex justify-between py-1.5">
                 <span>
-                  {fmt(s.created_at)} · {s.tables.map((t) => `${t}×`).join(" ")}
+                  {fmt(s.created_at)} · {s.game === "match" ? (s.won ? "Match, won" : "Match") : "Practice"} · {s.tables.map((t) => `${t}×`).join(" ")}
                 </span>
                 <span className="tabular-nums">
-                  {s.score}/{s.total} {s.score >= 9 ? "⭐⭐⭐" : s.score >= 7 ? "⭐⭐" : s.score >= 5 ? "⭐" : ""}
+                  {s.game === "match" ? `${s.score} goals` : `${s.score}/${s.total}`} {"⭐".repeat(roundStars(s))}
                 </span>
               </li>
             ))}

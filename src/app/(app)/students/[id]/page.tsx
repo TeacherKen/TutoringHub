@@ -4,6 +4,7 @@ import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountSummaries, getMoneyData, getProgress, getSettings, getStudents, getTimesTables, type Lesson } from "@/lib/data";
 import { TimesTablesCard } from "@/components/TimesTablesCard";
+import { WorksheetPhotos } from "@/components/WorksheetPhotos";
 import { cleanTables } from "@/lib/facts";
 import { renewSoon, thb as baht } from "@/lib/earnings";
 import { TopicProgress } from "@/components/TopicProgress";
@@ -117,7 +118,19 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         progress={tt.progress}
         sessions={tt.sessions}
         ready={tt.ready}
+        stats={tt.stats}
       />
+
+      {past[0] ? (
+        <section className="card space-y-2">
+          <h2 className="font-medium">📸 Worksheet photos</h2>
+          <p className="text-sm text-muted">
+            Take photos of the printed worksheets {student.first_name} finished. They&apos;re saved with the lesson on {fmtDay(bkkDateKey(past[0].start_at))} and
+            parents see them on the family page.
+          </p>
+          <WorksheetPhotos lessonId={past[0].id} label={`${student.first_name}'s worksheet`} />
+        </section>
+      ) : null}
 
       {student.private_notes || student.book ? (
         <section className="card space-y-2 text-sm">

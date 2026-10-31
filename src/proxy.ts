@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Keeps the sign-in fresh and sends signed-out visitors to /login.
 // Real permission checks happen on each page and in the database.
 // Student rooms are opened with a private link instead of a sign-in.
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/no-access", "/room", "/api/room", "/games", "/family"];
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/no-access", "/room", "/api/room", "/games", "/family", "/match", "/api/match"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

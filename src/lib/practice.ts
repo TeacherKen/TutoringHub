@@ -2,16 +2,19 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { cleanTables, updateFact, type Answer, type FactState } from "@/lib/facts";
 import { isValidToken } from "@/lib/room";
+import { statsFrom, type RoundRow, type TrophyStats } from "@/lib/trophies";
 
 export type PracticeData = {
   name: string;
   tables: number[];
   progress: FactState[];
   sessions: { score: number; total: number; tables: number[]; created_at: string }[];
-  best: number | null; // highest score ever, for "New high score!"
+  best: number | null; // highest practice score ever, for "New high score!"
+  stats: TrophyStats; // for stars and trophies
 };
 
 type Student = { id: string; first_name: string; tt_tables?: number[] | null };
+const FACT_COLS = "fact, box, correct, wrong, avg_ms, due_at, last_seen";
 
 export async function studentForToken(token: string): Promise<Student | null> {
   if (!isValidToken(token)) return null;
@@ -23,35 +26,73 @@ export async function studentForToken(token: string): Promise<Student | null> {
   return null;
 }
 
+/** Every round these children have played (works before and after database update 0017). */
+export async function loadRounds(studentIds: string[]): Promise<(RoundRow & { student_id: string })[]> {
+  if (!studentIds.length) return [];
+  const admin = createAdminClient();
+  for (const cols of ["student_id, score, total, game, best_streak, powers, won, created_at", "student_id, score, total, game, created_at"]) {
+    const { data, error } = await admin.from("practice_sessions").select(cols).in("student_id", studentIds).order("created_at").limit(5000);
+    if (!error) return (data ?? []) as unknown as (RoundRow & { student_id: string })[];
+  }
+  return [];
+}
+
 export async function getPractice(s: Student): Promise<PracticeData | null> {
   const admin = createAdminClient();
-  const [{ data: progress, error }, { data: sessions }, { data: top }] = await Promise.all([
-    admin.from("fact_progress").select("fact, box, correct, wrong, avg_ms, due_at, last_seen").eq("student_id", s.id),
-    admin.from("practice_sessions").select("score, total, tables, created_at").eq("student_id", s.id).order("created_at", { ascending: false }).limit(10),
-    admin.from("practice_sessions").select("score").eq("student_id", s.id).order("score", { ascending: false }).limit(1),
-  ]);
+  const [{ data: progress, error }, rounds] = await Promise.all([admin.from("fact_progress").select(FACT_COLS).eq("student_id", s.id), loadRounds([s.id])]);
   if (error) return null; // database update 0016 not run yet
+  const facts = (progress ?? []) as FactState[];
+  const practice = rounds.filter((r) => r.game !== "match");
   return {
     name: s.first_name,
     tables: cleanTables(s.tt_tables ?? []).length ? cleanTables(s.tt_tables) : [2, 3, 4],
-    progress: (progress ?? []) as FactState[],
-    sessions: (sessions ?? []) as PracticeData["sessions"],
-    best: top?.[0] ? Number(top[0].score) : null,
+    progress: facts,
+    sessions: rounds
+      .slice(-10)
+      .reverse()
+      .map((r) => ({ score: r.score, total: r.total, tables: [], created_at: r.created_at })),
+    best: practice.length ? Math.max(...practice.map((r) => Number(r.score))) : null,
+    stats: statsFrom(rounds, facts),
   };
 }
 
-/** Save a finished round: every answer updates that fact's box; the round goes in the history. */
-export async function savePractice(studentId: string, answers: Answer[], tables: number[], score: number, total: number): Promise<boolean> {
+/** Update each fact's box after some answers. */
+export async function saveFacts(studentId: string, answers: Answer[]): Promise<boolean> {
+  if (!answers.length) return true;
   const admin = createAdminClient();
   const facts = [...new Set(answers.map((a) => a.fact))];
-  const { data: rows, error } = await admin.from("fact_progress").select("fact, box, correct, wrong, avg_ms, due_at, last_seen").eq("student_id", studentId).in("fact", facts);
+  const { data: rows, error } = await admin.from("fact_progress").select(FACT_COLS).eq("student_id", studentId).in("fact", facts);
   if (error) return false;
   const state = new Map(((rows ?? []) as FactState[]).map((r) => [r.fact, r]));
   const now = new Date();
   for (const a of answers) state.set(a.fact, updateFact(state.get(a.fact), a, now));
-  const upserts = facts.map((f) => ({ student_id: studentId, ...state.get(f)! }));
-  const { error: upErr } = await admin.from("fact_progress").upsert(upserts, { onConflict: "student_id,fact" });
-  if (upErr) return false;
-  if (total > 0) await admin.from("practice_sessions").insert({ student_id: studentId, game: "tt", tables, score: Math.max(0, Math.min(score, total)), total });
+  const { error: upErr } = await admin.from("fact_progress").upsert(
+    facts.map((f) => ({ student_id: studentId, ...state.get(f)! })),
+    { onConflict: "student_id,fact" },
+  );
+  return !upErr;
+}
+
+export type RoundExtras = { bestStreak?: number; powers?: number; game?: "tt" | "match"; won?: boolean };
+
+/** Add a finished round to the history. */
+export async function saveRound(studentId: string, tables: number[], score: number, total: number, extra: RoundExtras = {}): Promise<void> {
+  if (total <= 0) return;
+  const admin = createAdminClient();
+  const base = { student_id: studentId, game: extra.game ?? "tt", tables, score: Math.max(0, Math.min(score, total)), total };
+  const full = {
+    ...base,
+    best_streak: Math.max(0, Math.min(99, Math.round(extra.bestStreak ?? 0))),
+    powers: Math.max(0, Math.min(99, Math.round(extra.powers ?? 0))),
+    ...(extra.won === undefined ? {} : { won: extra.won }),
+  };
+  const { error } = await admin.from("practice_sessions").insert(full);
+  if (error) await admin.from("practice_sessions").insert(base); // before database update 0017
+}
+
+/** Save a finished practice round: every answer updates that fact's box; the round goes in the history. */
+export async function savePractice(studentId: string, answers: Answer[], tables: number[], score: number, total: number, extra: RoundExtras = {}): Promise<boolean> {
+  if (!(await saveFacts(studentId, answers))) return false;
+  await saveRound(studentId, tables, score, total, { ...extra, game: "tt" });
   return true;
 }

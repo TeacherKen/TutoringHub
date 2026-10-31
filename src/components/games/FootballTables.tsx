@@ -2,40 +2,33 @@
 import "@fontsource/barlow-condensed/700.css";
 import "@fontsource/barlow-condensed/700-italic.css";
 import "@fontsource/barlow-condensed/800-italic.css";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { FAST_MS, parseFact, pickRound, TABLES, updateFact, type Answer, type FactState } from "@/lib/facts";
+import { useCallback, useEffect, useState } from "react";
+import { pickRound, TABLES, updateFact, type Answer, type FactState } from "@/lib/facts";
 import { setSoundOn, sfx, soundOn } from "@/lib/gameSound";
+import { addRound, newTrophies, shelf, trophies, type Trophy, type TrophyStats } from "@/lib/trophies";
 import { MasteryGrid } from "../MasteryGrid";
-import { KITS, Stadium, TARGETS, type Confetti, type Kit, type Shot } from "./Stadium";
+import { Medal, TrophyShelf } from "../Trophies";
+import { KITS, Stadium, type Kit } from "./Stadium";
+import { ConfettiBurst, Controls, GLASS, makeConfetti, PANEL, Shirt, type Confetti } from "./Controls";
+import { answerOf, useKeys, usePenalty } from "./usePenalty";
 
 // ⚽ Football Times Tables: a penalty shootout. Type the answer, tap the goal to aim, score!
 // Facts answered wrong or slowly come back sooner (see lib/facts.ts).
 
-type Data = { name: string; tables: number[]; progress: FactState[]; sessions: { score: number; total: number; created_at: string }[]; best?: number | null };
+type Data = {
+  name: string;
+  tables: number[];
+  progress: FactState[];
+  sessions: { score: number; total: number; created_at: string }[];
+  best?: number | null;
+  stats?: TrophyStats;
+};
 type Kick = { fact: string; second: boolean };
-type Banner = { key: number; text: string; tone: "goal" | "saved"; sub?: string };
-type Result = { score: number; total: number; newHigh: boolean; first: boolean };
+type Result = { score: number; total: number; newHigh: boolean; first: boolean; won: Trophy[] };
 
 const KICKS = 10;
 const PENDING_KEY = "tutoringhub-tt-pending";
 const KIT_KEY = "tutoringhub-tt-kit";
-const FLY_MS = 700;
-const PANEL = "rounded-3xl bg-[radial-gradient(120%_90%_at_50%_0%,#18397a_0%,#0b1d42_55%,#081633_100%)] p-3 text-white shadow-xl sm:p-4";
-const GLASS = "bg-white/[.07] ring-1 ring-inset ring-white/12";
-
-const answerOf = (fact: string) => {
-  const p = parseFact(fact)!;
-  return p[0] * p[1];
-};
-
-const makeConfetti = (colours: string[], n = 50, spread = 620): Confetti[] =>
-  Array.from({ length: n }, () => ({
-    dx: (Math.random() - 0.5) * spread,
-    dy: -60 + Math.random() * 320,
-    r: Math.random() * 900 - 450,
-    c: colours[Math.floor(Math.random() * colours.length)],
-    d: Math.random() * 200,
-  }));
 
 export function FootballTables({ api }: { api: string }) {
   const [data, setData] = useState<Data | null>(null);
@@ -46,19 +39,12 @@ export function FootballTables({ api }: { api: string }) {
   const [stage, setStage] = useState<"setup" | "play" | "done">("setup");
   const [kicks, setKicks] = useState<Kick[]>([]);
   const [i, setI] = useState(0);
-  const [typed, setTyped] = useState("");
-  const [shot, setShot] = useState<Shot | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [goals, setGoals] = useState<boolean[]>([]);
-  const [banner, setBanner] = useState<Banner | null>(null);
-  const [cheer, setCheer] = useState(0);
   const [confetti, setConfetti] = useState<Confetti[]>([]);
-  const [streak, setStreak] = useState(0);
-  const [bestStreak, setBestStreak] = useState(0);
-  const [powers, setPowers] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
-  const started = useRef(0);
-  const busy = useRef(false);
+  const [allTrophies, setAllTrophies] = useState(false);
+  const pen = usePenalty();
 
   useEffect(() => {
     let alive = true;
@@ -87,126 +73,84 @@ export function FootballTables({ api }: { api: string }) {
     };
   }, [api]);
 
+  const { reset } = pen;
   function start() {
     if (!data || !tables.length) return;
     setKicks(pickRound(tables, data.progress, new Date(), KICKS).map((fact) => ({ fact, second: false })));
     setI(0);
-    setTyped("");
-    setShot(null);
-    setBanner(null);
     setConfetti([]);
     setAnswers([]);
     setGoals([]);
-    setStreak(0);
-    setBestStreak(0);
-    setPowers(0);
     setResult(null);
+    reset();
     setStage("play");
     sfx.whistle();
-    started.current = Date.now();
   }
 
   const kick = kicks[i];
 
-  // Full time: show the result, update the chart and save.
+  // Full time: show the result and new trophies, update the chart and save.
   const finish = useCallback(
-    (done: Answer[], scored: boolean[]) => {
+    (done: Answer[], scored: boolean[], bestStreak: number, powers: number) => {
+      if (!data) return;
       const score = scored.filter(Boolean).length;
-      const body = { answers: done, tables, score, total: scored.length };
-      const best = data?.best ?? null;
-      setResult({ score, total: scored.length, newHigh: best != null && score > best, first: best == null });
+      const body = { answers: done, tables, score, total: scored.length, bestStreak, powers };
+      const map = new Map(data.progress.map((p) => [p.fact, p]));
+      for (const a of done) map.set(a.fact, updateFact(map.get(a.fact), a, new Date()));
+      const progress = [...map.values()];
+      let won: Trophy[] = [];
+      let stats = data.stats;
+      if (stats) {
+        const after = addRound(stats, { score, total: scored.length, game: "tt", best_streak: bestStreak, powers, created_at: new Date().toISOString() }, progress);
+        won = newTrophies(trophies(stats), trophies(after));
+        stats = after;
+      }
+      const best = data.best ?? null;
+      setResult({ score, total: scored.length, newHigh: best != null && score > best, first: best == null, won });
       setStage("done");
-      if (score >= 7) {
+      if (score >= 7 || won.length) {
         sfx.win();
         setConfetti(makeConfetti(["#ffc629", "#ffffff", kit.shirt]));
       } else sfx.whistle();
-      // Update the chart straight away; the server keeps the real copy.
-      setData((d) => {
-        if (!d) return d;
-        const map = new Map(d.progress.map((p) => [p.fact, p]));
-        for (const a of done) map.set(a.fact, updateFact(map.get(a.fact), a, new Date()));
-        return { ...d, progress: [...map.values()], best: Math.max(d.best ?? 0, score) };
-      });
+      // Update the chart and trophies straight away; the server keeps the real copy.
+      setData({ ...data, progress, stats, best: Math.max(data.best ?? 0, score) });
       fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
         .then((r) => {
           if (!r.ok) throw new Error();
         })
         .catch(() => writePending(api, [...readPending(api), body])); // no internet: send it next time
     },
-    [api, tables, data?.best, kit.shirt],
+    [api, tables, data, kit.shirt],
   );
 
+  const { kick: takeKick, typed } = pen;
   const shoot = useCallback(
     (aim?: number) => {
-      if (!kick || shot || !typed || busy.current) return;
-      busy.current = true;
-      const ms = Date.now() - started.current;
-      const correct = Number(typed) === answerOf(kick.fact);
-      const power = correct && ms < FAST_MS;
-      const target = aim ?? Math.floor(Math.random() * TARGETS.length);
-      const others = TARGETS.map((_, n) => n).filter((n) => n !== target);
-      const keeper = correct ? others[Math.floor(Math.random() * others.length)] : target;
-      const nextAnswers = [...answers, { fact: kick.fact, correct, ms }];
-      const nextGoals = kick.second ? goals : [...goals, correct];
-      // Missed ones get a second chance at the end of the round.
-      const nextKicks = !correct && !kick.second ? [...kicks, { fact: kick.fact, second: true }] : kicks;
-      const nextStreak = kick.second ? streak : correct ? streak + 1 : 0;
-      setAnswers(nextAnswers);
-      setGoals(nextGoals);
-      setKicks(nextKicks);
-      setShot({ target, keeper, result: correct ? "goal" : "saved", power, stage: "fly" });
-      if (power) sfx.power();
-      else sfx.kick();
-
-      setTimeout(() => {
-        setShot((s) => (s ? { ...s, stage: "after" } : s));
-        setStreak(nextStreak);
-        setBestStreak((b) => Math.max(b, nextStreak));
-        if (correct) {
-          sfx.goal();
-          setCheer((c) => c + 1);
-          if (power) setPowers((p) => p + 1);
-          const text = kick.second ? "GOAL!" : nextStreak === 3 ? "HAT-TRICK!" : nextStreak >= 4 ? `${nextStreak} IN A ROW!` : "GOAL!";
-          setBanner({ key: Date.now(), tone: "goal", text, sub: power ? "⚡ Power shot" : nextStreak === 3 ? "3 goals in a row" : undefined });
-        } else {
-          sfx.save();
-          setBanner({ key: Date.now(), tone: "saved", text: "SAVED" });
-        }
-        setTimeout(
-          () => {
-            busy.current = false;
-            setShot(null);
-            setBanner(null);
-            setTyped("");
-            started.current = Date.now();
-            if (i + 1 >= nextKicks.length) finish(nextAnswers, nextGoals);
-            else setI(i + 1);
-          },
-          correct ? 1350 : 2400,
-        );
-      }, FLY_MS);
+      if (!kick) return;
+      const r = takeKick(kick.fact, typed, {
+        aim,
+        counts: !kick.second,
+        onNext: (res) => {
+          const nextAnswers = [...answers, { fact: res.fact, correct: res.correct, ms: res.ms }];
+          const nextGoals = kick.second ? goals : [...goals, res.correct];
+          // Missed ones get a second chance at the end of the round.
+          const nextKicks = !res.correct && !kick.second ? [...kicks, { fact: kick.fact, second: true }] : kicks;
+          setAnswers(nextAnswers);
+          setGoals(nextGoals);
+          setKicks(nextKicks);
+          if (i + 1 >= nextKicks.length) finish(nextAnswers, nextGoals, Math.max(pen.bestStreak, res.streak), pen.powers + (res.power ? 1 : 0));
+          else setI(i + 1);
+        },
+        onLand: (res) => {
+          if (!kick.second) setGoals((g) => [...g, res.correct]); // the score box updates as the ball lands
+        },
+      });
+      return r;
     },
-    [kick, shot, typed, answers, goals, kicks, i, streak, finish],
+    [kick, takeKick, typed, answers, goals, kicks, i, finish, pen.bestStreak, pen.powers],
   );
 
-  const press = useCallback((k: string) => {
-    sfx.tap();
-    if (k === "del") setTyped((t) => t.slice(0, -1));
-    else setTyped((t) => (t.length < 3 ? t + k : t));
-  }, []);
-
-  // Keyboard on a Mac: numbers, Backspace, Enter.
-  useEffect(() => {
-    if (stage !== "play") return;
-    const onKey = (e: KeyboardEvent) => {
-      if (shot) return;
-      if (/^\d$/.test(e.key)) press(e.key);
-      else if (e.key === "Backspace") press("del");
-      else if (e.key === "Enter") shoot();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [stage, shoot, press, shot]);
+  useKeys(stage === "play" && !pen.shot, pen.press, shoot);
 
   function toggleSound() {
     setSoundOn(!sound);
@@ -225,6 +169,15 @@ export function FootballTables({ api }: { api: string }) {
 
   if (error) return <p className="card text-center text-muted">{error}</p>;
   if (!data) return <p className="card text-center text-muted">Loading…</p>;
+
+  const myTrophies = data.stats ? shelf(trophies(data.stats), tables) : [];
+  const gotCount = myTrophies.filter((t) => t.got).length;
+  // Won trophies, plus the few closest to being won (all of them if asked).
+  const nearest = myTrophies
+    .filter((t) => !t.got)
+    .sort((a, b) => b.have / b.need - a.have / a.need)
+    .slice(0, 4);
+  const showTrophies = allTrophies ? myTrophies : [...myTrophies.filter((t) => t.got), ...nearest];
 
   // ---- Before the match: tables and kit --------------------------------------------------
   if (stage === "setup") {
@@ -286,8 +239,27 @@ export function FootballTables({ api }: { api: string }) {
             >
               Kick off
             </button>
-            {data.best != null ? <p className="text-sm text-white/65">High score: {data.best} out of 10</p> : null}
+            <p className="text-sm text-white/65">
+              {data.best != null ? `High score: ${data.best} out of 10` : null}
+              {data.best != null && data.stats ? " · " : null}
+              {data.stats ? `${data.stats.stars} ${data.stats.stars === 1 ? "star" : "stars"}` : null}
+            </p>
           </div>
+          {myTrophies.length ? (
+            <div className="space-y-2 text-left">
+              <p className="font-sport text-center text-xl font-bold">
+                Trophies <span className="text-white/60">{gotCount} won</span>
+              </p>
+              <TrophyShelf items={showTrophies} dark />
+              {showTrophies.length < myTrophies.length ? (
+                <p className="text-center">
+                  <button type="button" className="text-sm text-white/70 underline" onClick={() => setAllTrophies(true)}>
+                    See all {myTrophies.length} trophies
+                  </button>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div className="card space-y-2">
           <h3 className="font-medium">{data.name}&apos;s times tables</h3>
@@ -302,21 +274,10 @@ export function FootballTables({ api }: { api: string }) {
     const { score } = result;
     const stars = score >= 9 ? 3 : score >= 7 ? 2 : score >= 5 ? 1 : 0;
     const missed = [...new Set(answers.filter((a) => !a.correct).map((a) => a.fact))];
-    const keeperKit = kit.id === "yellow" ? "#ff5fa2" : "#c6ef3a";
     return (
       <section className="mx-auto w-full max-w-3xl space-y-4">
         <div className={`${PANEL} relative space-y-5 overflow-hidden px-5 py-7 text-center sm:px-8`}>
-          {confetti.length ? (
-            <div className="pointer-events-none absolute left-1/2 top-24">
-              {confetti.map((c, n) => (
-                <span
-                  key={n}
-                  className="tt-confetti absolute block h-3 w-1.5 rounded-sm"
-                  style={{ background: c.c, animationDelay: `${c.d}ms`, ["--dx" as string]: `${c.dx}px`, ["--dy" as string]: `${c.dy}px`, ["--r" as string]: `${c.r}deg` }}
-                />
-              ))}
-            </div>
-          ) : null}
+          <ConfettiBurst pieces={confetti} />
           <p className="font-sport text-xl font-bold italic text-white/70">Full time</p>
           <div className="font-sport tt-pop mx-auto inline-flex items-stretch overflow-hidden rounded-lg text-[clamp(26px,5vw,44px)] font-bold leading-none shadow-[0_10px_30px_rgba(0,0,0,.4)]">
             <span className="w-2" style={{ background: kit.shirt }} />
@@ -324,30 +285,31 @@ export function FootballTables({ api }: { api: string }) {
             <span className="min-w-[1.5em] bg-white px-3 py-3 font-extrabold tabular-nums text-[#0b1d42]">{score}</span>
             <span className="min-w-[1.5em] border-l border-[#0b1d42]/15 bg-white px-3 py-3 font-extrabold tabular-nums text-[#0b1d42]">{result.total - score}</span>
             <span className="bg-[#0b1d42] px-4 py-3 uppercase tracking-wide">Keeper</span>
-            <span className="w-2" style={{ background: keeperKit }} />
+            <span className="w-2 bg-[#b8ef2a]" />
           </div>
-          <div className="flex justify-center gap-2" aria-label={`${stars} out of 3 stars`}>
-            {[0, 1, 2].map((n) => (
-              <svg key={n} viewBox="0 0 24 24" className={`h-12 w-12 ${n < stars ? "tt-pop" : ""}`} style={{ animationDelay: `${350 + n * 220}ms` }} aria-hidden>
-                <path
-                  d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"
-                  fill={n < stars ? "#ffc629" : "rgba(255,255,255,.12)"}
-                  stroke={n < stars ? "#e0a800" : "rgba(255,255,255,.2)"}
-                  strokeWidth="1"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            ))}
-          </div>
+          <Stars n={stars} />
+          {result.won.length ? (
+            <div className="space-y-2">
+              <p className="font-sport text-2xl font-extrabold italic text-[#ffc629]">{result.won.length === 1 ? "New trophy!" : `${result.won.length} new trophies!`}</p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {result.won.map((t, n) => (
+                  <div key={t.id} className="tt-pop flex w-28 flex-col items-center gap-1" style={{ animationDelay: `${900 + n * 250}ms` }}>
+                    <Medal t={t} size={72} />
+                    <span className="text-sm font-semibold leading-tight">{t.name}</span>
+                    <span className="text-xs leading-tight text-white/60">{t.how}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="flex flex-wrap justify-center gap-2 text-sm font-semibold">
             {result.newHigh ? <span className="tt-pop rounded-full bg-[#ffc629] px-3 py-1 text-[#0b1d42]">New high score</span> : null}
-            {result.first ? <span className={`${GLASS} rounded-full px-3 py-1`}>First match played</span> : null}
-            {powers ? (
+            {pen.powers ? (
               <span className={`${GLASS} rounded-full px-3 py-1`}>
-                ⚡ {powers} power {powers === 1 ? "shot" : "shots"}
+                ⚡ {pen.powers} power {pen.powers === 1 ? "shot" : "shots"}
               </span>
             ) : null}
-            {bestStreak >= 2 ? <span className={`${GLASS} rounded-full px-3 py-1`}>{bestStreak} goals in a row</span> : null}
+            {pen.bestStreak >= 2 ? <span className={`${GLASS} rounded-full px-3 py-1`}>{pen.bestStreak} goals in a row</span> : null}
           </div>
           {missed.length ? (
             <div className="space-y-1.5">
@@ -384,97 +346,44 @@ export function FootballTables({ api }: { api: string }) {
   }
 
   // ---- The match -------------------------------------------------------------------------
-  const [a, b] = parseFact(kick?.fact ?? "2x2")!;
-  const savedNow = shot?.result === "saved" && shot.stage === "after";
   return (
     <section className={`${PANEL} mx-auto w-full max-w-6xl`}>
       <div className="grid gap-3 lg:grid-cols-[1.55fr_1fr] lg:items-stretch">
         <Stadium
-          shot={shot}
-          aiming={!!typed && !shot}
+          shot={pen.shot}
+          aiming={!!pen.typed && !pen.shot}
           onAim={shoot}
           kit={kit}
           name={data.name}
-          cheer={cheer}
-          banner={banner}
+          cheer={pen.cheer}
+          banner={pen.banner}
           goals={goals}
           kicks={KICKS}
-          streak={streak}
+          streak={pen.streak}
           sound={sound}
           onToggleSound={toggleSound}
         />
-
-        <div className="flex flex-col gap-3">
-          {/* The question */}
-          <div className={`${GLASS} flex flex-1 flex-col justify-center gap-3 rounded-2xl px-4 py-4 text-center`}>
-            {kick?.second ? <p className="font-sport text-lg font-bold italic text-[#ffc629]">Second chance</p> : null}
-            <p className="font-sport text-[clamp(52px,8vw,88px)] font-extrabold italic leading-none tabular-nums">
-              {a} × {b} = <span className={savedNow ? "text-[#ff6b70]" : typed ? "text-[#ffc629]" : "text-white/35"}>{savedNow ? a * b : typed || "?"}</span>
-            </p>
-            <div className="mx-auto w-full max-w-sm">
-              <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                <div key={i} className="tt-drain h-full rounded-full" style={{ animationPlayState: shot ? "paused" : "running" }} />
-              </div>
-              <p className="mt-1.5 text-xs text-white/60">Answer while the bar is gold for a power shot</p>
-            </div>
-            <p className={`min-h-6 text-[15px] font-medium ${savedNow ? "text-[#ff8a8e]" : "text-white/85"}`}>
-              {savedNow ? `It's ${a * b}. You'll get it next time!` : shot ? "" : typed ? "Tap the goal to aim, or press Kick" : "Type your answer"}
-            </p>
-          </div>
-
-          {/* Number pad, big for small fingers */}
-          <div className="grid grid-cols-3 gap-2">
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9", "del", "0", "kick"].map((k) => (
-              <button
-                key={k}
-                type="button"
-                disabled={!!shot || (k === "kick" && !typed)}
-                onClick={() => (k === "kick" ? shoot() : press(k))}
-                className={`font-sport flex h-14 items-center justify-center gap-2 rounded-xl transition active:scale-95 disabled:opacity-35 lg:h-[60px] ${
-                  k === "kick" ? "bg-[#ffc629] text-2xl font-extrabold italic text-[#0b1d42] hover:bg-[#ffd447]" : `${GLASS} text-[32px] font-bold text-white hover:bg-white/15 active:bg-white/25`
-                }`}
-                aria-label={k === "kick" ? "Kick" : k === "del" ? "Delete" : k}
-              >
-                {k === "kick" ? (
-                  <>
-                    <BallIcon /> Kick
-                  </>
-                ) : k === "del" ? (
-                  <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M9 5h11a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9l-6-7z" />
-                    <path d="M12.5 9.5l5 5M17.5 9.5l-5 5" />
-                  </svg>
-                ) : (
-                  k
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Controls fact={kick?.fact ?? "2x2"} typed={pen.typed} shot={pen.shot} second={kick?.second} clockKey={i} onPress={pen.press} onKick={() => shoot()} />
       </div>
     </section>
   );
 }
 
-function Shirt({ colour, text }: { colour: string; text: string }) {
+export function Stars({ n }: { n: number }) {
   return (
-    <svg viewBox="0 0 40 36" className="h-11 w-11" aria-hidden>
-      <path d="M13 2 L4 6.5 L1 15 L8 16.5 L9 34 L31 34 L32 16.5 L39 15 L36 6.5 L27 2 Q20 6 13 2Z" fill={colour} />
-      <path d="M13 2 Q20 6 27 2" stroke="rgba(0,0,0,.25)" strokeWidth="1.5" fill="none" />
-      <text x="20" y="27" textAnchor="middle" fontSize="12" fontWeight="800" fontFamily='"Barlow Condensed", sans-serif' fill={text}>
-        10
-      </text>
-    </svg>
-  );
-}
-
-function BallIcon() {
-  return (
-    <svg viewBox="-13 -13 26 26" className="h-6 w-6" aria-hidden>
-      <circle r="12" fill="#ffffff" stroke="#0b1d42" strokeWidth="1.5" />
-      <path d="M0 -4.6 L4.4 -1.4 L2.7 3.8 L-2.7 3.8 L-4.4 -1.4Z" fill="#0b1d42" />
-      <path d="M0 -4.6 L0 -11 M4.4 -1.4 L10.5 -3.4 M2.7 3.8 L6.5 9.5 M-2.7 3.8 L-6.5 9.5 M-4.4 -1.4 L-10.5 -3.4" stroke="#0b1d42" strokeWidth="1.3" />
-    </svg>
+    <div className="flex justify-center gap-2" aria-label={`${n} out of 3 stars`}>
+      {[0, 1, 2].map((k) => (
+        <svg key={k} viewBox="0 0 24 24" className={`h-12 w-12 ${k < n ? "tt-pop" : ""}`} style={{ animationDelay: `${350 + k * 220}ms` }} aria-hidden>
+          <path
+            d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"
+            fill={k < n ? "#ffc629" : "rgba(255,255,255,.12)"}
+            stroke={k < n ? "#e0a800" : "rgba(255,255,255,.2)"}
+            strokeWidth="1"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ))}
+    </div>
   );
 }
 

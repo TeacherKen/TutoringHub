@@ -6,6 +6,8 @@ import { forecast, type EarnLesson } from "@/lib/earnings";
 import { mergeProgress, type TopicRow } from "@/lib/progress";
 import { bkkDateKey, bkkStartOfDay, todayKey } from "@/lib/time";
 import type { FactState } from "@/lib/facts";
+import { loadRounds } from "@/lib/practice";
+import { statsFrom, trophies, type Trophy } from "@/lib/trophies";
 
 // A family's private page (opened with a link, no sign-in). It shows only:
 // first names, upcoming lesson times, messages Mr Ken marked as sent, saved work pictures,
@@ -18,7 +20,7 @@ export type FamilyPage = {
   accountId: string;
   familyName: string;
   consented: boolean;
-  children: { id: string; name: string; progress: TopicRow[]; facts: FactState[] }[];
+  children: { id: string; name: string; progress: TopicRow[]; facts: FactState[]; trophies: Trophy[]; stars: number }[];
   upcoming: { start_at: string; end_at: string; names: string[] }[];
   messages: { date: string; names: string[]; text: string }[];
   work: { label: string; url: string; date: string }[];
@@ -103,12 +105,22 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   // Topic progress per child.
   const savedRows = (saved ?? []) as { student_id: string; name: string; status: "next" | "learning" | "got_it"; updated_at: string }[];
   const facts = (factRows ?? []) as (FactState & { student_id: string })[];
-  const childRows = children.map((c) => ({
+  const rounds = await loadRounds(ids);
+  const childRows = children.map((c) => {
+    const mine = facts
+      .filter((f) => f.student_id === c.id)
+      .map((f): FactState => ({ fact: f.fact, box: f.box, correct: f.correct, wrong: f.wrong, avg_ms: f.avg_ms, due_at: f.due_at, last_seen: f.last_seen }));
+    const stats = statsFrom(
+      rounds.filter((r) => r.student_id === c.id),
+      mine,
+    );
+    return { c, mine, stats };
+  }).map(({ c, mine, stats }) => ({
     id: c.id,
     name: c.first_name,
-    facts: facts
-      .filter((f) => f.student_id === c.id)
-      .map((f): FactState => ({ fact: f.fact, box: f.box, correct: f.correct, wrong: f.wrong, avg_ms: f.avg_ms, due_at: f.due_at, last_seen: f.last_seen })),
+    facts: mine,
+    trophies: trophies(stats).filter((t) => t.got),
+    stars: stats.stars,
     progress: mergeProgress(
       savedRows.filter((s) => s.student_id === c.id),
       all.filter((l) => l.status !== "cancelled" && l.status !== "scheduled" && l.lesson_students.some((x) => x.student_id === c.id)),

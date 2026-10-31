@@ -317,17 +317,26 @@ export async function getMoneyData() {
   return { ...result, students: st, packages: pk, today: t };
 }
 
-/** Times tables practice for one student: every fact's box and the latest rounds. */
+/** Times tables practice for one student: every fact's box, the latest rounds and trophies. */
 export async function getTimesTables(studentId: string) {
   type FactState = import("@/lib/facts").FactState;
+  type RoundRow = import("@/lib/trophies").RoundRow;
+  const { statsFrom } = await import("@/lib/trophies");
   const supabase = await createClient();
-  const [facts, sessions] = await Promise.all([
-    supabase.from("fact_progress").select("fact, box, correct, wrong, avg_ms, due_at, last_seen").eq("student_id", studentId),
-    supabase.from("practice_sessions").select("score, total, tables, created_at").eq("student_id", studentId).order("created_at", { ascending: false }).limit(8),
-  ]);
+  const facts = await supabase.from("fact_progress").select("fact, box, correct, wrong, avg_ms, due_at, last_seen").eq("student_id", studentId);
+  let rounds: (RoundRow & { tables: number[] })[] = [];
+  for (const cols of ["score, total, tables, game, best_streak, powers, won, created_at", "score, total, tables, game, created_at"]) {
+    const { data, error } = await supabase.from("practice_sessions").select(cols).eq("student_id", studentId).order("created_at").limit(5000);
+    if (!error) {
+      rounds = (data ?? []) as unknown as (RoundRow & { tables: number[] })[];
+      break;
+    }
+  }
+  const progress = (facts.data ?? []) as FactState[];
   return {
     ready: !facts.error,
-    progress: (facts.data ?? []) as FactState[],
-    sessions: (sessions.data ?? []) as { score: number; total: number; tables: number[]; created_at: string }[],
+    progress,
+    sessions: rounds.slice(-8).reverse(),
+    stats: statsFrom(rounds, progress),
   };
 }

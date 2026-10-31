@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { addMaterialFile, addMaterialLink, removeMaterial } from "@/app/actions/lessons";
 import { MATERIALS_BUCKET } from "@/lib/constants";
+import { WorksheetPhotos } from "./WorksheetPhotos";
 
 export type MaterialView = { id: string; kind: "canva" | "pdf" | "photo" | "link"; label: string; href: string | null };
 
@@ -24,7 +25,6 @@ export function Materials({ lessonId, items }: { lessonId: string; items: Materi
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
   const pdfRef = useRef<HTMLInputElement>(null);
-  const photoRef = useRef<HTMLInputElement>(null);
   const linkForm = useRef<HTMLFormElement>(null);
 
   async function upload(file: File, kind: "pdf" | "photo") {
@@ -94,13 +94,11 @@ export function Materials({ lessonId, items }: { lessonId: string; items: Materi
         <button className="btn-secondary shrink-0">Add link</button>
       </form>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-wrap items-start gap-2">
         <button type="button" className="btn-secondary" onClick={() => pdfRef.current?.click()} disabled={Boolean(busy)}>
           Upload PDF
         </button>
-        <button type="button" className="btn-secondary" onClick={() => photoRef.current?.click()} disabled={Boolean(busy)}>
-          Photo of work
-        </button>
+        <WorksheetPhotos lessonId={lessonId} compact />
       </div>
       <input
         ref={pdfRef}
@@ -110,18 +108,6 @@ export function Materials({ lessonId, items }: { lessonId: string; items: Materi
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) upload(f, "pdf");
-          e.target.value = "";
-        }}
-      />
-      <input
-        ref={photoRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) upload(f, "photo");
           e.target.value = "";
         }}
       />

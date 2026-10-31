@@ -43,7 +43,6 @@ const GOLD = "#ffc629";
 const SPORT = '"Barlow Condensed", "Avenir Next Condensed", "Arial Narrow", sans-serif';
 
 export type Shot = { target: number; keeper: number; result: "goal" | "saved"; power: boolean; stage: "fly" | "after" };
-export type Confetti = { dx: number; dy: number; r: number; c: string; d: number };
 
 export const KITS = [
   { id: "red", shirt: "#d62839", text: "#ffffff" },
@@ -81,6 +80,8 @@ export function Stadium({
   streak,
   sound,
   onToggleSound,
+  board,
+  target,
 }: {
   shot: Shot | null;
   aiming: boolean;
@@ -94,6 +95,9 @@ export function Stadium({
   streak: number;
   sound: boolean;
   onToggleSound: () => void;
+  /** In a head-to-head match: everyone's goals instead of "name vs keeper". */
+  board?: { name: string; goals: number; colour: string; me: boolean }[];
+  target?: number;
 }) {
   // Load every picture up front, so nothing pops in late during a kick.
   useEffect(() => {
@@ -270,6 +274,18 @@ export function Stadium({
       </svg>
 
       {/* TV score box */}
+      {board ? (
+        <div className="font-sport pointer-events-none absolute left-[2.5%] top-[4%] space-y-[2px]">
+          {board.map((p) => (
+            <div key={p.name} className={`flex items-stretch overflow-hidden rounded-[5px] text-[clamp(13px,1.9vw,20px)] font-bold leading-none shadow-[0_4px_14px_rgba(0,0,0,.35)] ${p.me ? "" : "opacity-90"}`}>
+              <span className="w-[5px]" style={{ background: p.colour }} />
+              <span className={`w-[7.5em] truncate px-2.5 py-[0.3em] uppercase tracking-wide ${p.me ? "bg-[#0b1d42] text-[#ffc629]" : "bg-[#0b1d42]/90 text-white"}`}>{p.name}</span>
+              <span className="min-w-[1.8em] bg-white px-1.5 py-[0.3em] text-center font-extrabold tabular-nums text-[#0b1d42]">{p.goals}</span>
+            </div>
+          ))}
+          {target ? <p className="pl-1 text-[clamp(11px,1.4vw,14px)] font-bold italic text-white drop-shadow">First to {target} goals</p> : null}
+        </div>
+      ) : (
       <div className="font-sport pointer-events-none absolute left-[2.5%] top-[4%] space-y-1">
         <div className="flex items-stretch overflow-hidden rounded-[5px] text-[clamp(13px,2vw,21px)] font-bold leading-none shadow-[0_4px_14px_rgba(0,0,0,.35)]">
           <span className="w-[5px]" style={{ background: kit.shirt }} />
@@ -293,6 +309,7 @@ export function Stadium({
           {streak >= 2 ? <span className="ml-1.5 rounded-sm bg-[#ffc629] px-1.5 text-[clamp(11px,1.5vw,15px)] font-bold italic text-[#0b1d42]">{streak} in a row</span> : null}
         </div>
       </div>
+      )}
 
       <button
         type="button"
