@@ -11,11 +11,13 @@ export const TARGETS = [
 
 // Where the keeper's feet go and how far he leans to reach each target.
 const DIVES = [
-  { dx: -62, dy: -28, rot: -62 },
-  { dx: 62, dy: -28, rot: 62 },
-  { dx: -58, dy: -4, rot: -84 },
-  { dx: 58, dy: -4, rot: 84 },
+  { dx: -60, dy: -54, rot: -60 },
+  { dx: 60, dy: -54, rot: 60 },
+  { dx: -56, dy: -12, rot: -84 },
+  { dx: 56, dy: -12, rot: 84 },
 ];
+// A real keeper is about three-quarters as tall as the goal.
+const KEEPER_SIZE = 0.76;
 
 const SPOT = { x: 400, y: 412 };
 const GOAL_LINE = 300;
@@ -235,11 +237,13 @@ export function Stadium({
 
         {/* Goalkeeper */}
         <g style={{ transform: `translate(${400 + dive.dx}px, ${GOAL_LINE + 2}px) scaleX(${shot ? 1.4 : 1})`, transition: shot ? "transform 380ms 200ms ease-out" : "none" }}>
-          <ellipse rx="26" ry="5" fill="#000" opacity="0.3" />
+          <ellipse rx="21" ry="4.5" fill="#000" opacity="0.3" />
         </g>
         <g style={{ transform: `translate(${400 + dive.dx}px, ${GOAL_LINE + dive.dy}px) rotate(${dive.rot}deg)`, transition: shot ? "transform 380ms 200ms cubic-bezier(.2,.8,.3,1)" : "none" }}>
           <g className={shot ? "" : "tt-keeper"}>
-            <Keeper shirt={keeperKit} />
+            <g transform={`scale(${KEEPER_SIZE})`}>
+              <Keeper shirt={keeperKit} />
+            </g>
           </g>
         </g>
 
