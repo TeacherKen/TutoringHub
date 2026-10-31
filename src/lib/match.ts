@@ -180,14 +180,29 @@ export async function answerMatch(token: string, device: string, fact: string, k
   if (!m || !isDeviceId(device)) return { ok: false };
   if (m.status !== "playing") return { ok: false, done: m.status === "done", winner: m.winner };
   if (m.starts_at && Date.parse(m.starts_at) - 1500 > Date.now()) return { ok: false };
-  const rows = await playerRows(m.id);
-  const me = rows.find((r) => r.device === device);
-  const scored = me ? scoreAnswer(me, fact, kind, answer, ms) : null;
-  if (!me || !scored) return { ok: false };
-  const { correct, time } = scored;
-  const next = { ...scored.next, updated_at: new Date().toISOString() };
   const admin = createAdminClient();
-  await admin.from("match_players").update(next).eq("match_id", m.id).eq("student_id", me.student_id);
+  // Read, add the goal, write back — but only if nobody changed this player's score in between
+  // (two answers arriving at once); if they did, read again and try again.
+  let saved: { me: PlayerRow; scored: NonNullable<ReturnType<typeof scoreAnswer>> } | null = null;
+  for (let attempt = 0; attempt < 4 && !saved; attempt++) {
+    const rows = await playerRows(m.id);
+    const me = rows.find((r) => r.device === device);
+    const scored = me ? scoreAnswer(me, fact, kind, answer, ms) : null;
+    if (!me || !scored) return { ok: false };
+    const { data: upd, error } = await admin
+      .from("match_players")
+      .update({ ...scored.next, updated_at: new Date().toISOString() })
+      .eq("match_id", m.id)
+      .eq("student_id", me.student_id)
+      .eq("goals", me.goals)
+      .eq("misses", me.misses)
+      .select("student_id");
+    if (error) return { ok: false };
+    if (upd?.length) saved = { me, scored };
+  }
+  if (!saved) return { ok: false };
+  const { me } = saved;
+  const { correct, time, next } = saved.scored;
   await saveFacts(me.student_id, [{ fact, correct, ms: time }]);
 
   if (next.goals >= m.target) {
@@ -222,7 +237,11 @@ export async function rematch(token: string): Promise<{ token?: string }> {
     .select("id")
     .single();
   if (error || !n) return {};
-  await addPlayers(rows.map((r) => ({ match_id: n.id, student_id: r.student_id, seat: r.seat, tables: r.tables, mode: cleanMode(r.mode), device: r.device })));
+  const addErr = await addPlayers(rows.map((r) => ({ match_id: n.id, student_id: r.student_id, seat: r.seat, tables: r.tables, mode: cleanMode(r.mode), device: r.device })));
+  if (addErr) {
+    await admin.from("matches").delete().eq("id", n.id);
+    return {};
+  }
   const { data: linked } = await admin.from("matches").update({ next_token: fresh }).eq("id", m.id).is("next_token", null).select("id");
   if (!linked?.length) {
     // Someone else pressed Rematch at the same moment; use theirs.

@@ -327,7 +327,8 @@ export async function getTimesTables(studentId: string) {
   const facts = await supabase.from("fact_progress").select("fact, box, correct, wrong, avg_ms, due_at, last_seen").eq("student_id", studentId);
   let rounds: (RoundRow & { tables: number[] })[] = [];
   for (const cols of ["score, total, tables, game, best_streak, powers, won, created_at", "score, total, tables, game, created_at"]) {
-    const { data, error } = await supabase.from("practice_sessions").select(cols).eq("student_id", studentId).order("created_at").limit(5000);
+    // Newest first; Supabase sends at most 1000 rows, which is years of rounds for one child.
+    const { data, error } = await supabase.from("practice_sessions").select(cols).eq("student_id", studentId).order("created_at", { ascending: false }).limit(1000);
     if (!error) {
       rounds = (data ?? []) as unknown as (RoundRow & { tables: number[] })[];
       break;
@@ -337,7 +338,7 @@ export async function getTimesTables(studentId: string) {
   return {
     ready: !facts.error,
     progress,
-    sessions: rounds.slice(-8).reverse(),
+    sessions: rounds.slice(0, 8),
     stats: statsFrom(rounds, progress),
   };
 }

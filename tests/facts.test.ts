@@ -10,10 +10,21 @@ describe("remembering each fact", () => {
     let s = updateFact(undefined, { fact: "3x7", correct: true, ms: 2000 }, now);
     expect(s.box).toBe(2);
     expect(s.due_at).toBe("2026-11-01T10:00:00.000Z"); // tomorrow
-    s = updateFact(s, { fact: "3x7", correct: true, ms: 2500 }, now);
+    const tomorrow = new Date(now.getTime() + 86_400_000);
+    s = updateFact(s, { fact: "3x7", correct: true, ms: 2500 }, tomorrow);
     expect(s.box).toBe(3);
-    s = updateFact(s, { fact: "3x7", correct: false, ms: 6000 }, now);
-    expect(s).toMatchObject({ box: 1, correct: 2, wrong: 1, due_at: now.toISOString() });
+    s = updateFact(s, { fact: "3x7", correct: false, ms: 6000 }, tomorrow);
+    expect(s).toMatchObject({ box: 1, correct: 2, wrong: 1, due_at: tomorrow.toISOString() });
+  });
+  it("doesn't move a fact up again before it's due (many rounds in one afternoon)", () => {
+    let s = updateFact(undefined, { fact: "2x4", correct: true, ms: 1500 }, now);
+    for (let i = 0; i < 6; i++) s = updateFact(s, { fact: "2x4", correct: true, ms: 1500 }, new Date(now.getTime() + i * 600_000));
+    expect(s.box).toBe(2);
+    expect(s.due_at).toBe("2026-11-01T10:00:00.000Z"); // still due tomorrow, not pushed back
+    expect(s.correct).toBe(7);
+  });
+  it("only accepts one spelling of each fact", () => {
+    expect(cleanAnswers([{ fact: "03x7", correct: true, ms: 1 }, { fact: "3x11", correct: true, ms: 1 }, { fact: "3x10", correct: true, ms: 1 }]).map((a) => a.fact)).toEqual(["3x10"]);
   });
   it("a slow right answer keeps the fact where it is", () => {
     const s = updateFact({ fact: "4x8", box: 3, correct: 2, wrong: 0, avg_ms: 3000, due_at: "", last_seen: null }, { fact: "4x8", correct: true, ms: 9000 }, now);

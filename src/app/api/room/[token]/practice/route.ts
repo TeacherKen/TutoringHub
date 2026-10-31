@@ -25,6 +25,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/room/[token]/pr
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ ok: false }, { status: 400 });
   const answers = cleanAnswers(body.answers);
   if (!answers.length) return NextResponse.json({ ok: false }, { status: 400 });
   const total = Math.max(0, Math.min(40, Number(body.total) || 0));

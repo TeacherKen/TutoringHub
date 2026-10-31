@@ -14,21 +14,28 @@ export type Answer = { fact: string; correct: boolean; ms: number };
 
 export const factKey = (table: number, n: number) => `${table}x${n}`;
 export function parseFact(fact: string): [number, number] | null {
-  const m = /^(\d{1,2})x(\d{1,2})$/.exec(fact);
+  // One spelling per fact ("3x7", never "03x7"), and only facts the game can ask (× 1 to × 10).
+  const m = /^([1-9]\d?)x([1-9]\d?)$/.exec(fact);
   if (!m) return null;
   const a = Number(m[1]);
   const b = Number(m[2]);
-  return a >= 1 && a <= 12 && b >= 1 && b <= 12 ? [a, b] : null;
+  return a >= 1 && a <= 12 && b >= 1 && b <= UP_TO ? [a, b] : null;
 }
 
 export function factsFor(tables: number[]): string[] {
   return tables.flatMap((t) => Array.from({ length: UP_TO }, (_, i) => factKey(t, i + 1)));
 }
 
-/** The new state of a fact after one answer. */
+/**
+ * The new state of a fact after one answer. A fact only moves up a box when it was due, so
+ * playing many rounds in one afternoon can't make it "known really well" in a day. A wrong
+ * answer always sends it back to box 1.
+ */
 export function updateFact(prev: FactState | undefined, a: Answer, now: Date): FactState {
   const box0 = prev?.box ?? 1;
-  const box = !a.correct ? 1 : a.ms <= FAST_MS ? Math.min(5, box0 + 1) : Math.max(1, box0);
+  const due = !prev || !prev.due_at || !(Date.parse(prev.due_at) > now.getTime());
+  const box = !a.correct ? 1 : a.ms <= FAST_MS && due ? Math.min(5, box0 + 1) : Math.max(1, box0);
+  const moved = !a.correct || box !== box0 || due;
   const seen = (prev?.correct ?? 0) + (prev?.wrong ?? 0);
   const avg = prev?.avg_ms != null ? Math.round((prev.avg_ms * Math.min(seen, 4) + a.ms) / (Math.min(seen, 4) + 1)) : Math.round(a.ms);
   return {
@@ -37,7 +44,8 @@ export function updateFact(prev: FactState | undefined, a: Answer, now: Date): F
     correct: (prev?.correct ?? 0) + (a.correct ? 1 : 0),
     wrong: (prev?.wrong ?? 0) + (a.correct ? 0 : 1),
     avg_ms: avg,
-    due_at: new Date(now.getTime() + BOX_WAIT_DAYS[box] * DAY).toISOString(),
+    // Practised early and right: keep the date it was already due back.
+    due_at: moved || !prev ? new Date(now.getTime() + BOX_WAIT_DAYS[box] * DAY).toISOString() : prev.due_at,
     last_seen: now.toISOString(),
   };
 }

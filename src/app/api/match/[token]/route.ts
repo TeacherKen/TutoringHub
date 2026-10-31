@@ -22,6 +22,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/match/[token]">
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ ok: false }, { status: 400 });
   if (body.op === "rematch") return NextResponse.json(await rematch(token), { headers: noStore });
   if (!isDeviceId(body.device)) return NextResponse.json({ ok: false }, { status: 400 });
   if (body.op === "join" && typeof body.player === "string") {
