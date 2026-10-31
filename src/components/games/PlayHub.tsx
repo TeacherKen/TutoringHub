@@ -1,7 +1,8 @@
 "use client";
 import "@fontsource/barlow-condensed/700.css";
 import "@fontsource/barlow-condensed/800-italic.css";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import QRCode from "qrcode";
 import { useRouter } from "next/navigation";
 import { MODE_EXAMPLES, MODE_NAMES, MODES, TABLES, type GameMode } from "@/lib/facts";
 import { ensureRoomToken } from "@/app/actions/rooms";
@@ -93,6 +94,8 @@ export function PlayHub({ students }: { students: Kid[] }) {
         </div>
       </section>
 
+      <IPadSetup students={sorted} />
+
       <section className="card space-y-4">
         <div>
           <h2 className="h2">Head-to-head match</h2>
@@ -180,5 +183,90 @@ export function PlayHub({ students }: { students: Kid[] }) {
         {error ? <p className="text-sm text-danger">{error}</p> : null}
       </section>
     </div>
+  );
+}
+
+/** Open TutoringHub (or one child's game) on the iPad by scanning a QR code, then add it to the home screen. */
+function IPadSetup({ students }: { students: Kid[] }) {
+  const [who, setWho] = useState("me");
+  const [tokens, setTokens] = useState<Record<string, string>>(() => Object.fromEntries(students.filter((k) => k.token).map((k) => [k.id, k.token!])));
+  const [qr, setQr] = useState<{ url: string; src: string } | null>(null);
+  const [busy, start] = useTransition();
+  const kid = students.find((k) => k.id === who);
+  const path = who === "me" ? "/play" : tokens[who] ? `/room/${tokens[who]}?tab=practice` : null;
+
+  useEffect(() => {
+    if (!path) return;
+    const url = `${window.location.origin}${path}`;
+    let alive = true;
+    QRCode.toDataURL(url, { width: 400, margin: 1 }).then((src) => alive && setQr({ url, src }));
+    return () => {
+      alive = false;
+    };
+  }, [path]);
+
+  function choose(id: string) {
+    setWho(id);
+    if (id !== "me" && !tokens[id]) {
+      start(async () => {
+        const t = (await ensureRoomToken(id)).token;
+        if (t) setTokens((m) => ({ ...m, [id]: t }));
+      });
+    }
+  }
+
+  const shown = qr && path && qr.url.endsWith(path) ? qr : null;
+  return (
+    <section className="card space-y-3">
+      <div>
+        <h2 className="h2">📱 Put it on the iPad</h2>
+        <p className="mt-1 text-sm text-muted">Scan the code with the iPad camera. It opens in Safari, then you add it to the home screen like an app.</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          aria-pressed={who === "me"}
+          onClick={() => choose("me")}
+          className={`min-h-10 rounded-xl border px-3 text-sm font-medium ${who === "me" ? "border-ink bg-surface-2" : "border-line bg-surface"}`}
+        >
+          TutoringHub (you)
+        </button>
+        {students.map((k) => (
+          <button
+            key={k.id}
+            type="button"
+            aria-pressed={who === k.id}
+            onClick={() => choose(k.id)}
+            className={`min-h-10 rounded-xl border px-3 text-sm font-medium ${who === k.id ? "border-ink bg-surface-2" : "border-line bg-surface"}`}
+          >
+            {k.name}&apos;s game
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-4">
+        {shown ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={shown.src} alt={`QR code to open ${who === "me" ? "TutoringHub" : `${kid?.name}'s game`} on the iPad`} className="h-40 w-40 rounded-lg border border-line bg-white p-1" />
+        ) : (
+          <div className="flex h-40 w-40 items-center justify-center rounded-lg bg-surface-2 text-xs text-muted">{busy ? "Making link…" : ""}</div>
+        )}
+        <ol className="min-w-[14rem] flex-1 list-decimal space-y-1 pl-5 text-sm">
+          <li>Open the iPad <b>Camera</b> and point it at the code. Tap the yellow link.</li>
+          <li>
+            In Safari, tap <b>Share</b> (the square with an arrow), then <b>Add to Home Screen</b>, then <b>Add</b>.
+          </li>
+          <li>
+            {who === "me"
+              ? "Open TutoringHub from the new icon and sign in once. The app keeps its own sign-in, separate from Safari."
+              : `A football icon called "${kid?.name}" appears. It opens straight into ${kid?.name}'s game, with no sign-in needed.`}
+          </li>
+        </ol>
+      </div>
+      {shown ? (
+        <button type="button" className="text-sm text-accent underline" onClick={() => void navigator.clipboard?.writeText(shown.url)}>
+          Copy link instead (to AirDrop or send it)
+        </button>
+      ) : null}
+    </section>
   );
 }
