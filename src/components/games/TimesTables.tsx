@@ -32,18 +32,25 @@ export function TimesTables() {
 
   const scoreRef = useRef(0);
 
+  // The clock: set up once when a round starts (not again on every draw), and it ends at a fixed time.
+  const offerRef = useRef(offer);
+  useEffect(() => {
+    offerRef.current = offer;
+  });
   useEffect(() => {
     if (phase !== "play") return;
-    const tick = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
-    const end = setTimeout(() => {
-      setPhase("done");
-      setNewBest(offer(scoreRef.current));
-    }, SECONDS * 1000);
-    return () => {
-      clearInterval(tick);
-      clearTimeout(end);
-    };
-  }, [phase, offer]);
+    const endsAt = Date.now() + SECONDS * 1000;
+    const tick = setInterval(() => {
+      const leftNow = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      setLeft(leftNow);
+      if (leftNow === 0) {
+        clearInterval(tick);
+        setPhase("done");
+        setNewBest(offerRef.current(scoreRef.current));
+      }
+    }, 250);
+    return () => clearInterval(tick);
+  }, [phase]);
 
   function start() {
     scoreRef.current = 0;

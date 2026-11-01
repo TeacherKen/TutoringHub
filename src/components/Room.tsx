@@ -4,9 +4,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { RoomData } from "@/lib/room";
 import { createClient } from "@/lib/supabase/client";
 import { MAX_LIVE_HTML, watchChannel, type PracticeLive, type WatchView } from "@/lib/watch";
-import { TimesTables } from "./games/TimesTables";
-import { QuickMaths } from "./games/QuickMaths";
-import { MiniSudoku } from "./games/MiniSudoku";
+import { BuiltInGame } from "./games/BuiltInGame";
 import { snapshotDocument, snapshotElement } from "@/lib/snapshot";
 import { Whiteboard } from "./Whiteboard";
 import { FootballTables } from "./games/FootballTables";
@@ -413,7 +411,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
           </div>
           <div ref={gameBox} className="card" onPointerUp={quickPicture} onKeyUp={quickPicture}>
             <h2 className="mb-4 text-xl font-semibold">{gameInfo?.name}</h2>
-            {game === "tt" ? <TimesTables /> : game === "qm" ? <QuickMaths /> : <MiniSudoku />}
+            <BuiltInGame id={game} />
           </div>
         </section>
       ) : (

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { GAMES, type GameInfo } from "@/lib/games";
 import { BallIcon } from "./Controls";
+import { FracText, Pie } from "./FractionShapes";
 
 // 🎮 The games corner: for children on Mr Ken's iPad in an onsite lesson. Full screen, no
 // TutoringHub menu (so nobody wanders into Money or Settings); leaving needs a 2-second hold.
@@ -18,14 +19,14 @@ export function ArcadeShell({ children, back, title }: { children: React.ReactNo
     <div className="flex min-h-dvh flex-col text-white" style={{ background: `radial-gradient(120% 80% at 50% 0%, #17336f 0%, ${NAVY} 60%)` }}>
       <header className="flex items-center justify-between gap-3 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6">
         {back ? (
-          <Link href={back} className="flex min-h-12 items-center gap-2 rounded-full bg-white/10 px-4 text-lg font-semibold hover:bg-white/15">
+          <Link href={back} className="flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-white/10 px-4 text-lg font-semibold hover:bg-white/15">
             <span aria-hidden>‹</span> All games
           </Link>
         ) : (
           <span className="font-sport text-[30px] font-extrabold italic leading-none sm:text-[36px]">Games corner</span>
         )}
-        {title ? <span className="font-sport truncate text-2xl font-bold">{title}</span> : null}
-        {back ? <span className="w-28" aria-hidden /> : <HoldToExit />}
+        {title ? <span className="font-sport min-w-0 truncate text-2xl font-bold">{title}</span> : null}
+        {back ? <span className="hidden w-28 sm:block" aria-hidden /> : <HoldToExit />}
       </header>
       <main className="flex min-h-0 flex-1 flex-col px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">{children}</main>
     </div>
@@ -108,6 +109,27 @@ function Glyph({ id }: { id: GameInfo["id"] }) {
         <span>−</span>
         <span>×</span>
         <span>÷</span>
+      </span>
+    );
+  if (id === "fp")
+    return (
+      <span aria-hidden className="drop-shadow-lg">
+        <Pie parts={8} shaded={[0, 1, 2]} size={104} label="" />
+      </span>
+    );
+  if (id === "ff")
+    return (
+      <span aria-hidden className="font-sport flex items-center gap-3 text-5xl font-bold sm:text-6xl">
+        <FracText f={{ n: 3, d: 4 }} className="" />
+        <span className="text-4xl text-[#ffc629]">&gt;</span>
+        <FracText f={{ n: 2, d: 3 }} className="" />
+      </span>
+    );
+  if (id === "fc")
+    return (
+      <span aria-hidden className="font-sport flex items-center gap-3 text-5xl font-bold sm:text-6xl">
+        <FracText f={{ n: 1, d: 3 }} className="" />
+        <span className="text-4xl">of 12</span>
       </span>
     );
   if (id === "tt")

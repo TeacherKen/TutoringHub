@@ -2,16 +2,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { MODE_NAMES } from "@/lib/facts";
+import { GAMES } from "@/lib/games";
 import { cleanView, secs, watchChannel, type PracticeLive, type WatchView } from "@/lib/watch";
 
 type Screen = { game: string; html: string; updated_at: string } | null;
-const NAMES: Record<string, string> = {
-  "magic-square": "Magic Square Academy",
-  "wolf-vs-sheep": "Wolf vs Sheep",
-  tt: "Times Tables Sprint",
-  qm: "Quick Maths",
-  sd: "Mini Sudoku",
-};
+const NAMES: Record<string, string> = Object.fromEntries(GAMES.map((g) => [g.id, g.name]));
 const FRESH_MS = 12_000; // the room answers every 4 seconds while watched
 
 function attr(html: string, name: string, fallback: number): number {
