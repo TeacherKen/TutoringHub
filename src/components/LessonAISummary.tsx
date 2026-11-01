@@ -2,8 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { addMaterialFile, summariseLessonWithAI } from "@/app/actions/lessons";
-import { makeWorksheet } from "@/app/actions/worksheets";
+import { addMaterialFile } from "@/app/actions/lessons";
+import { postJson } from "@/lib/postJson";
 import { MATERIALS_BUCKET } from "@/lib/constants";
 import { randomId } from "@/lib/randomId";
 import { lessonWriting, type BoardPoll } from "@/lib/boardShared";
@@ -91,7 +91,8 @@ export function LessonAISummary({
         await savePages();
       }
       setStep(pictures ? "Reading the lesson… this takes about 20–40 seconds." : "Reading your notes… this takes about 15–30 seconds.");
-      const r = await summariseLessonWithAI(lessonId);
+      // Its own web address (not a Server Action), so other buttons don't wait behind the AI.
+      const r = await postJson<{ summary?: LessonSummary }>("/api/ai/summary", { lessonId });
       if (r.summary) {
         setSummary(r.summary);
         setMessage(r.summary.parent_message);
@@ -109,7 +110,7 @@ export function LessonAISummary({
     setSheetError(null);
     setSheetStep("Writing the worksheet and checking the answers… about 30–60 seconds.");
     try {
-      const r = await makeWorksheet(lessonId, summary.worksheet_prompt);
+      const r = await postJson<{ id?: string }>("/api/ai/worksheet", { lessonId, brief: summary.worksheet_prompt });
       if (r.id) {
         window.open(`/print/worksheet/${r.id}`, "_blank");
         router.refresh();

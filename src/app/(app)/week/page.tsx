@@ -1,6 +1,6 @@
+import { CalendarCatchUp } from "@/components/CalendarCatchUp";
 import Link from "next/link";
 import { requireTutor } from "@/lib/auth";
-import { syncIfStale } from "@/lib/calendar/sync";
 import { getLessons } from "@/lib/data";
 import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, mondayOf, todayKey } from "@/lib/time";
 import { LessonCard } from "@/components/LessonCard";
@@ -12,7 +12,6 @@ function validKey(s: unknown): string | null {
 
 export default async function WeekPage({ searchParams }: PageProps<"/week">) {
   await requireTutor();
-  await syncIfStale();
   const { start } = await searchParams;
   const monday = mondayOf(validKey(start) ?? todayKey());
   const lessons = (
@@ -23,6 +22,7 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
 
   return (
     <div className="space-y-6">
+      <CalendarCatchUp />
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted">

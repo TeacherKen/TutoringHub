@@ -1,7 +1,7 @@
+import { CalendarCatchUp } from "@/components/CalendarCatchUp";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/auth";
-import { syncIfStale } from "@/lib/calendar/sync";
 import { getLessons, getMoneyData, getSettings, getStudents, lessonNames, needsNote } from "@/lib/data";
 import { renewSoon } from "@/lib/earnings";
 import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, fmtLongDay, fmtTime, mondayOf, todayKey } from "@/lib/time";
@@ -9,7 +9,6 @@ import { LessonCard } from "@/components/LessonCard";
 import { RefreshButton } from "@/components/RefreshButton";
 import { linkEventToStudent, setIgnored } from "@/app/actions/calendar";
 import { markPastDone } from "@/app/actions/lessons";
-import { autoMarkDone } from "@/lib/autoDone";
 import { backupIfDue } from "@/lib/backup";
 import { after } from "next/server";
 
@@ -17,8 +16,6 @@ export default async function Home() {
   const me = await getMe();
   if (me?.role !== "tutor") redirect("/schedule");
 
-  await syncIfStale();
-  await autoMarkDone();
   after(() => backupIfDue().catch(() => {})); // weekly backup, after the page is sent
   const today = todayKey();
   const weekEnd = addDays(mondayOf(today), 7);
@@ -54,6 +51,7 @@ export default async function Home() {
 
   return (
     <div className="space-y-8">
+      <CalendarCatchUp />
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted">{fmtLongDay(today)}</p>

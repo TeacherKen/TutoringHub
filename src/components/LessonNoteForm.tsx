@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { saveFinalMessage, saveLessonNote, setSent, writeFeedbackWithAI, type NoteInput } from "@/app/actions/lessons";
+import { saveFinalMessage, saveLessonNote, setSent, type NoteInput } from "@/app/actions/lessons";
+import { postJson } from "@/lib/postJson";
 import { buildFeedbackPrompt, type PromptInput } from "@/lib/feedbackPrompt";
 import { SendButton } from "./SendButton";
 import type { ChatApp } from "@/lib/chat";
@@ -215,7 +216,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
     if (finalMsg.trim() && !confirm("Replace the message that's already there?")) return;
     setWriting(true);
     try {
-      const r = await writeFeedbackWithAI(currentPrompt());
+      const r = await postJson<{ text?: string }>("/api/ai/message", { prompt: currentPrompt() });
       if (r.text) {
         setFinalMsg(r.text);
         setFinalState("idle");

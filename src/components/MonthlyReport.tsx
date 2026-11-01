@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { writeFeedbackWithAI } from "@/app/actions/lessons";
+import { postJson } from "@/lib/postJson";
 import { buildMonthlyPrompt, type MonthlyInput, type ReportMonth } from "@/lib/monthlyReport";
 import { SendButton } from "./SendButton";
 import type { ChatApp } from "@/lib/chat";
@@ -62,7 +62,7 @@ export function MonthlyReport({
               onClick={async () => {
                 if (text && !confirm("Replace the report you have?")) return;
                 setState("Writing…");
-                const r = await writeFeedbackWithAI(prompt(), "monthly_report");
+                const r = await postJson<{ text?: string }>("/api/ai/message", { prompt: prompt(), kind: "monthly_report" });
                 if (r.text) {
                   setText(r.text);
                   setState(null);

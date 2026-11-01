@@ -157,14 +157,16 @@ export async function listCalendarSources(): Promise<{ id: string; label: string
 }
 
 /** Sync only if it's been a while (used when a page opens). */
-export async function syncIfStale(): Promise<void> {
+/** Read the calendars again if it's been 10 minutes. Returns true if it did. */
+export async function syncIfStale(): Promise<boolean> {
   const admin = createAdminClient();
   const { data } = await admin.from("settings").select("last_attempt_at, calendar_connected").eq("id", 1).single();
-  if (!data?.calendar_connected) return;
+  if (!data?.calendar_connected) return false;
   // Uses the last *attempt*, so a broken link doesn't slow down every page.
   const last = data.last_attempt_at ? new Date(data.last_attempt_at).getTime() : 0;
-  if (Date.now() - last < STALE_MINUTES * 60_000) return;
-  await syncCalendar();
+  if (Date.now() - last < STALE_MINUTES * 60_000) return false;
+  const r = await syncCalendar();
+  return r.ok;
 }
 
 /** True if a refresh was tried in the last few seconds (stops button-mashing). */

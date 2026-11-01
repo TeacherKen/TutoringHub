@@ -1,6 +1,6 @@
+import { CalendarCatchUp } from "@/components/CalendarCatchUp";
 import Link from "next/link";
 import { requireSignedIn } from "@/lib/auth";
-import { syncIfStale } from "@/lib/calendar/sync";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtTime, mondayOf, todayKey } from "@/lib/time";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -35,7 +35,6 @@ function freeBlocks(day: string, rows: Row[]): { from: Date; to: Date }[] {
 
 export default async function SchedulePage({ searchParams }: PageProps<"/schedule">) {
   const me = await requireSignedIn();
-  await syncIfStale();
   const { start } = await searchParams;
   const monday = mondayOf(typeof start === "string" && /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : todayKey());
 
@@ -50,6 +49,7 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
 
   return (
     <div className="space-y-6">
+      <CalendarCatchUp />
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted">

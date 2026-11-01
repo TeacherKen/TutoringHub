@@ -155,15 +155,6 @@ export async function removeMaterial(form: FormData): Promise<void> {
   revalidatePath("/", "layout");
 }
 
-/** Built-in AI: write the parent message (or monthly report) from the prompt. Names are hidden from the AI. */
-export async function writeFeedbackWithAI(prompt: string, kind: "parent_message" | "monthly_report" = "parent_message"): Promise<{ text?: string; error?: string }> {
-  await assertTutor();
-  const { writeWithAI } = await import("@/lib/ai");
-  const p = String(prompt ?? "").slice(0, 12000);
-  if (p.trim().length < 20) return { error: "Write the lesson note first." };
-  return writeWithAI(p, kind === "monthly_report" ? "monthly_report" : "parent_message");
-}
-
 /** Mark past classes as done (one, or all that aren't marked yet). */
 export async function markPastDone(form: FormData): Promise<void> {
   await assertTutor();
@@ -187,15 +178,3 @@ export async function markPastDone(form: FormData): Promise<void> {
   revalidatePath("/", "layout");
 }
 
-/** ✨ AI lesson summary: parent feedback, lesson notes and the next worksheet prompt (kept with the lesson). */
-export async function summariseLessonWithAI(lessonId: string): Promise<{ summary?: import("@/lib/lessonSummary").LessonSummary; error?: string }> {
-  await assertTutor();
-  const { summariseLesson } = await import("@/lib/lessonSummary");
-  const r = await summariseLesson(lessonId);
-  if (r.summary) {
-    const supabase = await createClient();
-    // Needs database update 0019; without it the summary still shows, it just isn't kept.
-    await supabase.from("lessons").update({ ai_summary: r.summary, ai_summary_at: new Date().toISOString() }).eq("id", lessonId);
-  }
-  return r;
-}

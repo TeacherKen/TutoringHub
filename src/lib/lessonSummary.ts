@@ -81,6 +81,7 @@ How to work:
 - Read each question and the student's answer. Work out which answers are right and which are wrong, and why.
 - Only report what you can actually see or what the tutor's notes say. Never invent questions, scores or behaviour. If handwriting is unclear, say so briefly instead of guessing.
 - If there are no pictures, work from the tutor's notes and the times tables results only.
+- Only list something under mistakes if it was actually answered wrong, or the notes say the student struggled with it. A perfect round (e.g. 10 out of 10) has no mistakes. Facts the times tables game is "still practising" are not mistakes; you may mention them once as facts to keep practising.
 - Never mention surnames, schools or contact details.
 - Plain, simple English. Specific maths, not vague praise.
 
@@ -144,8 +145,16 @@ export async function gatherLesson(lessonId: string, withPictures: boolean) {
       const mode = (r.game?.startsWith("tt-") ? r.game.slice(3) : r.game === "match" ? "match" : "times") as GameMode | "match";
       return `${nameOf.get(r.student_id)}: ${mode === "match" ? "head-to-head match" : `${mode} round`} on ${r.tables?.map((t) => `${t}×`).join(" ") || "times tables"}, ${r.score} out of ${r.total}`;
     });
-    const missed = ((weak ?? []) as { student_id: string; fact: string }[]).map((w) => `${nameOf.get(w.student_id)} still needs ${questionWithAnswer({ fact: w.fact, kind: "times" })}`);
-    if (lines.length || missed.length) tables = [...lines, ...missed.slice(0, 12)].join("\n");
+    // Facts in the game's first box are ones it's still teaching (new, slow, or missed in an earlier
+    // round). They are NOT necessarily wrong today, so they're labelled clearly for the AI.
+    const learning = new Map<string, string[]>();
+    for (const w of (weak ?? []) as { student_id: string; fact: string }[]) {
+      const list = learning.get(w.student_id) ?? [];
+      if (list.length < 12) list.push(questionWithAnswer({ fact: w.fact, kind: "times" }));
+      learning.set(w.student_id, list);
+    }
+    const still = [...learning].map(([sid, facts]) => `${nameOf.get(sid)}: facts the game is still practising (new, slow, or missed in an earlier round; not wrong today unless a round above shows misses): ${facts.join(", ")}`);
+    if (lines.length || still.length) tables = [...lines, ...still].join("\n");
   }
 
   return { lesson, kids, pictures, tables };

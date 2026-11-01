@@ -25,7 +25,8 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
 
   const supabase = await createClient();
   const studentIds = lesson.lesson_students.map((ls) => ls.student_id);
-  const [students, settings, { data: mats }, { data: recentTopics }, prev, progress, money] = await Promise.all([
+  // Everything that doesn't depend on anything else is asked for at the same time (one wait, not ten).
+  const [students, settings, { data: mats }, { data: recentTopics }, prev, progress, money, { data: kidBoards }, savedRes, { data: sheetRows }] = await Promise.all([
     getStudents({ activeOnly: true }),
     getSettings(),
     supabase.from("lesson_materials").select("*").eq("lesson_id", id).order("created_at"),
@@ -40,38 +41,45 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
       : Promise.resolve({ data: [] }),
     getProgress(studentIds),
     getMoneyData(),
+    // ✨ AI summary: the students' smart slides, any summary already made, and worksheets (update 0020).
+    studentIds.length ? supabase.from("boards").select("id, student_id").in("student_id", studentIds) : Promise.resolve({ data: [] }),
+    supabase.from("lessons").select("ai_summary").eq("id", id).maybeSingle(),
+    supabase.from("worksheets").select("id, title, created_at").eq("lesson_id", id).order("created_at", { ascending: false }),
   ]);
   const earned = money.lessons.find((l) => l.id === lesson.id);
 
-  const materials: MaterialView[] = await Promise.all(
-    (mats ?? []).map(async (m) => {
-      let href = m.url as string | null;
-      if (m.storage_path) {
-        const { data } = await supabase.storage.from(MATERIALS_BUCKET).createSignedUrl(m.storage_path, 60 * 10);
-        href = data?.signedUrl ?? null;
-      }
-      return { id: m.id, kind: m.kind, label: m.label ?? "", href };
-    }),
-  );
-
-  // ✨ AI summary: smart slides written on during this lesson, photos, and any summary already made.
+  // Second (and last) wait: private links for the files, and which slides were written on in this lesson.
   const win = lessonWindow(lesson.start_at, lesson.end_at);
-  const { data: kidBoards } = studentIds.length ? await supabase.from("boards").select("id, student_id").in("student_id", studentIds) : { data: [] };
+  const fileRows = (mats ?? []).filter((m) => m.storage_path);
   const boardIds = ((kidBoards ?? []) as { id: string; student_id: string }[]).map((b) => b.id);
-  const { data: active } = boardIds.length
-    ? await supabase.from("board_marks").select("board_id").in("board_id", boardIds).gte("created_at", win.from).lte("created_at", win.to).limit(2000)
-    : { data: [] };
+  const [{ data: signed }, { data: active }] = await Promise.all([
+    fileRows.length
+      ? supabase.storage.from(MATERIALS_BUCKET).createSignedUrls(
+          fileRows.map((m) => m.storage_path as string),
+          60 * 10,
+        )
+      : Promise.resolve({ data: [] as { signedUrl: string | null }[] }),
+    boardIds.length
+      ? supabase.from("board_marks").select("board_id").in("board_id", boardIds).gte("created_at", win.from).lte("created_at", win.to).limit(2000)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const urlFor = new Map(fileRows.map((m, i) => [m.id as string, signed?.[i]?.signedUrl ?? null]));
+  const materials: MaterialView[] = (mats ?? []).map((m) => ({
+    id: m.id,
+    kind: m.kind,
+    label: m.label ?? "",
+    href: m.storage_path ? (urlFor.get(m.id as string) ?? null) : (m.url as string | null),
+  }));
+
   const activeIds = new Set(((active ?? []) as { board_id: string }[]).map((r) => r.board_id));
   const nameOfStudent = new Map(lesson.lesson_students.map((ls) => [ls.student_id, ls.students?.first_name ?? "Student"]));
   const summaryBoards = ((kidBoards ?? []) as { id: string; student_id: string }[])
     .filter((b) => activeIds.has(b.id))
     .map((b) => ({ id: b.id, name: nameOfStudent.get(b.student_id) ?? "Student" }));
-  const { data: saved, error: summaryErr } = await supabase.from("lessons").select("ai_summary").eq("id", id).maybeSingle();
-  const savedSummary = summaryErr ? null : cleanSummary((saved as { ai_summary?: unknown } | null)?.ai_summary);
-  if (savedSummary) savedSummary.pictures_read = Number(((saved as { ai_summary?: { pictures_read?: number } }).ai_summary ?? {}).pictures_read) || 0;
+  const saved = savedRes.data as { ai_summary?: { pictures_read?: number } } | null;
+  const savedSummary = savedRes.error ? null : cleanSummary(saved?.ai_summary);
+  if (savedSummary) savedSummary.pictures_read = Number((saved?.ai_summary ?? {}).pictures_read) || 0;
   const photoLabels = materials.filter((m) => m.kind === "photo").map((m) => m.label);
-  // Worksheets made for this lesson (database update 0020; none before it).
-  const { data: sheetRows } = await supabase.from("worksheets").select("id, title, created_at").eq("lesson_id", id).order("created_at", { ascending: false });
   const worksheets = (sheetRows ?? []) as { id: string; title: string; created_at: string }[];
 
   const topicSuggestions = [...new Set((recentTopics ?? []).flatMap((r) => r.topics as string[]))].slice(0, 30);
