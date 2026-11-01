@@ -156,3 +156,23 @@ describe("📝 worksheet maker", () => {
     expect(odd.practice[3].lines).toBe(8);
   });
 });
+
+import { layoutPages, PAGE_H, worksheetBlocks } from "@/lib/worksheetSlides";
+describe("📤 worksheet on the smart slides", () => {
+  const ws = cleanWorksheet(SHEET)!;
+  it("keeps every question, in order, with each section's heading on its first question", () => {
+    const blocks = worksheetBlocks(ws);
+    const qs = blocks.filter((b) => b.kind === "question");
+    expect(qs.map((b) => (b.kind === "question" ? b.n : 0))).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(blocks.filter((b) => b.heading).map((b) => b.heading)).toEqual(["Warm-up", "Worked example", "Practice", "Word problems", "Challenge ★"]);
+    expect(JSON.stringify(blocks)).not.toContain("answer key");
+  });
+  it("fills the left column, then the right, then a new page, never past the bottom", () => {
+    const blocks = Array.from({ length: 9 }, () => worksheetBlocks(ws)[1]);
+    const pages = layoutPages(blocks, () => 300, 200);
+    expect(pages.flat()).toHaveLength(9);
+    for (const page of pages) for (const p of page) expect(p.y + p.h).toBeLessThanOrEqual(PAGE_H);
+    expect(pages[0].map((p) => p.x)).toEqual([pages[0][0].x, pages[0][1].x]); // page 1: one each side under the title
+    expect(pages.length).toBeGreaterThan(2);
+  });
+});

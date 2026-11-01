@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { numbered, type Worksheet, type WsQuestion } from "@/lib/worksheet";
+import { WorksheetToSlides } from "./WorksheetToSlides";
 
 // Calm and clean on purpose: black text, one accent colour, big clear numbers, room to work.
 // Sized to fit on two A4 pages, with the answer key on its own page at the end.
@@ -47,7 +48,18 @@ function Heading({ children }: { children: React.ReactNode }) {
   return <h2 className="mb-1 border-b border-gray-300 pb-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#0f6b62]">{children}</h2>;
 }
 
-export function WorksheetView({ ws, backHref, tutor }: { ws: Worksheet; backHref: string; tutor: string }) {
+export function WorksheetView({
+  ws,
+  backHref,
+  tutor,
+  student = null,
+}: {
+  ws: Worksheet;
+  backHref: string;
+  tutor: string;
+  /** Who it was made for (for "Put on their smart slides"). */
+  student?: { id: string; name: string } | null;
+}) {
   const [withKey, setWithKey] = useState(true);
   const all = numbered(ws);
   const part = (section: string) => all.filter((x) => x.section === section);
@@ -69,8 +81,13 @@ export function WorksheetView({ ws, backHref, tutor }: { ws: Worksheet; backHref
           </button>
         </div>
       </div>
+      {student ? (
+        <div className="mx-auto mb-3 flex max-w-[210mm] justify-end print:hidden">
+          <WorksheetToSlides ws={ws} studentId={student.id} name={student.name} lessonHref={backHref} />
+        </div>
+      ) : null}
       <p className="mx-auto mb-4 max-w-[210mm] text-sm text-muted print:hidden">
-        AI wrote this, so check the answer key before using it. To use it on the smart slides, choose Save as PDF, then upload the PDF there.
+        AI wrote this, so check the answer key before using it. For an online lesson, put it on the smart slides: the student gets roomy pages to write on, without the answers.
       </p>
 
       <article className="mx-auto max-w-[210mm] bg-white px-[14mm] py-[12mm] shadow-sm print:max-w-none print:p-0 print:shadow-none">
