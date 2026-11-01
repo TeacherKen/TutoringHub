@@ -13,39 +13,87 @@ const TUTOR = [
 ];
 const VIEWER = [{ href: "/schedule", label: "Schedule", icon: TUTOR[1].icon }];
 
-export function BottomNav({ role }: { role: "tutor" | "viewer" }) {
-  const path = usePathname();
+function Icon({ d, className }: { d: string; className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={d} />
+    </svg>
+  );
+}
+
+/** The app's mark: the same teal "T" as the home-screen icon. */
+function Mark() {
+  return (
+    <span aria-hidden className="grid h-8 w-8 place-items-center rounded-[9px] bg-accent text-[17px] font-bold leading-none text-accent-text">
+      T
+    </span>
+  );
+}
+
+/** Top bar on a computer; a bar along the bottom on a phone. */
+export function BottomNav({ role, path: forced }: { role: "tutor" | "viewer"; path?: string }) {
+  const here = usePathname();
+  const path = forced ?? here;
   const items = role === "tutor" ? TUTOR : VIEWER;
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   return (
-    <nav
-      aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:top-0 md:bottom-auto md:border-t-0 md:border-b"
-    >
-      <div className="mx-auto flex max-w-2xl items-stretch md:px-4">
-        <span className="hidden items-center pr-6 font-semibold md:flex">TutoringHub</span>
-        {items.map((it) => (
-          <Link
-            key={it.href}
-            href={it.href}
-            aria-current={active(it.href) ? "page" : undefined}
-            className={`flex min-h-16 flex-1 flex-col items-center justify-center gap-0.5 text-xs md:min-h-14 md:flex-none md:flex-row md:gap-2 md:px-3 md:text-sm ${
-              active(it.href) ? "text-accent" : "text-muted"
-            }`}
-          >
-            <svg viewBox="0 0 24 24" className="h-6 w-6 md:h-5 md:w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d={it.icon} />
-            </svg>
-            {it.label}
+    <>
+      {/* Computer: across the top */}
+      <nav aria-label="Main" className="sticky top-0 z-30 hidden border-b border-line bg-surface/90 backdrop-blur md:block">
+        <div className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-4">
+          <Link href={role === "tutor" ? "/" : "/schedule"} className="flex items-center gap-2.5 rounded-lg font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-accent">
+            <Mark />
+            <span className="text-[17px]">TutoringHub</span>
           </Link>
-        ))}
-        {role === "viewer" ? (
-          <div className="flex flex-1 md:ml-auto md:flex-none">
-            <SignOutButton className="flex min-h-16 flex-1 flex-col items-center justify-center text-xs text-muted md:min-h-14 md:text-sm" />
+          <div className="flex items-center gap-1">
+            {items.map((it) => {
+              const on = active(it.href);
+              return (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  aria-current={on ? "page" : undefined}
+                  className={`flex h-10 items-center gap-2 rounded-full px-3.5 text-[15px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                    on ? "bg-accent text-accent-text" : "text-ink/75 hover:bg-surface-2 hover:text-ink"
+                  }`}
+                >
+                  <Icon d={it.icon} className="h-[18px] w-[18px]" />
+                  {it.label}
+                </Link>
+              );
+            })}
           </div>
-        ) : null}
-      </div>
-    </nav>
+          {role === "viewer" ? <SignOutButton className="ml-auto h-10 rounded-full px-3.5 text-[15px] font-medium text-muted hover:bg-surface-2" /> : null}
+        </div>
+      </nav>
+
+      {/* Phone: along the bottom, within thumb reach */}
+      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+        <div className="mx-auto flex max-w-xl items-stretch">
+          {items.map((it) => {
+            const on = active(it.href);
+            return (
+              <Link
+                key={it.href}
+                href={it.href}
+                aria-current={on ? "page" : undefined}
+                className={`flex min-h-16 flex-1 flex-col items-center justify-center gap-1 text-[11px] ${on ? "font-semibold text-accent" : "font-medium text-muted"}`}
+              >
+                <span className={`grid h-8 w-14 place-items-center rounded-full transition-colors ${on ? "bg-accent-soft" : ""}`}>
+                  <Icon d={it.icon} className="h-[22px] w-[22px]" />
+                </span>
+                {it.label}
+              </Link>
+            );
+          })}
+          {role === "viewer" ? (
+            <div className="flex flex-1">
+              <SignOutButton className="flex min-h-16 flex-1 flex-col items-center justify-center text-[11px] font-medium text-muted" />
+            </div>
+          ) : null}
+        </div>
+      </nav>
+    </>
   );
 }

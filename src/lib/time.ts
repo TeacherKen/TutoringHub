@@ -25,6 +25,11 @@ export function mondayOf(key: string): string {
   return addDays(key, day === 0 ? -6 : 1 - day);
 }
 
+/** The time right now (milliseconds), for pages that show "in 2 h" or "teaching now". */
+export function nowMs(): number {
+  return Date.now();
+}
+
 export function todayKey(): string {
   return bkkDateKey(new Date());
 }

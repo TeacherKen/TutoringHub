@@ -15,7 +15,7 @@ export function LessonCard({ lesson }: { lesson: Lesson }) {
   const place = lessonPlace(lesson);
   const st = STATUS[lesson.status];
   const missing = needsNote(lesson);
-  const unsent = lesson.status === "done" && lesson.final_message && !lesson.sent_at;
+  const unsent = lesson.status === "done" && lesson.final_message && !lesson.sent_at && !lesson.feedback_skipped && !lesson.note_skipped;
   const cancelled = lesson.status === "cancelled";
 
   return (

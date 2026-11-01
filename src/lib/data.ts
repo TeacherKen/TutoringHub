@@ -52,6 +52,9 @@ export type Lesson = {
   final_message: string | null;
   sent_at: string | null;
   note_updated_at: string | null;
+  /** "Clear all" on Home: no note needed / no feedback needed (database update 0021). */
+  note_skipped?: boolean;
+  feedback_skipped?: boolean;
   lesson_students: LessonStudent[];
 };
 
@@ -225,10 +228,16 @@ export function lessonPlace(l: Lesson): string | null {
 
 export function needsNote(l: Lesson): boolean {
   return (
+    !l.note_skipped &&
     l.lesson_students.length > 0 &&
     new Date(l.end_at).getTime() < Date.now() &&
     (l.status === "scheduled" || (l.status === "done" && !l.learned))
   );
+}
+
+/** A finished class whose parent message hasn't been sent (and wasn't marked "no feedback needed"). */
+export function needsFeedback(l: Lesson, today: string, bkkDateKey: (iso: string) => string): boolean {
+  return l.status === "done" && !l.sent_at && !l.note_skipped && !l.feedback_skipped && bkkDateKey(l.start_at) <= today;
 }
 
 /** Topic progress for these students (lesson topics + what Mr Ken marked). */

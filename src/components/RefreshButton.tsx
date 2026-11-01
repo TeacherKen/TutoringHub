@@ -25,7 +25,7 @@ export function RefreshButton() {
         <svg viewBox="0 0 24 24" className={`h-5 w-5 ${pending ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
           <path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4" />
         </svg>
-        {pending ? "Refreshing…" : "Refresh"}
+        <span className="max-sm:sr-only">{pending ? "Refreshing…" : "Refresh"}</span>
       </button>
       {msg && !pending ? (
         <span role="status" className={`text-xs ${msg.ok ? "text-muted" : "text-danger"}`}>

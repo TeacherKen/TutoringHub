@@ -2,17 +2,16 @@ import { CalendarCatchUp } from "@/components/CalendarCatchUp";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/auth";
-import { getLessons, getMoneyData, getSettings, getStudents, lessonNames, needsNote } from "@/lib/data";
-import { renewSoon } from "@/lib/earnings";
-import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, fmtLongDay, fmtTime, mondayOf, todayKey } from "@/lib/time";
-import { LessonCard } from "@/components/LessonCard";
+import { getLessons, getMoneyData, getSettings, getStudents, needsFeedback, needsNote, type Lesson } from "@/lib/data";
+import { renewSoon, sumEarned } from "@/lib/earnings";
+import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, fmtLongDay, fmtTime, mondayOf, nowMs, todayKey, TZ } from "@/lib/time";
 import { RefreshButton } from "@/components/RefreshButton";
 import { linkEventToStudent, setIgnored } from "@/app/actions/calendar";
-import { markPastDone } from "@/app/actions/lessons";
 import { backupIfDue } from "@/lib/backup";
 import { after } from "next/server";
 import { loadPrep } from "@/lib/prepData";
-import { PrepCard } from "@/components/PrepCard";
+import { Hero, MonthPanel, TodayTimeline, TodoPanel, WeekList } from "@/components/home/Dashboard";
+import { tutorName } from "@/lib/env";
 
 export default async function Home() {
   const me = await getMe();
@@ -20,6 +19,7 @@ export default async function Home() {
 
   after(() => backupIfDue().catch(() => {})); // weekly backup, after the page is sent
   const today = todayKey();
+  const now = nowMs();
   const weekEnd = addDays(mondayOf(today), 7);
   const [lessons, settings, money, students] = await Promise.all([
     getLessons(bkkStartOfDay(addDays(today, -14)).toISOString(), bkkStartOfDay(weekEnd).toISOString()),
@@ -36,181 +36,148 @@ export default async function Home() {
   const tracked = (l: { start_at: string }) => bkkDateKey(l.start_at) >= trackFrom;
   const missing = matched.filter((l) => tracked(l) && needsNote(l));
   const unmarkedCount = missing.filter((l) => l.status === "scheduled").length;
-  const unsent = matched.filter((l) => tracked(l) && l.status === "done" && !l.sent_at && bkkDateKey(l.start_at) <= today);
-  const low = money.accounts.filter((a) => renewSoon(a, today, Number(settings.low_hours_threshold), Number(settings.renew_weeks ?? 2)));
+  const unsent = matched.filter((l) => tracked(l) && needsFeedback(l, today, bkkDateKey));
+  const lowHours = Number(settings.low_hours_threshold);
+  const renewWeeks = Number(settings.renew_weeks ?? 2);
+  const low = money.accounts.filter((a) => renewSoon(a, today, lowHours, renewWeeks));
   const unmatched = lessons.filter(
     (l) => l.lesson_students.length === 0 && bkkDateKey(l.start_at) >= (trackFrom > addDays(today, -14) ? trackFrom : addDays(today, -14)),
   );
+  const unpaid = money.packages.filter((p) => !p.paid_on && p.price_thb != null && Number(p.price_thb) > 0);
+  const accountName = new Map(money.accounts.map((a) => [a.id, a.name]));
 
-  const byDay = new Map<string, typeof rest>();
-  for (const l of rest) {
-    const k = bkkDateKey(l.start_at);
-    byDay.set(k, [...(byDay.get(k) ?? []), l]);
-  }
   // ✅ Before class, for today's lessons still to come.
   const prep = await loadPrep(
     todays,
     students,
-    money.accounts.map((a) => ({ studentIds: a.studentIds, leftHours: a.leftHours, low: renewSoon(a, today, Number(settings.low_hours_threshold), Number(settings.renew_weeks ?? 2)) })),
+    money.accounts.map((a) => ({ studentIds: a.studentIds, leftHours: a.leftHours, low: renewSoon(a, today, lowHours, renewWeeks) })),
   );
-  const unpaid = money.packages.filter((p) => !p.paid_on && p.price_thb != null && Number(p.price_thb) > 0);
-  const unpaidNames = new Map(money.accounts.map((a) => [a.id, a.name]));
-  const attention = missing.length + unsent.length + low.length + unmatched.length + unpaid.length;
+
+  // The header: teaching now, or the next lesson (today or later this week).
+  const live = todays.filter((l) => !l.status.startsWith("cancelled"));
+  const current = live.find((l) => Date.parse(l.start_at) <= now && Date.parse(l.end_at) > now) ?? null;
+  const next = [...live, ...rest.filter((l) => !l.status.startsWith("cancelled"))].find((l) => Date.parse(l.start_at) > now) ?? null;
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "numeric", hourCycle: "h23" }).format(new Date(now)));
+  const greeting = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"}, ${tutorName().replace(/ /g, "\u00a0")}`;
+
+  const byDay = new Map<string, Lesson[]>();
+  for (const l of rest) {
+    const k = bkkDateKey(l.start_at);
+    byDay.set(k, [...(byDay.get(k) ?? []), l]);
+  }
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const nextMonth = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 1)).toISOString().slice(0, 10);
+  const month = sumEarned(money.lessons, monthStart, nextMonth);
+  const weekCount = matched.filter((l) => bkkDateKey(l.start_at) >= mondayOf(today) && !l.status.startsWith("cancelled")).length;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       <CalendarCatchUp />
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted">{fmtLongDay(today)}</p>
-          <h1 className="h1">Today</h1>
-        </div>
-        {settings.calendar_connected ? <RefreshButton /> : null}
-      </header>
-
-      {!settings.calendar_connected ? (
-        <div className="card border-accent bg-accent-soft">
-          <p className="font-medium">Connect your Google Calendar to see your lessons.</p>
-          <p className="mt-1 text-sm text-muted">It takes about 2 minutes. Then add your students so lessons match.</p>
-          <Link href="/settings#calendar" className="btn-primary mt-3">
-            Connect calendar
-          </Link>
-        </div>
-      ) : settings.last_sync_error ? (
-        <p className="rounded-xl bg-danger-soft p-3 text-sm text-danger">{settings.last_sync_error}</p>
-      ) : null}
-
-      <section className="space-y-3">
-        {todays.length ? (
-          todays.map((l) => (
-            <div key={l.id} className="space-y-2">
-              <LessonCard lesson={l} />
-              {prep.get(l.id) ? <PrepCard lessonId={l.id} students={prep.get(l.id)!} /> : null}
+      <Hero
+        dateLine={fmtLongDay(today)}
+        greeting={greeting}
+        now={now}
+        current={current}
+        next={next}
+        refresh={settings.calendar_connected ? <RefreshButton /> : null}
+        problem={
+          !settings.calendar_connected ? (
+            <div className="rounded-2xl bg-accent-soft p-4">
+              <p className="font-medium">Connect your Google Calendar to see your lessons.</p>
+              <p className="mt-1 text-sm text-muted">It takes about 2 minutes. Then add your students so lessons match.</p>
+              <Link href="/settings#calendar" className="btn-primary mt-3">
+                Connect calendar
+              </Link>
             </div>
-          ))
-        ) : (
-          <p className="card text-muted">No lessons today.</p>
-        )}
-      </section>
+          ) : settings.last_sync_error ? (
+            <p className="rounded-xl bg-danger-soft p-3 text-sm text-danger">{settings.last_sync_error}</p>
+          ) : null
+        }
+      />
 
-      {attention > 0 ? (
-        <section className="space-y-3">
-          <h2 className="h2">Needs attention</h2>
-          <div className="card space-y-4">
-            {missing.length ? (
-              <Group title={`Lessons without a note (${missing.length})`}>
-                {unmarkedCount > 1 ? (
-                  <form action={markPastDone}>
-                    <button className="btn-secondary min-h-10 w-full text-sm">✓ Mark all {unmarkedCount} past classes as done</button>
-                  </form>
-                ) : null}
-                {missing.map((l) => (
-                  <div key={l.id} className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <AttentionLink href={`/lessons/${l.id}`} text={`${lessonNames(l)} · ${fmtDay(bkkDateKey(l.start_at))} ${fmtTime(l.start_at)}`} />
-                    </div>
-                    {l.status === "scheduled" ? (
-                      <form action={markPastDone}>
-                        <input type="hidden" name="lesson_id" value={l.id} />
-                        <button className="btn-secondary min-h-11 px-3 text-sm" title="Mark this class as done (it counts towards hours and money)">
-                          ✓ Done
-                        </button>
-                      </form>
-                    ) : null}
-                  </div>
-                ))}
-              </Group>
-            ) : null}
-            {unsent.length ? (
-              <Group title={`Feedback not sent yet (${unsent.length})`}>
-                {unsent.map((l) => (
-                  <AttentionLink key={l.id} href={`/lessons/${l.id}`} text={`${lessonNames(l)} · ${fmtDay(bkkDateKey(l.start_at))}`} />
-                ))}
-              </Group>
-            ) : null}
-            {low.length ? (
-              <Group title="Package ending soon — send a renewal message">
-                {low.map((a) => (
-                  <AttentionLink
-                    key={a.id}
-                    href={a.studentIds[0] ? `/students/${a.studentIds[0]}#hours` : "/students"}
-                    text={`${a.name} · ${a.leftHours > 0 ? `${fmtHours(a.leftHours)} left` : "hours used up"}${
-                      a.leftHours > 0 && a.forecast.endDate ? ` · runs out around ${fmtDay(a.forecast.endDate)}` : ""
-                    }`}
-                    danger={a.leftHours <= 0}
-                  />
-                ))}
-              </Group>
-            ) : null}
-            {unpaid.length ? (
-              <Group title={`Waiting for payment (${unpaid.length})`}>
-                {unpaid.map((p) => (
-                  <AttentionLink key={p.id} href="/money#unpaid" text={`${unpaidNames.get(p.hour_account_id) ?? "Package"} · ฿${Math.round(Number(p.price_thb)).toLocaleString("en-US")}`} />
-                ))}
-              </Group>
-            ) : null}
-            {unmatched.length ? (
-              <Group title={`Calendar events not linked to a student (${unmatched.length})`}>
-                {unmatched.map((l) => (
-                  <div key={l.id} className="rounded-xl border border-line p-3">
-                    <div className="text-sm">
-                      <span className="font-medium">{l.title || "Untitled event"}</span>
-                      <span className="text-muted"> · {fmtDay(bkkDateKey(l.start_at))} {fmtTime(l.start_at)}</span>
-                    </div>
-                    <form action={linkEventToStudent} className="mt-2 flex flex-wrap items-center gap-2">
-                      <input type="hidden" name="lesson_id" value={l.id} />
-                      <input type="hidden" name="keyword" value={eventName(l.title)} />
-                      <select name="student_id" className="input min-h-11 w-auto flex-1" required defaultValue="">
-                        <option value="" disabled>
-                          Choose student…
-                        </option>
-                        {students.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.first_name}
-                          </option>
-                        ))}
-                      </select>
-                      <button className="btn-secondary min-h-11">Link</button>
-                      {eventName(l.title) ? (
-                        <span className="w-full text-xs text-muted">
-                          Future events called “{eventName(l.title)}” will link to this student by themselves.
-                        </span>
-                      ) : null}
-                    </form>
-                    <form action={setIgnored} className="mt-1">
-                      <input type="hidden" name="lesson_id" value={l.id} />
-                      <input type="hidden" name="ignored" value="true" />
-                      <button className="btn-quiet min-h-9 px-0 text-sm text-muted">Not a lesson — hide it</button>
-                    </form>
-                  </div>
-                ))}
-                <p className="text-xs text-muted">
-                  Preply names events after the account owner — often the parent (e.g. “Chloe L.” for Yina).
-                </p>
-              </Group>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="space-y-3">
-        <div className="flex items-baseline justify-between">
-          <h2 className="h2">Rest of this week</h2>
-          <Link href="/week" className="text-sm text-accent">
-            Full week
-          </Link>
+      {/* Phone: today, to do, then the month. Computer: today and the month on the left, to do on the right. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-start md:gap-8">
+        <TodayTimeline lessons={todays} now={now} prep={prep} />
+        <div className="md:row-span-2">
+          <TodoPanel
+            notes={missing}
+            unmarked={unmarkedCount}
+            feedback={unsent}
+            renew={low.map((a) => ({
+              id: a.id,
+              href: a.studentIds[0] ? `/students/${a.studentIds[0]}#hours` : "/students",
+              text: `${a.name}, ${a.leftHours > 0 ? `${fmtHours(a.leftHours)} left` : "hours used up"}${a.leftHours > 0 && a.forecast.endDate ? `, until about ${fmtDay(a.forecast.endDate)}` : ""}`,
+              danger: a.leftHours <= 0,
+            }))}
+            unpaid={unpaid.map((p) => ({ id: p.id, href: "/money#unpaid", text: `${accountName.get(p.hour_account_id) ?? "Package"}, ฿${Math.round(Number(p.price_thb)).toLocaleString("en-US")}` }))}
+            link={unmatched.length ? <UnmatchedEvents events={unmatched} students={students} /> : null}
+          />
         </div>
-        {byDay.size === 0 ? <p className="card text-muted">Nothing else this week.</p> : null}
-        {[...byDay.entries()].map(([day, ls]) => (
-          <div key={day} className="space-y-2">
-            <h3 className="text-sm font-medium text-muted">{fmtDay(day)}</h3>
-            {ls.map((l) => (
-              <LessonCard key={l.id} lesson={l} />
-            ))}
+        <div>
+          <MonthPanel
+            month={new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(new Date(`${monthStart}T00:00:00Z`))}
+            earned={month.value}
+            classes={month.classes}
+            hours={month.hours}
+            week={weekCount}
+          />
+        </div>
+      </div>
+
+      <WeekList days={[...byDay.entries()]} />
+    </div>
+  );
+}
+
+/** Calendar events that aren't linked to a student yet: link one, or hide it. */
+function UnmatchedEvents({ events, students }: { events: Lesson[]; students: { id: string; first_name: string }[] }) {
+  return (
+    <details className="group py-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2">
+        <h3 className="font-medium">
+          Calendar events to link <span className="ml-1 rounded-full bg-surface-2 px-2 py-0.5 text-sm tabular-nums text-muted">{events.length}</span>
+        </h3>
+        <span className="text-sm font-medium text-accent group-open:hidden">Show</span>
+        <span className="hidden text-sm font-medium text-accent group-open:inline">Hide</span>
+      </summary>
+      <div className="mt-2 space-y-2 px-2">
+        {events.map((l) => (
+          <div key={l.id} className="rounded-xl bg-surface-2/70 p-3">
+            <div className="text-sm">
+              <span className="font-medium">{l.title || "Untitled event"}</span>
+              <span className="text-muted">
+                {" "}
+                {fmtDay(bkkDateKey(l.start_at))} {fmtTime(l.start_at)}
+              </span>
+            </div>
+            <form action={linkEventToStudent} className="mt-2 flex flex-wrap items-center gap-2">
+              <input type="hidden" name="lesson_id" value={l.id} />
+              <input type="hidden" name="keyword" value={eventName(l.title)} />
+              <select name="student_id" className="input min-h-11 w-auto flex-1" required defaultValue="">
+                <option value="" disabled>
+                  Choose student…
+                </option>
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.first_name}
+                  </option>
+                ))}
+              </select>
+              <button className="btn-secondary min-h-11">Link</button>
+              {eventName(l.title) ? (
+                <span className="w-full text-xs text-muted">Future events called “{eventName(l.title)}” will link to this student by themselves.</span>
+              ) : null}
+            </form>
+            <form action={setIgnored} className="mt-1">
+              <input type="hidden" name="lesson_id" value={l.id} />
+              <input type="hidden" name="ignored" value="true" />
+              <button className="btn-quiet min-h-9 px-0 text-sm text-muted">Not a lesson, hide it</button>
+            </form>
           </div>
         ))}
-      </section>
-    </div>
+        <p className="text-xs text-muted">Preply names events after the account owner, often the parent (e.g. “Chloe L.” for Yina).</p>
+      </div>
+    </details>
   );
 }
 
@@ -219,22 +186,4 @@ function eventName(title: string | null): string {
   const t = (title ?? "").trim();
   const name = t.split(/\s+[-–—|]\s+/)[0]?.trim() ?? "";
   return name.length >= 2 && name.length <= 40 ? name : "";
-}
-
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-medium">{title}</h3>
-      <div className="space-y-2">{children}</div>
-    </div>
-  );
-}
-
-function AttentionLink({ href, text, danger }: { href: string; text: string; danger?: boolean }) {
-  return (
-    <Link href={href} className={`flex min-h-11 items-center justify-between rounded-xl bg-surface-2 px-3 text-sm ${danger ? "text-danger" : ""}`}>
-      <span>{text}</span>
-      <span aria-hidden className="text-muted">›</span>
-    </Link>
-  );
 }

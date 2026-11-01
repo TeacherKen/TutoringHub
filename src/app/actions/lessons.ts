@@ -178,3 +178,21 @@ export async function markPastDone(form: FormData): Promise<void> {
   revalidatePath("/", "layout");
 }
 
+
+/**
+ * "Clear all" / "Skip" on Home: these lessons don't need a note (which also means no feedback),
+ * or don't need feedback sent. Needs database update 0021.
+ */
+export async function skipReminders(kind: "note" | "feedback", ids: string[]): Promise<{ ok?: boolean; error?: string }> {
+  await assertTutor();
+  const list = (Array.isArray(ids) ? ids : []).filter((id) => typeof id === "string" && /^[0-9a-f-]{36}$/.test(id)).slice(0, 200);
+  if (!list.length) return { ok: true };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("lessons")
+    .update(kind === "note" ? { note_skipped: true } : { feedback_skipped: true })
+    .in("id", list);
+  if (error) return { error: "Run database update 0021 first (the SQL from Claude)." };
+  revalidatePath("/", "layout");
+  return { ok: true };
+}

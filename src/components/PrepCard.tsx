@@ -3,14 +3,14 @@ import type { PrepStudent } from "@/lib/prep";
 import { bkkDateKey, fmtDay, fmtHours } from "@/lib/time";
 
 /** ✅ Before class: last time's plan, slides or worksheet, practice at home, hours left. */
-export function PrepCard({ lessonId, students }: { lessonId: string; students: PrepStudent[] }) {
+export function PrepCard({ lessonId, students, inline = false }: { lessonId: string; students: PrepStudent[]; inline?: boolean }) {
   if (!students.length) return null;
   // Brothers and sisters on one package: show the hours once, at the end.
   const first = students[0].hours;
   const shared = students.length > 1 && !!first && students.every((s) => s.hours && s.hours.left === first.left && s.hours.low === first.low);
   return (
-    <div className="space-y-3 rounded-2xl border border-line bg-surface px-4 py-3 text-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Before class</p>
+    <div className={`space-y-3 text-sm ${inline ? "rounded-xl bg-surface-2/70 px-3 py-2.5" : "rounded-2xl border border-line bg-surface px-4 py-3"}`}>
+      <p className="font-medium text-muted">Before class</p>
       {students.map((s) => (
         <div key={s.id} className="space-y-1.5">
           {students.length > 1 ? <p className="font-medium">{s.name}</p> : null}
