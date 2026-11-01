@@ -2,7 +2,7 @@ import { CalendarCatchUp } from "@/components/CalendarCatchUp";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/auth";
-import { getLessons, getMoneyData, getSettings, getStudents, needsFeedback, needsNote, type Lesson } from "@/lib/data";
+import { getLessons, getMoneyData, getSettings, getStudents, isUnmarked, needsFeedback, needsNote, REMINDER_DAYS, reminderSince, type Lesson } from "@/lib/data";
 import { renewSoon, sumEarned } from "@/lib/earnings";
 import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, fmtLongDay, fmtTime, mondayOf, nowMs, todayKey, TZ } from "@/lib/time";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -22,7 +22,7 @@ export default async function Home() {
   const now = nowMs();
   const weekEnd = addDays(mondayOf(today), 7);
   const [lessons, settings, money, students] = await Promise.all([
-    getLessons(bkkStartOfDay(addDays(today, -14)).toISOString(), bkkStartOfDay(weekEnd).toISOString()),
+    getLessons(bkkStartOfDay(addDays(today, -REMINDER_DAYS)).toISOString(), bkkStartOfDay(weekEnd).toISOString()),
     getSettings(),
     getMoneyData(),
     getStudents({ activeOnly: true }),
@@ -31,12 +31,12 @@ export default async function Home() {
   const matched = lessons.filter((l) => l.lesson_students.length > 0);
   const todays = matched.filter((l) => bkkDateKey(l.start_at) === today);
   const rest = matched.filter((l) => bkkDateKey(l.start_at) > today);
-  // Lessons before the "start tracking from" date (Settings) are never flagged.
+  // Reminders: from Settings' "start tracking from" date, at most 60 days back (the same on Week and Money).
   const trackFrom = settings.track_from ?? "0000-01-01";
-  const tracked = (l: { start_at: string }) => bkkDateKey(l.start_at) >= trackFrom;
-  const missing = matched.filter((l) => tracked(l) && needsNote(l));
-  const unmarkedCount = missing.filter((l) => l.status === "scheduled").length;
-  const unsent = matched.filter((l) => tracked(l) && needsFeedback(l, today, bkkDateKey));
+  const since = reminderSince(settings.track_from, today);
+  const missing = matched.filter((l) => needsNote(l, since));
+  const unmarked = matched.filter((l) => isUnmarked(l, now, since));
+  const unsent = matched.filter((l) => needsFeedback(l, today, bkkDateKey, since));
   const lowHours = Number(settings.low_hours_threshold);
   const renewWeeks = Number(settings.renew_weeks ?? 2);
   const low = money.accounts.filter((a) => renewSoon(a, today, lowHours, renewWeeks));
@@ -101,7 +101,7 @@ export default async function Home() {
         <div className="md:row-span-2">
           <TodoPanel
             notes={missing}
-            unmarked={unmarkedCount}
+            unmarked={unmarked}
             feedback={unsent}
             renew={low.map((a) => ({
               id: a.id,

@@ -271,7 +271,12 @@ export function forecast(leftHours: number, members: string[], past: EarnLesson[
   const recent = past.filter((l) => charged(l.status) && mine(l) && bkkDateKey(l.start_at) >= from && bkkDateKey(l.start_at) <= today);
   const soon = future.filter((l) => bkkDateKey(l.start_at) < addDays(today, 28));
   const sample = recent.length ? recent : soon;
-  const weekly = sample.reduce((s, l) => s + len(l), 0) / 4;
+  // A new student hasn't had 4 weeks yet: count only the weeks since their first lesson (else the pace
+  // looks up to 4 times slower and "runs out around" lands a year late).
+  const firstEver = past.filter((l) => charged(l.status) && mine(l)).map((l) => bkkDateKey(l.start_at)).sort()[0];
+  const sinceFirst = recent.length && firstEver ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${firstEver}T00:00:00Z`)) / 86_400_000) + 1 : 28;
+  const weeks = Math.min(4, Math.max(1, Math.ceil(sinceFirst / 7)));
+  const weekly = sample.reduce((s, l) => s + len(l), 0) / weeks;
   if (weekly <= 0) return { lessonsLeft: count, endDate: lastDate, basis: count ? "calendar" : "none" };
   const avgLesson = sample.reduce((s, l) => s + len(l), 0) / sample.length;
   const extraDays = Math.round((remaining / weekly) * 7);

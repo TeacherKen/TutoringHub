@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { MATERIALS_BUCKET } from "@/lib/constants";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { BOARD_KEEP_DAYS, IMG_KEY_RE, boardExpired, boardLayout, cleanLive, cleanMark, insertPage, isUuid, removePage, type BoardInfo, type BoardPoll, type Live, type Mark, type MarkData } from "@/lib/boardShared";
 
 // Smart slides on the server. Both the student's room (private link) and Mr Ken's
@@ -59,11 +59,15 @@ export async function getBoardRow(boardId: string): Promise<BoardRow | null> {
   return null;
 }
 
+/** The live channel's secret: made from the student's room link, so a reset link also closes the channel,
+ *  and knowing the board's id alone isn't enough to draw on a child's screen. */
+export const liveKey = (roomToken: string, boardId: string) => createHash("sha256").update(`board:${boardId}:${roomToken}`).digest("hex").slice(0, 32);
+
 /** New lines, rubbings-out and the other person's live info since `after`. */
 export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: boolean): Promise<BoardPoll> {
   const admin = createAdminClient();
   const other: Who = me === "student" ? "tutor" : "student";
-  const [marksRes, liveRes, urls] = await Promise.all([
+  const [marksRes, liveRes, urls, owner] = await Promise.all([
     admin
       .from("board_marks")
       .select("id, page, author, data, deleted, rev, created_at")
@@ -80,10 +84,12 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
             URL_HOURS * 3600,
           )
       : Promise.resolve(null),
+    withUrls ? admin.from("students").select("room_token").eq("id", b.student_id).maybeSingle<{ room_token: string | null }>() : Promise.resolve(null),
   ]);
   const marks = (marksRes.data ?? []) as Mark[];
   const board: BoardInfo = { id: b.id, title: b.title, pages: b.pages, aspect: Number(b.aspect), layout: boardLayout(b.pages, b.layout) };
   if (urls?.data) board.urls = urls.data.map((u) => u.signedUrl ?? "");
+  if (owner?.data?.room_token) board.live = liveKey(owner.data.room_token, b.id);
   return {
     board,
     marks: marks.map((m) => ({ ...m, rev: Number(m.rev) })),

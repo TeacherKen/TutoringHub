@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 
 // A weekly copy of everything important (students, lessons, notes, packages, payments,
 // topics) as one file, kept in a private storage folder only the app's server can open.
-// Secrets are left out: calendar links and students' room links.
+// Secrets are left out: calendar links, students' room links and parents' family links.
 
 export const BACKUP_BUCKET = "tutoring-backups";
 const KEEP = 12; // about 3 months of weekly backups
@@ -12,7 +12,7 @@ const EVERY_DAYS = 7;
 const TABLES: { name: string; order: string; omit?: string[] }[] = [
   { name: "settings", order: "id" },
   { name: "app_users", order: "email" },
-  { name: "hour_accounts", order: "id" },
+  { name: "hour_accounts", order: "id", omit: ["family_token"] },
   { name: "students", order: "id", omit: ["room_token"] },
   { name: "lessons", order: "id" },
   { name: "lesson_students", order: "lesson_id" },
@@ -32,7 +32,8 @@ export async function makeBackup(): Promise<{ ok: boolean; name?: string; error?
     const rows: Record<string, unknown>[] = [];
     for (let from = 0; ; from += 1000) {
       const { data, error } = await admin.from(t.name).select("*").order(t.order).range(from, from + 999);
-      if (error) break; // table not created yet (database update not run) — skip it
+      if (error && from === 0) break; // table not created yet (database update not run) — skip it
+      if (error) return { ok: false, error: `Backup stopped: couldn't read all of ${t.name}. Try again.` }; // never save half a table
       rows.push(...((data ?? []) as Record<string, unknown>[]));
       if (!data || data.length < 1000) break;
     }

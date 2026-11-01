@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fmtTime } from "@/lib/time";
-import { lessonMode, lessonNames, lessonPlace, needsNote, type Lesson } from "@/lib/data";
+import { lessonMode, lessonNames, lessonPlace, needsFeedback, needsNote, type Lesson } from "@/lib/data";
+import { todayKey } from "@/lib/time";
 
 const STATUS: Record<Lesson["status"], { label: string; cls: string } | null> = {
   scheduled: null,
@@ -10,12 +11,13 @@ const STATUS: Record<Lesson["status"], { label: string; cls: string } | null> = 
   no_show: { label: "No-show · charged", cls: "chip-warn" },
 };
 
-export function LessonCard({ lesson }: { lesson: Lesson }) {
+/** `since`: reminders start here (see reminderSince), the same as on Home. */
+export function LessonCard({ lesson, since }: { lesson: Lesson; since?: string | null }) {
   const mode = lessonMode(lesson);
   const place = lessonPlace(lesson);
   const st = STATUS[lesson.status];
-  const missing = needsNote(lesson);
-  const unsent = lesson.status === "done" && lesson.final_message && !lesson.sent_at && !lesson.feedback_skipped && !lesson.note_skipped;
+  const missing = needsNote(lesson, since);
+  const unsent = !missing && needsFeedback(lesson, todayKey(), undefined, since);
   const cancelled = lesson.status === "cancelled";
 
   return (

@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { requireTutor } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { getMoneyData, getSettings } from "@/lib/data";
+import { getMoneyData, getSettings, reminderSince } from "@/lib/data";
 import { renewSoon, sumEarned, thb, type LessonEarning } from "@/lib/earnings";
 import { PackageCard, Stat } from "@/components/MoneyCards";
-import { autoMarkDone } from "@/lib/autoDone";
+import { autoMarkDone, unmarkedPastLessonIds } from "@/lib/autoDone";
 import { markPastDone } from "@/app/actions/lessons";
 import { markPackagePaid } from "@/app/actions/students";
 import { PromptPayQR } from "@/components/PromptPayQR";
-import { addDays, bkkStartOfDay, fmtDay, fmtHours, fmtTime, mondayOf } from "@/lib/time";
+import { addDays, bkkDateKey, fmtDay, fmtHours, fmtTime, mondayOf } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -37,17 +36,11 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
     View,
     ReturnType<typeof sumEarned>
   >;
-  const paidThisMonth = money.packages.filter((p) => (p.paid_on ?? p.start_date) >= monthStart && (p.paid_on ?? p.start_date) < nextMonth).reduce((s, p) => s + Number(p.price_thb ?? 0), 0);
+  // Only packages actually paid (a package still waiting for payment isn't money in yet).
+  const paidThisMonth = money.packages.filter((p) => p.paid_on && p.paid_on >= monthStart && p.paid_on < nextMonth).reduce((s, p) => s + Number(p.price_thb ?? 0), 0);
 
-  // Past classes not marked yet don't count, so say how many there are.
-  const supabase = await createClient();
-  const { count: unmarked } = await supabase
-    .from("lessons")
-    .select("id, lesson_students!inner(student_id)", { count: "exact", head: true })
-    .eq("status", "scheduled")
-    .eq("ignored", false)
-    .gte("start_at", bkkStartOfDay(lastMonthStart).toISOString())
-    .lt("start_at", new Date().toISOString());
+  // Past classes not marked yet don't count, so say how many there are (the same ones Home lists).
+  const unmarked = (await unmarkedPastLessonIds({ before: new Date(), from: reminderSince(settings.track_from, today) })).length;
 
   const name = new Map(money.students.map((s) => [s.id, s.first_name]));
   const names = (ids: string[]) => [...new Set(ids.map((id) => name.get(id)).filter(Boolean))].join(" & ") || "—";
@@ -108,7 +101,7 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
                   {accountName.get(p.hour_account_id) ?? "Package"}
                 </Link>
                 <span className="text-sm text-muted">
-                  {Number(p.hours)} h · <strong className="text-ink">{thb(Number(p.price_thb))}</strong> · added {fmtDay(p.created_at.slice(0, 10))}
+                  {Number(p.hours)} h · <strong className="text-ink">{thb(Number(p.price_thb))}</strong> · added {fmtDay(bkkDateKey(p.created_at))}
                 </span>
               </div>
               <form action={markPackagePaid} className="flex flex-wrap items-center gap-2">

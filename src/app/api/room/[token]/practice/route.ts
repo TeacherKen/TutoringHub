@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cleanAnswers, cleanTables } from "@/lib/facts";
-import { getPractice, savePractice, studentForToken } from "@/lib/practice";
+import { getPractice, savePractice, studentForToken, tooManyRounds } from "@/lib/practice";
 
 export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store" };
@@ -28,6 +28,8 @@ export async function POST(req: Request, ctx: RouteContext<"/api/room/[token]/pr
   if (!body || typeof body !== "object" || Array.isArray(body)) return NextResponse.json({ ok: false }, { status: 400 });
   const answers = cleanAnswers(body.answers);
   if (!answers.length) return NextResponse.json({ ok: false }, { status: 400 });
+  // 429 = refused for good: the device's "send it later" list drops it instead of retrying.
+  if (await tooManyRounds(s.id)) return NextResponse.json({ ok: false, error: "too many rounds today" }, { status: 429, headers: noStore });
   const total = Math.max(0, Math.min(40, Number(body.total) || 0));
   const ok = await savePractice(s.id, answers, cleanTables(body.tables), Number(body.score) || 0, total, {
     bestStreak: Number(body.bestStreak) || 0,

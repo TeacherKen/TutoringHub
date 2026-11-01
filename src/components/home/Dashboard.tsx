@@ -212,7 +212,8 @@ export function TodoPanel({
   link,
 }: {
   notes: Lesson[];
-  unmarked: number;
+  /** Past classes still "scheduled" (they don't count for hours or money yet), cleared or not. */
+  unmarked: Lesson[];
   feedback: Lesson[];
   renew: Row[];
   unpaid: Row[];
@@ -223,19 +224,24 @@ export function TodoPanel({
     href: `/lessons/${l.id}`,
     text: `${lessonNames(l)}, ${fmtDay(bkkDateKey(l.start_at))}${withTime ? ` ${fmtTime(l.start_at)}` : ""}`,
   });
-  const noteRows = notes.map((l) => ({
-    ...lessonRow(l, true),
-    extra:
-      l.status === "scheduled" ? (
-        <form action={markPastDone}>
-          <input type="hidden" name="lesson_id" value={l.id} />
-          <button className="min-h-10 rounded-full px-3 text-sm font-medium text-ok hover:bg-ok-soft" title="Mark this class as done (it counts towards hours and money)">
-            Done
-          </button>
-        </form>
-      ) : null,
-  }));
-  const empty = !notes.length && !feedback.length && !renew.length && !unpaid.length && !link;
+  const doneButton = (id: string) => (
+    <form action={markPastDone}>
+      <input type="hidden" name="lesson_id" value={id} />
+      <button className="min-h-10 rounded-full px-3 text-sm font-medium text-ok hover:bg-ok-soft" title="Mark this class as done (it counts towards hours and money)">
+        Done
+      </button>
+    </form>
+  );
+  const noteRows = notes.map((l) => ({ ...lessonRow(l, true), extra: l.status === "scheduled" ? doneButton(l.id) : null }));
+  // Classes whose note was cleared but that still aren't marked: they'd quietly never count for money.
+  const noteIds = new Set(notes.map((l) => l.id));
+  const markRows = unmarked.filter((l) => !noteIds.has(l.id)).map((l) => ({ ...lessonRow(l, true), extra: doneButton(l.id) }));
+  const markAll = (
+    <form action={markPastDone}>
+      <button className="rounded-full px-3 py-1 text-sm font-medium text-ok hover:bg-ok-soft">Mark all done</button>
+    </form>
+  );
+  const empty = !notes.length && !markRows.length && !feedback.length && !renew.length && !unpaid.length && !link;
   return (
     <section aria-labelledby="todo-h" className="space-y-3">
       <h2 id="todo-h" className="h2">
@@ -256,15 +262,12 @@ export function TodoPanel({
             skip="note"
             action={
               <span className="flex flex-wrap items-center justify-end gap-1">
-                {unmarked > 1 ? (
-                  <form action={markPastDone}>
-                    <button className="rounded-full px-3 py-1 text-sm font-medium text-ok hover:bg-ok-soft">Mark all done</button>
-                  </form>
-                ) : null}
+                {unmarked.length > 1 && !markRows.length && noteRows.some((r) => r.extra) ? markAll : null}
                 <ClearAll kind="note" ids={notes.map((l) => l.id)} />
               </span>
             }
           />
+          <TodoGroup title="Not marked as done" rows={markRows} action={unmarked.length > 1 ? markAll : null} />
           <TodoGroup title="Feedback to send" rows={feedback.map((l) => lessonRow(l, false))} skip="feedback" action={<ClearAll kind="feedback" ids={feedback.map((l) => l.id)} />} />
           <TodoGroup title="Packages to renew" rows={renew} />
           <TodoGroup title="Waiting for payment" rows={unpaid} />

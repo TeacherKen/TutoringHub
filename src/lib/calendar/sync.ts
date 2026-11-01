@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
-import { parseOccurrences } from "./parse";
+import { parseOccurrences, upgradeKey } from "./parse";
 import { isPreplyTitle, matchStudents } from "./match";
 
 const PAST_DAYS = 14;
@@ -74,16 +74,43 @@ export async function syncCalendar(): Promise<SyncResult> {
   const studentList = (students ?? []) as { id: string; keywords: string[]; source: string }[];
   const preplyIds = new Set(studentList.filter((s) => s.source === "preply").map((s) => s.id));
 
+  // 0. Lessons saved with the old kind of repeat id get the new one, so they stay the same lesson.
+  const margin = 2 * 86_400_000;
+  const { data: oldKeyed } = await admin
+    .from("lessons")
+    .select("id, occurrence_key, status")
+    .gte("start_at", new Date(from.getTime() - margin).toISOString())
+    .lte("start_at", new Date(to.getTime() + margin).toISOString())
+    .neq("occurrence_key", "single")
+    .not("occurrence_key", "like", "d:%");
+  // Marked lessons first: if a series move already made a copy, the one with the note and hours keeps the id.
+  const toUpgrade = ((oldKeyed ?? []) as { id: string; occurrence_key: string; status: string }[]).sort((a, b) => Number(a.status === "scheduled") - Number(b.status === "scheduled"));
+  for (const r of toUpgrade) {
+    const key = upgradeKey(r.occurrence_key);
+    if (key) await admin.from("lessons").update({ occurrence_key: key }).eq("id", r.id); // a clash just leaves the old one
+  }
+
+  // Finished lessons keep their time and length, even if the whole series is changed in the calendar
+  // later — otherwise hours already used would change. (A day's grace to correct a time.)
+  const { data: doneRows } = await admin
+    .from("lessons")
+    .select("event_uid, occurrence_key, start_at, end_at")
+    .gte("start_at", new Date(from.getTime() - margin).toISOString())
+    .lt("end_at", new Date(now - 86_400_000).toISOString())
+    .neq("status", "scheduled");
+  const frozen = new Map(((doneRows ?? []) as { event_uid: string; occurrence_key: string; start_at: string; end_at: string }[]).map((r) => [`${r.event_uid}|${r.occurrence_key}`, r]));
+
   // 1. Upsert lesson rows (time, title, place only — notes are left alone).
   const unique = new Map<string, Record<string, unknown>>();
   for (const { src, occ } of okSources) {
     for (const o of occ) {
       const matched = matchStudents(o.title, studentList);
+      const keep = frozen.get(`${o.uid}|${o.key}`);
       unique.set(`${o.uid}|${o.key}`, {
         event_uid: o.uid,
         occurrence_key: o.key,
-        start_at: o.start.toISOString(),
-        end_at: o.end.toISOString(),
+        start_at: keep?.start_at ?? o.start.toISOString(),
+        end_at: keep?.end_at ?? o.end.toISOString(),
         title: o.title.slice(0, 300),
         location: o.location?.slice(0, 300) ?? null,
         is_preply: src.is_preply || isPreplyTitle(o.title) || matched.some((id) => preplyIds.has(id)),
@@ -101,7 +128,11 @@ export async function syncCalendar(): Promise<SyncResult> {
       .from("lessons")
       .upsert(rows.slice(i, i + 200), { onConflict: "event_uid,occurrence_key" })
       .select("id, title, students_locked, status");
-    if (error) return { ok: false, error: "Couldn't save lessons from your calendar." };
+    if (error) {
+      const msg = "Couldn't save lessons from your calendar. Press Refresh to try again.";
+      await admin.from("settings").update({ last_sync_error: msg }).eq("id", 1); // so Home shows it
+      return { ok: false, error: msg };
+    }
     saved.push(...(data ?? []));
   }
 

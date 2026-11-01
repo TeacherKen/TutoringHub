@@ -78,7 +78,7 @@ describe("calendar parsing", () => {
     const moved = weekly[1];
     expect(fmtTime(moved.start)).toBe("18:30");
     expect(moved.title).toContain("moved");
-    expect(moved.key).toBe(new Date("2026-10-21T10:00:00Z").toISOString());
+    expect(moved.key).toBe("d:2026-10-21");
   });
 
   it("keeps one-off lessons with a stable id", () => {

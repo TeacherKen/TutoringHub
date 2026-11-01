@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { accountBalance, CHARGED_STATUSES, type Balance, type HoursLesson } from "@/lib/hours";
+import { addDays, bkkDateKey as dateKeyOf } from "@/lib/time";
 
 export type Student = {
   id: string;
@@ -226,9 +227,25 @@ export function lessonPlace(l: Lesson): string | null {
   return l.lesson_students.map((ls) => ls.students?.place).find(Boolean) ?? l.location ?? null;
 }
 
-export function needsNote(l: Lesson): boolean {
+// ⏰ Reminders. Home, Week, Money and the "Mark all done" button all use these, so they always agree.
+
+/** Reminders go back to Settings' "start tracking from" date, but never more than 60 days: older is history. */
+export const REMINDER_DAYS = 60;
+export function reminderSince(trackFrom: string | null | undefined, today: string): string {
+  const floor = addDays(today, -REMINDER_DAYS);
+  return trackFrom && trackFrom > floor ? trackFrom : floor;
+}
+
+/** A class that has ended but is still "scheduled": it doesn't count for hours or money until it's marked. */
+export function isUnmarked(l: Lesson, now = Date.now(), since?: string | null): boolean {
+  return l.status === "scheduled" && l.lesson_students.length > 0 && new Date(l.end_at).getTime() < now && (!since || dateKeyOf(l.start_at) >= since);
+}
+
+/** A finished class with no note yet (and not cleared with "Clear all" / "Skip"). */
+export function needsNote(l: Lesson, since?: string | null): boolean {
   return (
     !l.note_skipped &&
+    (!since || dateKeyOf(l.start_at) >= since) &&
     l.lesson_students.length > 0 &&
     new Date(l.end_at).getTime() < Date.now() &&
     (l.status === "scheduled" || (l.status === "done" && !l.learned))
@@ -236,8 +253,9 @@ export function needsNote(l: Lesson): boolean {
 }
 
 /** A finished class whose parent message hasn't been sent (and wasn't marked "no feedback needed"). */
-export function needsFeedback(l: Lesson, today: string, bkkDateKey: (iso: string) => string): boolean {
-  return l.status === "done" && !l.sent_at && !l.note_skipped && !l.feedback_skipped && bkkDateKey(l.start_at) <= today;
+export function needsFeedback(l: Lesson, today: string, bkkDateKey: (iso: string) => string = dateKeyOf, since?: string | null): boolean {
+  const day = bkkDateKey(l.start_at);
+  return l.status === "done" && !l.sent_at && !l.note_skipped && !l.feedback_skipped && day <= today && (!since || day >= since);
 }
 
 /** Topic progress for these students (lesson topics + what Mr Ken marked). */

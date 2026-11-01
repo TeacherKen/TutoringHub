@@ -20,6 +20,7 @@ export async function loadPrep(todays: Lesson[], students: Student[], accounts: 
       .from("lesson_students")
       .select("student_id, lessons!inner(id, start_at, end_at, status, next_time, homework)")
       .in("student_id", ids)
+      .eq("lessons.ignored", false) // "not a lesson" events never count as the last lesson
       .gte("lessons.start_at", since)
       .lt("lessons.start_at", new Date(now + 86_400_000).toISOString()),
     supabase.from("worksheets").select("id, title, student_id, created_at").in("student_id", ids).gte("created_at", since).order("created_at", { ascending: false }).limit(50),

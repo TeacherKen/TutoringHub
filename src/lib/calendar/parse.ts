@@ -1,4 +1,5 @@
 import ical, { type VEvent } from "node-ical";
+import { bkkDateKey } from "@/lib/time";
 
 export type Occurrence = {
   /** The calendar event's UID. */
@@ -6,8 +7,8 @@ export type Occurrence = {
   /**
    * Stable id for this occurrence, so notes stay attached:
    * - one-off events: "single" (stays the same if the event is moved)
-   * - repeating events: the original start time of that repeat (stays the
-   *   same if just that one week is moved)
+   * - repeating events: "d:" + the Bangkok date the repeat was first planned for
+   *   (stays the same if one week is moved, or the whole series gets a new time)
    */
   key: string;
   start: Date;
@@ -15,6 +16,17 @@ export type Occurrence = {
   title: string;
   location: string | null;
 };
+
+/** A repeat's id: its planned Bangkok date. (Before Nov 2026 it was the exact start time, which changed
+ *  when the whole series moved to a new time, so every past lesson was made again and counted twice.) */
+export const repeatKey = (originalStart: Date) => `d:${bkkDateKey(originalStart)}`;
+
+/** An id saved the old way (an exact time) → the new way. Null if it isn't an old one. */
+export function upgradeKey(key: string): string | null {
+  if (key === "single" || key.startsWith("d:")) return null;
+  const t = Date.parse(key);
+  return Number.isFinite(t) ? repeatKey(new Date(t)) : null;
+}
 
 function text(v: unknown): string {
   if (v == null) return "";
@@ -54,7 +66,7 @@ export function parseOccurrences(icsText: string, from: Date, to: Date): Occurre
           : inst.start;
         out.push({
           uid: ev.uid,
-          key: new Date(originalStart).toISOString(),
+          key: repeatKey(new Date(originalStart)),
           start: new Date(inst.start),
           end: new Date(inst.end ?? inst.start),
           title: text(src.summary ?? ev.summary).trim(),

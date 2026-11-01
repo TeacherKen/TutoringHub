@@ -133,15 +133,16 @@ export async function setHourSharing(form: FormData): Promise<void> {
     const old = me.hour_account_id as string | null;
     await supabase.from("students").update({ hour_account_id: target }).eq("id", id);
     if (old && old !== target) {
-      const { count: stillUsed } = await supabase
+      const { count: stillUsed, error: countErr } = await supabase
         .from("students")
         .select("id", { count: "exact", head: true })
         .eq("hour_account_id", old);
-      if (!stillUsed) {
-        // Nobody else uses the old hours: move its packages and adjustments over.
-        await supabase.from("packages").update({ hour_account_id: target }).eq("hour_account_id", old);
-        await supabase.from("hour_adjustments").update({ hour_account_id: target }).eq("hour_account_id", old);
-        await supabase.from("hour_accounts").delete().eq("id", old);
+      if (!countErr && stillUsed === 0) {
+        // Nobody else uses the old hours: move its packages and adjustments over. Deleting the old hours
+        // also deletes anything still on them, so only delete once both moves really worked.
+        const moved = await supabase.from("packages").update({ hour_account_id: target }).eq("hour_account_id", old);
+        const movedAdj = moved.error ? moved : await supabase.from("hour_adjustments").update({ hour_account_id: target }).eq("hour_account_id", old);
+        if (!moved.error && !movedAdj.error) await supabase.from("hour_accounts").delete().eq("id", old);
       } else {
         await renameAccount(old);
       }

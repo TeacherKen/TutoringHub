@@ -49,19 +49,28 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   const { data: acct, error } = await admin.from("hour_accounts").select("id, name, family_consent_at").eq("family_token", token).maybeSingle();
   if (error || !acct) return null;
 
-  const { data: kids } = await admin.from("students").select("id, first_name, active").eq("hour_account_id", acct.id).eq("active", true).order("first_name");
-  const children = (kids ?? []) as { id: string; first_name: string }[];
+  // Every child on the account counts for hours (a paused sibling's lessons still used them, the same as
+  // on Mr Ken's pages); only active children are shown.
+  const [{ data: kids }, { data: pk }] = await Promise.all([
+    admin.from("students").select("id, first_name, active").eq("hour_account_id", acct.id).order("first_name"),
+    admin.from("packages").select("*").eq("hour_account_id", acct.id).order("start_date"),
+  ]);
+  const everyone = (kids ?? []) as { id: string; first_name: string; active: boolean }[];
+  const children = everyone.filter((c) => c.active);
   if (!children.length) return null;
   const ids = children.map((c) => c.id);
+  const accountIds = everyone.map((c) => c.id);
   const nameOf = new Map(children.map((c) => [c.id, c.first_name]));
+  // Lessons back to the first package (hours), or at least the last 400 days (messages, topics).
+  const firstPackage = ((pk ?? []) as { start_date: string }[])[0]?.start_date;
+  const since = new Date(Math.min(Date.now() - 400 * 86_400_000, firstPackage ? bkkStartOfDay(firstPackage).getTime() : Infinity)).toISOString();
 
-  const [{ data: links }, { data: pk }, { data: adj }, { data: saved }, { data: settings }, { data: factRows }] = await Promise.all([
+  const [{ data: links }, { data: adj }, { data: saved }, { data: settings }, { data: factRows }] = await Promise.all([
     admin
       .from("lesson_students")
       .select("lessons!inner(id, start_at, end_at, status, length_hours, final_message, sent_at, topics, ignored, in_calendar, lesson_students(student_id, uses_hours))")
-      .in("student_id", ids)
-      .gte("lessons.start_at", new Date(Date.now() - 400 * 86_400_000).toISOString()),
-    admin.from("packages").select("*").eq("hour_account_id", acct.id).order("start_date"),
+      .in("student_id", accountIds)
+      .gte("lessons.start_at", since),
     admin.from("hour_adjustments").select("hours").eq("hour_account_id", acct.id),
     admin.from("student_topics").select("student_id, name, status, updated_at").in("student_id", ids),
     admin.from("settings").select("*").eq("id", 1).maybeSingle(),
@@ -70,7 +79,11 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
 
   const lessons = new Map<string, LessonRow>();
   for (const r of (links ?? []) as unknown as { lessons: LessonRow }[]) lessons.set(r.lessons.id, r.lessons);
-  const all = [...lessons.values()].filter((l) => !l.ignored).sort((a, b) => a.start_at.localeCompare(b.start_at));
+  const allAccount = [...lessons.values()].filter((l) => !l.ignored).sort((a, b) => a.start_at.localeCompare(b.start_at));
+  // What parents see: lessons with one of their (active) children, where every child in it is from this
+  // family, so a lesson shared with another family never shows that family's work or message.
+  const mineOnly = new Set(accountIds);
+  const all = allAccount.filter((l) => l.lesson_students.some((x) => ids.includes(x.student_id)) && l.lesson_students.every((x) => mineOnly.has(x.student_id)));
   const namesIn = (l: LessonRow) => [...new Set(l.lesson_students.map((x) => nameOf.get(x.student_id)).filter(Boolean) as string[])];
   const now = Date.now();
 
@@ -132,15 +145,15 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   let hours: FamilyPage["hours"] = null;
   if (packages.length) {
     const charged = (l: LessonRow) => l.lesson_students.filter((x) => x.uses_hours).map((x) => x.student_id);
-    const hl: HoursLesson[] = all
+    const hl: HoursLesson[] = allAccount
       .filter((l) => (CHARGED_STATUSES as readonly string[]).includes(l.status))
       .map((l) => ({ id: l.id, start_at: l.start_at, end_at: l.end_at, status: l.status, length_hours: l.length_hours, charged_student_ids: charged(l) }));
-    const bal = accountBalance(ids, packages, (adj ?? []) as { hours: number }[], hl);
+    const bal = accountBalance(accountIds, packages, (adj ?? []) as { hours: number }[], hl);
     const toEarn = (l: LessonRow): EarnLesson => ({ id: l.id, start_at: l.start_at, end_at: l.end_at, status: l.status, length_hours: l.length_hours, charged: charged(l) });
     const today = todayKey();
-    const past = all.filter((l) => bkkStartOfDay(today).getTime() > new Date(l.start_at).getTime() - 86_400_000).map(toEarn);
-    const next = all.filter((l) => l.in_calendar && l.status === "scheduled" && new Date(l.start_at).getTime() > now).map(toEarn);
-    const f = forecast(bal.left, ids, past, next, today);
+    const past = allAccount.filter((l) => bkkStartOfDay(today).getTime() > new Date(l.start_at).getTime() - 86_400_000).map(toEarn);
+    const next = allAccount.filter((l) => l.in_calendar && l.status === "scheduled" && new Date(l.start_at).getTime() > now).map(toEarn);
+    const f = forecast(bal.left, accountIds, past, next, today);
     hours = { left: bal.left, bought: bal.bought + bal.adjusted, lessonsLeft: f.lessonsLeft, endDate: bal.left > 0 ? f.endDate : null };
   }
   const unpaid = packages.filter((p) => !p.paid_on && p.price_thb != null && Number(p.price_thb) > 0).map((p) => ({ hours: Number(p.hours), price: Number(p.price_thb) }));

@@ -112,6 +112,19 @@ export async function saveRound(studentId: string, tables: number[], score: numb
   return !again;
 }
 
+/** Most rounds one child can save in a day: far more than any child plays, but stops a copied link
+ *  being used to fill the database or pile up fake stars and trophies. */
+export const MAX_ROUNDS_PER_DAY = 200;
+export async function tooManyRounds(studentId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { count, error } = await admin
+    .from("practice_sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("student_id", studentId)
+    .gte("created_at", new Date(Date.now() - 86_400_000).toISOString());
+  return !error && (count ?? 0) >= MAX_ROUNDS_PER_DAY;
+}
+
 /** Save a finished practice round: every answer updates that fact's box; the round goes in the history. */
 export async function savePractice(studentId: string, answers: Answer[], tables: number[], score: number, total: number, extra: RoundExtras & { mode?: unknown } = {}): Promise<boolean> {
   if (!(await saveFacts(studentId, answers))) return false;

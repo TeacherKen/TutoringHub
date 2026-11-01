@@ -45,7 +45,8 @@ export async function aiBudget(): Promise<AiBudget> {
     .select("feature, cost_usd")
     .gte("created_at", cycleStart(now, cycleDay()).toISOString())
     .limit(10_000);
-  if (error) return { spent: 0, limit, ok: true, metered: false, resetsOn, byFeature: {} };
+  // Can't read the meter (database hiccup, or update 0020 not run): don't spend, so the $4.50 stop can't be skipped.
+  if (error) return { spent: 0, limit, ok: false, metered: false, resetsOn, byFeature: {} };
   const byFeature: AiBudget["byFeature"] = {};
   let spent = 0;
   for (const r of (data ?? []) as { feature?: string; cost_usd: number }[]) {
@@ -92,6 +93,7 @@ export async function callClaude(req: ClaudeRequest): Promise<{ reply?: ClaudeRe
   const key = aiKey();
   if (!key) return { error: "AI isn't set up yet. Add ANTHROPIC_API_KEY in Vercel (Settings → Environment Variables), then redeploy." };
   const budget = await aiBudget();
+  if (!budget.metered) return { error: "AI couldn't check this month's spending, so it didn't run. Try again in a minute." };
   if (!budget.ok) {
     return {
       limit: true,

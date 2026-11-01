@@ -184,7 +184,7 @@ function ScreenPicture({ html, title }: { html: string; title: string }) {
 
   const back = (1 - front.idx) as 0 | 1;
   // What each copy shows: the one in front keeps its picture; the hidden one loads the newest.
-  const docFor = (i: 0 | 1) => (i === front.idx ? front.html : html !== front.html ? html : "");
+  const docFor = (i: 0 | 1) => lockPicture(i === front.idx ? front.html : html !== front.html ? html : "");
   const size = (h: string) => ({ vw: attr(h, "data-vw", 1024), vh: attr(h, "data-vh", 700) });
   const shown = size(front.html);
   const scale = Math.min(1, boxWidth / shown.vw);
@@ -296,4 +296,14 @@ function PracticeWatch({ p }: { p: PracticeLive }) {
       ) : null}
     </div>
   );
+}
+
+/** The screen picture comes from a child's device, so it may only load pictures, styles and fonts from this
+ *  app (and Google Fonts): nothing that could reach another server and see when Mr Ken is watching. The rule
+ *  goes first, before anything the device sent, so it can't be pushed out of the page's head. */
+const PICTURE_RULES =
+  "default-src 'none'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com";
+export function lockPicture(html: string): string {
+  if (!html) return html;
+  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${PICTURE_RULES}">${html.replace(/^\s*<!doctype[^>]*>/i, "")}`;
 }

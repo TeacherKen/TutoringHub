@@ -3,6 +3,8 @@ import { revalidatePath } from "next/cache";
 import { assertTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { MATERIALS_BUCKET } from "@/lib/env";
+import { reminderSince } from "@/lib/data";
+import { todayKey } from "@/lib/time";
 
 const STATUSES = ["scheduled", "done", "cancelled", "cancelled_charged", "no_show"] as const;
 const HOW = ["great", "good", "needs_practice"] as const;
@@ -165,7 +167,8 @@ export async function markPastDone(form: FormData): Promise<void> {
   else {
     const { unmarkedPastLessonIds } = await import("@/lib/autoDone");
     const { data: s } = await supabase.from("settings").select("track_from").eq("id", 1).maybeSingle();
-    ids = await unmarkedPastLessonIds({ before: new Date(), from: (s?.track_from as string | null) ?? null });
+    // The same lessons Home and Money count (reminderSince), so "Mark all 9" marks exactly 9.
+    ids = await unmarkedPastLessonIds({ before: new Date(), from: reminderSince((s?.track_from as string | null) ?? null, todayKey()) });
   }
   if (ids.length) {
     await supabase

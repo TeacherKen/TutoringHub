@@ -12,6 +12,7 @@ const TOKEN_RE = /^[A-Za-z0-9_-]{24,64}$/;
 const DEVICE_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const COUNTDOWN_MS = 4000;
 const KEEP_DAYS = 2;
+const LINK_HOURS = 24;
 
 export const isMatchToken = (t: string) => TOKEN_RE.test(t);
 export const isDeviceId = (d: unknown): d is string => typeof d === "string" && DEVICE_RE.test(d);
@@ -45,7 +46,13 @@ type PlayerRow = {
 
 async function matchRow(token: string): Promise<MatchRow | null> {
   if (!isMatchToken(token)) return null;
-  const { data } = await createAdminClient().from("matches").select("id, token, status, target, starts_at, winner, next_token").eq("token", token).maybeSingle<MatchRow>();
+  // A match link works for a day (KEEP_DAYS keeps the rows a little longer), then it's closed for good.
+  const { data } = await createAdminClient()
+    .from("matches")
+    .select("id, token, status, target, starts_at, winner, next_token")
+    .eq("token", token)
+    .gte("created_at", new Date(Date.now() - LINK_HOURS * 3_600_000).toISOString())
+    .maybeSingle<MatchRow>();
   return data ?? null;
 }
 

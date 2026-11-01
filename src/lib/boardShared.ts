@@ -45,7 +45,16 @@ export type Live = {
   timer_secs?: number | null;
 };
 
-export type BoardInfo = { id: string; title: string; pages: number; aspect: number; layout: number[]; urls?: string[] };
+export type BoardInfo = {
+  id: string;
+  title: string;
+  pages: number;
+  aspect: number;
+  layout: number[];
+  urls?: string[];
+  /** Secret part of the live channel's name, from the student's room link (none: no live channel). */
+  live?: string;
+};
 
 // Pages have fixed numbers so writing stays on the right page when pages are added:
 // 0, 1, 2… are the PDF's own pages, 1000+ are blank pages and 2000+ are squared paper.

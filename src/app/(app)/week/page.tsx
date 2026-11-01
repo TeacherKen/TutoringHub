@@ -1,7 +1,7 @@
 import { CalendarCatchUp } from "@/components/CalendarCatchUp";
 import Link from "next/link";
 import { requireTutor } from "@/lib/auth";
-import { getLessons } from "@/lib/data";
+import { getLessons, getSettings, reminderSince } from "@/lib/data";
 import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, mondayOf, todayKey } from "@/lib/time";
 import { LessonCard } from "@/components/LessonCard";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -14,11 +14,11 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
   await requireTutor();
   const { start } = await searchParams;
   const monday = mondayOf(validKey(start) ?? todayKey());
-  const lessons = (
-    await getLessons(bkkStartOfDay(monday).toISOString(), bkkStartOfDay(addDays(monday, 7)).toISOString())
-  ).filter((l) => l.lesson_students.length > 0);
+  const [all, settings] = await Promise.all([getLessons(bkkStartOfDay(monday).toISOString(), bkkStartOfDay(addDays(monday, 7)).toISOString()), getSettings()]);
+  const lessons = all.filter((l) => l.lesson_students.length > 0);
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const today = todayKey();
+  const since = reminderSince(settings.track_from, today);
 
   return (
     <div className="space-y-6">
@@ -51,7 +51,7 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
               {fmtDay(d)} {d === today ? "· Today" : ""}
             </h2>
             {ls.length ? (
-              ls.map((l) => <LessonCard key={l.id} lesson={l} />)
+              ls.map((l) => <LessonCard key={l.id} lesson={l} since={since} />)
             ) : (
               <p className="px-1 text-sm text-muted">No lessons</p>
             )}

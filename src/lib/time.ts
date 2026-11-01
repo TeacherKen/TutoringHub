@@ -40,10 +40,12 @@ export function fmtTime(d: Date | string): string {
   );
 }
 
-export function fmtDay(key: string): string {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(
-    new Date(`${key}T00:00:00Z`),
-  );
+/** "Wed 4 Nov". Dates more than ~6 months away get the year too: "Thu 6 Jan 2028". */
+export function fmtDay(key: string, today: string = todayKey()): string {
+  const far = Math.abs(Date.parse(`${key}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) > 183 * 86_400_000;
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", ...(far ? { year: "numeric" } : {}) })
+    .format(new Date(`${key}T00:00:00Z`))
+    .replace(",", "");
 }
 
 export function fmtLongDay(key: string): string {

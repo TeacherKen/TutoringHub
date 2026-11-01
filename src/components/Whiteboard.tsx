@@ -438,8 +438,9 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   );
 
   const boardId = board?.id;
+  const live = board?.live;
   useEffect(() => {
-    if (!boardId) return;
+    if (!boardId || !live) return; // no room link yet: checking every second still works
     let sb: ReturnType<typeof createClient>;
     try {
       sb = createClient();
@@ -456,7 +457,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       marks.current.set(m.id, { id: m.id, page: m.page, author: other, data });
       return true;
     };
-    const ch = sb.channel(`tutoringhub-board-${boardId}`, { config: { broadcast: { self: false, ack: false } } });
+    const ch = sb.channel(`tutoringhub-board-${boardId}-${live}`, { config: { broadcast: { self: false, ack: false } } });
     ch.on("broadcast", { event: "live" }, ({ payload }) => {
       if (payload?.who !== other || !payload.live) return;
       const l = payload.live as Live;
@@ -523,7 +524,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       channel.current = null;
       void sb.removeChannel(ch);
     };
-  }, [boardId, isTutor, applyOther, applyLayout]);
+  }, [boardId, live, isTutor, applyOther, applyLayout]);
 
   // ---- Telling the other screen what I'm doing ------------------------------
   const sendLive = useCallback(
