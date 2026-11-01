@@ -70,6 +70,9 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
   const savedSummary = summaryErr ? null : cleanSummary((saved as { ai_summary?: unknown } | null)?.ai_summary);
   if (savedSummary) savedSummary.pictures_read = Number(((saved as { ai_summary?: { pictures_read?: number } }).ai_summary ?? {}).pictures_read) || 0;
   const photoLabels = materials.filter((m) => m.kind === "photo").map((m) => m.label);
+  // Worksheets made for this lesson (database update 0020; none before it).
+  const { data: sheetRows } = await supabase.from("worksheets").select("id, title, created_at").eq("lesson_id", id).order("created_at", { ascending: false });
+  const worksheets = (sheetRows ?? []) as { id: string; title: string; created_at: string }[];
 
   const topicSuggestions = [...new Set((recentTopics ?? []).flatMap((r) => r.topics as string[]))].slice(0, 30);
   const prevPlans = ((prev.data ?? []) as unknown as { lessons: { start_at: string; next_time: string } }[])
@@ -172,6 +175,8 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
         <LessonAISummary
           lessonId={lesson.id}
           aiEnabled={aiAvailable()}
+          pictures={settings.ai_pictures === true}
+          worksheets={worksheets}
           boards={summaryBoards}
           window={win}
           savedLabels={photoLabels}

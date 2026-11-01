@@ -69,6 +69,7 @@ export type Settings = {
   promptpay_id?: string | null;
   last_backup_at?: string | null;
   price_options?: unknown;
+  ai_pictures?: boolean; // let the AI read pictures of written work (database update 0020)
 };
 
 const LESSON_SELECT =

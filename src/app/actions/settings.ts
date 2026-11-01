@@ -72,3 +72,13 @@ export async function savePriceOptions(options: unknown): Promise<{ ok?: string;
   revalidatePath("/", "layout");
   return { ok: "Price list saved ✓" };
 }
+
+/** Let the AI read pictures of written work (worksheet photos and smart-slide pages)? */
+export async function setAiPictures(on: boolean): Promise<{ ok?: boolean; error?: string }> {
+  await assertTutor();
+  const supabase = await createClient();
+  const { error } = await supabase.from("settings").update({ ai_pictures: on === true }).eq("id", 1);
+  if (error) return { error: "Run database update 0020 first (see the SQL from Claude)." };
+  revalidatePath("/", "layout");
+  return { ok: true };
+}

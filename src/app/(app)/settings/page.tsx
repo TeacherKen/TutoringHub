@@ -13,10 +13,20 @@ import { BackupPanel } from "@/components/BackupPanel";
 import { PriceListForm } from "@/components/PriceListForm";
 import { cleanPriceOptions } from "@/lib/prices";
 import { listBackups } from "@/lib/backup";
+import { aiBudget, aiKey } from "@/lib/aiCall";
+import { usd } from "@/lib/aiCost";
+import { AiPicturesSwitch } from "@/components/AiSettings";
+
+const FEATURE_NAMES: Record<string, string> = {
+  lesson_summary: "Lesson summaries",
+  parent_message: "Parent messages",
+  monthly_report: "Monthly reports",
+  worksheet: "Worksheets",
+};
 
 export default async function SettingsPage() {
   const me = await requireTutor();
-  const [settings, calendars, backups] = await Promise.all([getSettings(), listCalendarSources(), listBackups().catch(() => [])]);
+  const [settings, calendars, backups, ai] = await Promise.all([getSettings(), listCalendarSources(), listBackups().catch(() => []), aiBudget()]);
   const supabase = await createClient();
   const { data: people } = await supabase.from("app_users").select("email, role, display_name").in("role", ["tutor", "viewer"]).order("role");
   const { count: hidden } = await supabase.from("lessons").select("id", { count: "exact", head: true }).eq("ignored", true);
@@ -126,6 +136,48 @@ export default async function SettingsPage() {
         </Link>
       </section>
 
+      <section id="ai" className="card space-y-4">
+        <div>
+          <h2 className="h2">AI (Claude)</h2>
+          <p className="text-sm text-muted">
+            Writes parent messages, lesson summaries and worksheets. Names never go to the AI: they&apos;re swapped for placeholders and put back afterwards.
+          </p>
+        </div>
+        {!aiKey() ? (
+          <p className="rounded-xl bg-[var(--warn-soft)] p-3 text-sm text-warn">
+            Off. To turn it on, add your Anthropic key in Vercel: Project → Settings → Environment Variables → <b>ANTHROPIC_API_KEY</b>, then redeploy.
+          </p>
+        ) : null}
+        {ai.metered ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="font-medium">
+                This month: {usd(ai.spent)} <span className="text-muted">of {usd(ai.limit)}</span>
+              </p>
+              <p className="text-sm text-muted">Starts again {ai.resetsOn}</p>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuemin={0} aria-valuemax={ai.limit} aria-valuenow={Math.round(ai.spent * 100) / 100}>
+              <div className={`h-full rounded-full ${ai.ok ? "bg-accent" : "bg-danger"}`} style={{ width: `${Math.min(100, (ai.spent / ai.limit) * 100)}%` }} />
+            </div>
+            {Object.keys(ai.byFeature).length ? (
+              <ul className="text-sm text-muted">
+                {Object.entries(ai.byFeature).map(([f, v]) => (
+                  <li key={f}>
+                    {FEATURE_NAMES[f] ?? f}: {v.uses} · {usd(v.cost)}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <p className="text-xs text-muted">
+              At {usd(ai.limit)} the AI rests until the credit renews, and the ChatGPT buttons still work. (The Claude Console limit is your safety net on top.)
+            </p>
+          </div>
+        ) : (
+          <p className="rounded-xl bg-[var(--warn-soft)] p-3 text-sm text-warn">Run database update 0020 to turn on the AI meter.</p>
+        )}
+        <AiPicturesSwitch initial={settings.ai_pictures === true} ready={settings.ai_pictures !== undefined} />
+      </section>
+
       <section className="card space-y-4">
         <h2 className="h2">Parent feedback and hours</h2>
         <FeedbackSettingsForm
@@ -164,6 +216,7 @@ export default async function SettingsPage() {
           <li>Family members can only see lesson times, first names, onsite/online and place. The database itself blocks everything else.</li>
           <li>Worksheets and photos are kept in private storage and open with links that expire after 10 minutes.</li>
           <li>The ChatGPT prompt uses first names only, and no contacts or school names. Ask parents before sharing photos of work with any AI.</li>
+          <li>Built-in AI (Claude): no names at all — students, parents and family are swapped for placeholders like {"{child1}"} before anything is sent. Pictures of work are only sent if you switch that on above.</li>
           <li>Your calendar links are stored on the server only and never sent to the browser.</li>
         </ul>
       </section>

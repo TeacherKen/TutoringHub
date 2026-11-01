@@ -62,7 +62,7 @@ export function MonthlyReport({
               onClick={async () => {
                 if (text && !confirm("Replace the report you have?")) return;
                 setState("Writing…");
-                const r = await writeFeedbackWithAI(prompt());
+                const r = await writeFeedbackWithAI(prompt(), "monthly_report");
                 if (r.text) {
                   setText(r.text);
                   setState(null);

@@ -155,13 +155,13 @@ export async function removeMaterial(form: FormData): Promise<void> {
   revalidatePath("/", "layout");
 }
 
-/** Built-in AI: write the parent message from the prompt (first names only — see feedbackPrompt.ts). */
-export async function writeFeedbackWithAI(prompt: string): Promise<{ text?: string; error?: string }> {
+/** Built-in AI: write the parent message (or monthly report) from the prompt. Names are hidden from the AI. */
+export async function writeFeedbackWithAI(prompt: string, kind: "parent_message" | "monthly_report" = "parent_message"): Promise<{ text?: string; error?: string }> {
   await assertTutor();
   const { writeWithAI } = await import("@/lib/ai");
   const p = String(prompt ?? "").slice(0, 12000);
   if (p.trim().length < 20) return { error: "Write the lesson note first." };
-  return writeWithAI(p);
+  return writeWithAI(p, kind === "monthly_report" ? "monthly_report" : "parent_message");
 }
 
 /** Mark past classes as done (one, or all that aren't marked yet). */

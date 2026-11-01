@@ -49,7 +49,7 @@ beforeAll(async () => {
     "",
   );
   await db.exec(sql);
-  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql", "0007_pinned_slides.sql", "0008_topic_progress.sql", "0009_smart_slides.sql", "0010_board_pages.sql", "0011_money.sql", "0013_used_before_class_price.sql", "0014_board_timer.sql", "0015_prices_family_link.sql", "0016_times_tables.sql", "0017_matches_trophies.sql"]) {
+  for (const f of ["0003_multiple_calendars.sql", "0004_no_duplicate_students.sql", "0005_rooms_and_tracking.sql", "0006_watch_games.sql", "0007_pinned_slides.sql", "0008_topic_progress.sql", "0009_smart_slides.sql", "0010_board_pages.sql", "0011_money.sql", "0013_used_before_class_price.sql", "0014_board_timer.sql", "0015_prices_family_link.sql", "0016_times_tables.sql", "0017_matches_trophies.sql", "0018_game_modes.sql", "0020_ai_meter_worksheets.sql"]) {
     await db.exec(readFileSync(join(__dirname, "../supabase/migrations", f), "utf8"));
   }
   // Supabase gives these grants by default; RLS does the real protection.
@@ -117,6 +117,18 @@ describe("viewer (family member)", () => {
     expect((await as(TUTOR, "select * from room_screens")).length).toBe(1);
     expect(await as(VIEWER, "select * from room_screens")).toEqual([]);
     expect(await as(PARENT, "select * from room_screens")).toEqual([]);
+  });
+  it("cannot see AI costs or AI worksheets, and can't change the photo switch", async () => {
+    await as(TUTOR, "insert into ai_usage (feature, model, cost_usd) values ('lesson_summary', 'claude-sonnet-5-5', 0.05)");
+    await as(TUTOR, `insert into worksheets (lesson_id, student_id, title, content) values ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-000000000001', 'Fractions', '{}')`);
+    expect((await as(TUTOR, "select * from ai_usage")).length).toBe(1);
+    expect((await as(TUTOR, "select * from worksheets")).length).toBe(1);
+    for (const who of [VIEWER, PARENT, STRANGER]) {
+      expect(await as(who, "select * from ai_usage")).toEqual([]);
+      expect(await as(who, "select * from worksheets")).toEqual([]);
+    }
+    await as(VIEWER, "update settings set ai_pictures = true");
+    expect((await as<{ ai_pictures: boolean }>(TUTOR, "select ai_pictures from settings"))[0].ai_pictures).toBe(false);
   });
   it("cannot see topic progress", async () => {
     await as(TUTOR, "insert into student_topics (student_id, name, status) values ('00000000-0000-0000-0000-000000000001', 'fractions', 'got_it')");
