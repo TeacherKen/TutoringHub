@@ -10,6 +10,8 @@ import { MiniSudoku } from "./games/MiniSudoku";
 import { snapshotDocument, snapshotElement } from "@/lib/snapshot";
 import { Whiteboard } from "./Whiteboard";
 import { FootballTables } from "./games/FootballTables";
+import { useWolfLink, WVS_SRC } from "./games/WolfOnline";
+import { SIDE_NAME, type Side } from "@/lib/wvs";
 
 // Games with a `src` are Mr Ken's own games, copied into /public/games.
 const GAMES = [
@@ -117,6 +119,39 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   useEffect(() => {
     sendView(true);
   }, [tab, game, sendView]);
+
+  // ---- 🐺🐑 Wolf vs Sheep with Mr Ken (he invites; it opens here even when games are locked) ----
+  const [wvs, setWvs] = useState<{ side: Side } | null>(null);
+  const [wvsNote, setWvsNote] = useState<string | null>(null);
+  const wvsInvite = useRef<{ side: Side; moves: { pieceId: string; to: string }[] } | null>(null);
+  const wvsOn = useRef(false);
+  const { frameRef: wvsFrame, send: wvsSend } = useWolfLink(token, "student", (m, api) => {
+    if (m.local) {
+      if (m.type === "loaded" && wvsInvite.current) {
+        api.toGame({ type: "start", side: wvsInvite.current.side, moves: wvsInvite.current.moves, opponent: "Mr Ken" });
+        api.send({ type: "here" });
+      } else if (m.type === "left") leaveWvs();
+      return;
+    }
+    if (m.type === "invite" && m.studentSide) {
+      if (wvsOn.current) api.send({ type: "here" });
+      else {
+        wvsInvite.current = { side: m.studentSide, moves: m.moves ?? [] };
+        wvsOn.current = true;
+        setWvsNote(null);
+        setWvs({ side: m.studentSide });
+      }
+    } else if (m.type === "end" && wvsOn.current) {
+      wvsOn.current = false;
+      setWvs(null);
+      setWvsNote("Mr Ken ended the game. Well played!");
+    }
+  });
+  function leaveWvs() {
+    wvsSend({ type: "left" });
+    wvsOn.current = false;
+    setWvs(null);
+  }
 
   const onPracticeLive = useCallback(
     (p: PracticeLive) => {
@@ -249,7 +284,25 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
         </div>
       </header>
 
-      {tab === "lesson" ? (
+      {wvsNote && !wvs ? (
+        <p role="status" className="mb-3 rounded-xl bg-accent-soft p-3 text-sm text-accent">
+          {wvsNote}
+        </p>
+      ) : null}
+
+      {wvs ? (
+        <section className="flex flex-1 flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-medium">
+              🐺🐑 Wolf vs Sheep with Mr Ken · you are the {SIDE_NAME[wvs.side]}
+            </p>
+            <button type="button" className="btn-secondary min-h-10 px-3 text-sm" onClick={leaveWvs}>
+              Leave game
+            </button>
+          </div>
+          <iframe ref={wvsFrame} src={WVS_SRC} title="Wolf vs Sheep with Mr Ken" className="w-full flex-1 rounded-2xl border border-line bg-surface" style={{ minHeight: "75dvh" }} />
+        </section>
+      ) : tab === "lesson" ? (
         <section className="flex flex-1 flex-col gap-4">
           {slides.length + (room.hasBoard ? 1 : 0) > 1 ? (
             <div className="flex flex-wrap gap-2">

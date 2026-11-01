@@ -223,7 +223,8 @@ function createInitialState(overrides = {}) {
 function initGame(options = {}) {
   hideWinOverlay();
   const mode = options.mode || gameState.mode || "local";
-  const humanSide = mode === "singleplayer" ? options.humanSide || gameState.humanSide || "wolf" : null;
+  // "online" (TutoringHub): each screen plays one side; online.js passes the moves between them.
+  const humanSide = mode === "singleplayer" || mode === "online" ? options.humanSide || gameState.humanSide || "wolf" : null;
   const aiDifficulty = mode === "singleplayer" ? options.aiDifficulty || gameState.aiDifficulty || preferences.preferredDifficulty || "normal" : null;
   const aiTurnToken = cancelPendingAITurn();
 
@@ -247,6 +248,7 @@ function initGame(options = {}) {
 }
 
 function showStartScreen() {
+  if (gameState.mode === "online" && typeof window.wvsOnLeave === "function") window.wvsOnLeave();
   hideWinOverlay();
   stopMatchTimer();
   gameState = createInitialState({
@@ -325,6 +327,11 @@ function updatePreferredDifficultyButtons() {
 }
 
 function restartMatch() {
+  if (gameState.mode === "online" && typeof window.wvsOnRestart === "function") {
+    window.wvsOnRestart();
+    return;
+  }
+
   if (!gameState.mode) {
     showStartScreen();
     return;
@@ -463,7 +470,7 @@ function handlePieceClick(pieceId) {
     return;
   }
 
-  if (gameState.mode === "singleplayer" && piece.type !== gameState.humanSide) {
+  if ((gameState.mode === "singleplayer" || gameState.mode === "online") && piece.type !== gameState.humanSide) {
     setFeedback(`You are playing as ${getTurnName(gameState.humanSide)}.`);
     return;
   }
@@ -632,6 +639,10 @@ function executeMove(move, actor = "human") {
   renderBoard();
   updateStatus();
   maybeHandleAITurn();
+
+  if (typeof window.wvsAfterMove === "function") {
+    window.wvsAfterMove(move, actor);
+  }
 }
 
 function prepareMoveAnimation(move) {
@@ -748,6 +759,11 @@ function setMoveFeedback(move, actor) {
     } else {
       setFeedback("AI sheep moved to block the wolf. Your turn.");
     }
+    return;
+  }
+
+  if (actor === "remote") {
+    setFeedback(move.type === "capture" ? "Your sheep was captured! Your turn." : `${getTurnName(side)} moved. Your turn.`);
     return;
   }
 
@@ -1857,11 +1873,15 @@ function getTurnHelper(type) {
 }
 
 function getModeName(mode) {
+  if (mode === "online") {
+    return "Online 2 Player";
+  }
+
   return mode === "singleplayer" ? "Single Player" : "Local 2 Player";
 }
 
 function getHumanSideText() {
-  if (gameState.mode !== "singleplayer") {
+  if (gameState.mode !== "singleplayer" && gameState.mode !== "online") {
     return "";
   }
 
@@ -1947,7 +1967,8 @@ function canAcceptHumanInput() {
     return true;
   }
 
-  return gameState.mode === "singleplayer" && gameState.currentTurn === gameState.humanSide;
+  // Single player and online: only on your own side's turn.
+  return (gameState.mode === "singleplayer" || gameState.mode === "online") && gameState.currentTurn === gameState.humanSide;
 }
 
 function canHumanControlPiece(piece) {

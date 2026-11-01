@@ -31,3 +31,20 @@ describe("mini sudoku", () => {
     expect(isValidSolution(g, 4)).toBe(false);
   });
 });
+
+import { cleanWvs, otherSide } from "@/lib/wvs";
+describe("🐺🐑 Wolf vs Sheep online: checking messages between screens", () => {
+  it("accepts real moves and game messages", () => {
+    expect(cleanWvs({ type: "move", from: "tutor", n: 3, move: { pieceId: "sheep12", to: "n24" } })).toEqual({ type: "move", from: "tutor", n: 3, move: { pieceId: "sheep12", to: "n24" } });
+    expect(cleanWvs({ type: "invite", from: "tutor", studentSide: "sheep", moves: [{ pieceId: "wolf", to: "n16" }] })?.moves).toHaveLength(1);
+    expect(otherSide("wolf")).toBe("sheep");
+  });
+  it("refuses anything odd", () => {
+    expect(cleanWvs({ type: "move", n: 1, move: { pieceId: "dragon", to: "n1" } })).toBeNull();
+    expect(cleanWvs({ type: "move", n: 1, move: { pieceId: "wolf", to: "n25" } })).toBeNull();
+    expect(cleanWvs({ type: "move", move: { pieceId: "wolf", to: "n2" } })).toBeNull(); // no move number
+    expect(cleanWvs({ type: "sync", moves: [{ pieceId: "wolf", to: "x" }] })).toBeNull();
+    expect(cleanWvs({ type: "hack" })).toBeNull();
+    expect(cleanWvs({ type: "invite", studentSide: "dragon" })?.studentSide).toBeUndefined();
+  });
+});
