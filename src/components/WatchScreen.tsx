@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { MODE_NAMES } from "@/lib/facts";
 import { cleanView, secs, watchChannel, type PracticeLive, type WatchView } from "@/lib/watch";
@@ -148,47 +148,78 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
   );
 }
 
-/** A still copy of the student's screen, at their screen size and scroll position, scaled to fit. */
+/** Scroll a picture to where the student is looking. */
+function placeScroll(frame: HTMLIFrameElement | null, html: string) {
+  const win = frame?.contentWindow;
+  const doc = frame?.contentDocument;
+  if (!win || !doc) return;
+  win.scrollTo(attr(html, "data-scroll-x", 0), attr(html, "data-scroll-y", 0));
+  doc.querySelectorAll("[data-th-scroll]").forEach((el) => {
+    const [x, y] = (el.getAttribute("data-th-scroll") ?? "0:0").split(":").map(Number);
+    el.scrollLeft = x;
+    el.scrollTop = y;
+  });
+}
+
+/**
+ * A still copy of the student's screen, at their screen size and scroll position, scaled to fit.
+ * No blinking: each new picture loads in a hidden copy behind the one you see, and the two swap
+ * only once it's completely ready (styles, pictures and scroll position).
+ */
 function ScreenPicture({ html, title }: { html: string; title: string }) {
   const [boxWidth, setBoxWidth] = useState(800);
+  const [front, setFront] = useState<{ idx: 0 | 1; html: string }>({ idx: 0, html });
   const box = useRef<HTMLDivElement>(null);
-  const frame = useRef<HTMLIFrameElement>(null);
+  const frames = [useRef<HTMLIFrameElement>(null), useRef<HTMLIFrameElement>(null)] as const;
+  const latest = useRef(html);
+  useLayoutEffect(() => {
+    latest.current = html;
+  }, [html]);
   useEffect(() => {
     if (!box.current) return;
     const ro = new ResizeObserver(([e]) => setBoxWidth(e.contentRect.width));
     ro.observe(box.current);
     return () => ro.disconnect();
   }, []);
-  const vw = attr(html, "data-vw", 1024);
-  const vh = attr(html, "data-vh", 700);
-  const scale = Math.min(1, boxWidth / vw);
 
-  // Scroll the picture to where the student is looking.
-  function placeScroll() {
-    const win = frame.current?.contentWindow;
-    const doc = frame.current?.contentDocument;
-    if (!win || !doc) return;
-    win.scrollTo(attr(html, "data-scroll-x", 0), attr(html, "data-scroll-y", 0));
-    doc.querySelectorAll("[data-th-scroll]").forEach((el) => {
-      const [x, y] = (el.getAttribute("data-th-scroll") ?? "0:0").split(":").map(Number);
-      el.scrollLeft = x;
-      el.scrollTop = y;
-    });
+  const back = (1 - front.idx) as 0 | 1;
+  // What each copy shows: the one in front keeps its picture; the hidden one loads the newest.
+  const docFor = (i: 0 | 1) => (i === front.idx ? front.html : html !== front.html ? html : "");
+  const size = (h: string) => ({ vw: attr(h, "data-vw", 1024), vh: attr(h, "data-vh", 700) });
+  const shown = size(front.html);
+  const scale = Math.min(1, boxWidth / shown.vw);
+
+  function loaded(i: 0 | 1) {
+    const el = frames[i].current;
+    if (i === front.idx) return placeScroll(el, front.html);
+    const doc = docFor(i);
+    if (!doc || doc !== latest.current) return; // an older picture, or the blank one
+    placeScroll(el, doc);
+    setFront({ idx: i, html: doc });
   }
 
   return (
     <div ref={box} className="w-full">
-      <div className="overflow-hidden rounded-xl border border-line bg-white" style={{ height: vh * scale }}>
-        <iframe
-          ref={frame}
-          title={title}
-          srcDoc={html}
-          // Scripts are removed from the picture and blocked here; same-origin only lets us scroll it.
-          sandbox="allow-same-origin"
-          onLoad={placeScroll}
-          className="pointer-events-none origin-top-left border-0"
-          style={{ width: vw, height: vh, transform: `scale(${scale})` }}
-        />
+      <div className="relative overflow-hidden rounded-xl border border-line bg-white" style={{ height: shown.vh * scale }}>
+        {([0, 1] as const).map((i) => {
+          const doc = docFor(i);
+          const { vw, vh } = size(doc || front.html);
+          return (
+            <iframe
+              key={i}
+              ref={frames[i]}
+              title={i === front.idx ? title : `${title} (next)`}
+              aria-hidden={i !== front.idx}
+              tabIndex={-1}
+              srcDoc={doc}
+              // Scripts are removed from the picture and blocked here; same-origin only lets us scroll it.
+              sandbox="allow-same-origin"
+              onLoad={() => loaded(i)}
+              className={`pointer-events-none absolute left-0 top-0 origin-top-left border-0 ${i === back ? "invisible" : ""}`}
+              style={{ width: vw, height: vh, transform: `scale(${Math.min(1, boxWidth / vw)})` }}
+            />
+          );
+        })}
       </div>
     </div>
   );
