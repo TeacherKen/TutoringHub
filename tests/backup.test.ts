@@ -14,7 +14,7 @@ vi.mock("@/lib/supabase/server", () => ({
     from: (t: string) => ({
       select: () => ({
         order: () => ({
-          range: async () => (t in tables ? { data: tables[t], error: null } : t === "settings" ? { data: [], error: null } : { data: null, error: { message: "missing table" } }),
+          range: async () => (t in tables ? { data: tables[t], error: null } : t === "settings" ? { data: [], error: null } : { data: null, error: { code: "PGRST205", message: "missing table" } }),
         }),
         eq: () => ({ maybeSingle: async () => ({ data: { last_backup_at: null }, error: null }) }),
       }),

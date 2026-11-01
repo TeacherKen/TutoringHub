@@ -38,6 +38,12 @@ describe("calendar: moving the whole weekly series to a new time", () => {
     expect(before).toEqual(["d:2026-10-07", "d:2026-10-14", "d:2026-10-21", "d:2026-10-28"]);
     expect(after).toEqual(before);
   });
+  it("two repeats on the same day keep separate ids (none is dropped)", () => {
+    const twice = series("0900").replace("RRULE:FREQ=WEEKLY;BYDAY=WE", "RRULE:FREQ=DAILY;BYHOUR=9,16;COUNT=4");
+    const keys = parseOccurrences(twice, from, to).map((o) => o.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys.length).toBeGreaterThanOrEqual(2);
+  });
   it("lessons saved with the old kind of id are switched over to the new one", () => {
     expect(upgradeKey("2026-10-21T10:00:00.000Z")).toBe("d:2026-10-21");
     expect(upgradeKey("2026-10-21T18:00:00.000Z")).toBe("d:2026-10-22"); // 1 am Bangkok, the next day
@@ -56,10 +62,10 @@ const lesson = (days: number, over: Partial<Lesson> = {}): Lesson =>
 
 describe("reminders agree everywhere (Home, Week, Money)", () => {
   const today = "2026-11-01";
-  it("go back to the tracking date, but never more than 60 days", () => {
-    expect(reminderSince(null, today)).toBe("2026-09-02");
+  it("go back to the tracking date, but never more than 30 days", () => {
+    expect(reminderSince(null, today)).toBe("2026-10-02");
     expect(reminderSince("2026-10-28", today)).toBe("2026-10-28");
-    expect(reminderSince("2025-01-01", today)).toBe("2026-09-02");
+    expect(reminderSince("2025-01-01", today)).toBe("2026-10-02");
   });
   it("a lesson before the tracking date never shows 'Note missing' or 'Feedback not sent'", () => {
     const since = addDays(new Date().toISOString().slice(0, 10), -3);

@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { parseOccurrences, upgradeKey } from "./parse";
 import { isPreplyTitle, matchStudents } from "./match";
+import { bkkDateKey } from "@/lib/time";
 
 const PAST_DAYS = 14;
 const FUTURE_DAYS = 42;
@@ -76,28 +77,38 @@ export async function syncCalendar(): Promise<SyncResult> {
 
   // 0. Lessons saved with the old kind of repeat id get the new one, so they stay the same lesson.
   const margin = 2 * 86_400_000;
-  const { data: oldKeyed } = await admin
+  const stop = async (msg: string): Promise<SyncResult> => {
+    await admin.from("settings").update({ last_sync_error: msg }).eq("id", 1); // so Home shows it
+    return { ok: false, error: msg };
+  };
+  const { data: oldKeyed, error: oldErr } = await admin
     .from("lessons")
     .select("id, occurrence_key, status")
     .gte("start_at", new Date(from.getTime() - margin).toISOString())
     .lte("start_at", new Date(to.getTime() + margin).toISOString())
     .neq("occurrence_key", "single")
     .not("occurrence_key", "like", "d:%");
+  // If this step can't finish, stop: carrying on would save a second copy next to each lesson.
+  if (oldErr) return stop("Couldn't read your lessons. Press Refresh to try again.");
   // Marked lessons first: if a series move already made a copy, the one with the note and hours keeps the id.
   const toUpgrade = ((oldKeyed ?? []) as { id: string; occurrence_key: string; status: string }[]).sort((a, b) => Number(a.status === "scheduled") - Number(b.status === "scheduled"));
   for (const r of toUpgrade) {
     const key = upgradeKey(r.occurrence_key);
-    if (key) await admin.from("lessons").update({ occurrence_key: key }).eq("id", r.id); // a clash just leaves the old one
+    if (!key) continue;
+    const { error } = await admin.from("lessons").update({ occurrence_key: key }).eq("id", r.id);
+    // 23505 = another row already has that id (a copy from before): leave this one, it drops out as usual.
+    if (error && error.code !== "23505") return stop("Couldn't update your lessons. Press Refresh to try again.");
   }
 
   // Finished lessons keep their time and length, even if the whole series is changed in the calendar
   // later — otherwise hours already used would change. (A day's grace to correct a time.)
-  const { data: doneRows } = await admin
+  const { data: doneRows, error: doneErr } = await admin
     .from("lessons")
     .select("event_uid, occurrence_key, start_at, end_at")
     .gte("start_at", new Date(from.getTime() - margin).toISOString())
     .lt("end_at", new Date(now - 86_400_000).toISOString())
     .neq("status", "scheduled");
+  if (doneErr) return stop("Couldn't read your lessons. Press Refresh to try again.");
   const frozen = new Map(((doneRows ?? []) as { event_uid: string; occurrence_key: string; start_at: string; end_at: string }[]).map((r) => [`${r.event_uid}|${r.occurrence_key}`, r]));
 
   // 1. Upsert lesson rows (time, title, place only — notes are left alone).
@@ -105,7 +116,9 @@ export async function syncCalendar(): Promise<SyncResult> {
   for (const { src, occ } of okSources) {
     for (const o of occ) {
       const matched = matchStudents(o.title, studentList);
-      const keep = frozen.get(`${o.uid}|${o.key}`);
+      // A new time on the same day keeps the old one; moved to another day (a make-up lesson) moves it.
+      const old = frozen.get(`${o.uid}|${o.key}`);
+      const keep = old && bkkDateKey(old.start_at) === bkkDateKey(o.start) ? old : null;
       unique.set(`${o.uid}|${o.key}`, {
         event_uid: o.uid,
         occurrence_key: o.key,

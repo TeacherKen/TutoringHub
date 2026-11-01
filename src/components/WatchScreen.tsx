@@ -184,7 +184,7 @@ function ScreenPicture({ html, title }: { html: string; title: string }) {
 
   const back = (1 - front.idx) as 0 | 1;
   // What each copy shows: the one in front keeps its picture; the hidden one loads the newest.
-  const docFor = (i: 0 | 1) => lockPicture(i === front.idx ? front.html : html !== front.html ? html : "");
+  const docFor = (i: 0 | 1) => (i === front.idx ? front.html : html !== front.html ? html : "");
   const size = (h: string) => ({ vw: attr(h, "data-vw", 1024), vh: attr(h, "data-vh", 700) });
   const shown = size(front.html);
   const scale = Math.min(1, boxWidth / shown.vw);
@@ -211,7 +211,7 @@ function ScreenPicture({ html, title }: { html: string; title: string }) {
               title={i === front.idx ? title : `${title} (next)`}
               aria-hidden={i !== front.idx}
               tabIndex={-1}
-              srcDoc={doc}
+              srcDoc={lockPicture(doc)}
               // Scripts are removed from the picture and blocked here; same-origin only lets us scroll it.
               sandbox="allow-same-origin"
               onLoad={() => loaded(i)}

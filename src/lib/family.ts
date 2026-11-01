@@ -80,10 +80,11 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   const lessons = new Map<string, LessonRow>();
   for (const r of (links ?? []) as unknown as { lessons: LessonRow }[]) lessons.set(r.lessons.id, r.lessons);
   const allAccount = [...lessons.values()].filter((l) => !l.ignored).sort((a, b) => a.start_at.localeCompare(b.start_at));
-  // What parents see: lessons with one of their (active) children, where every child in it is from this
-  // family, so a lesson shared with another family never shows that family's work or message.
+  // Lessons with one of their (active) children. Messages and work photos only come from lessons where every
+  // child is from this family, so a lesson shared with another family never shows that family's work.
+  const all = allAccount.filter((l) => l.lesson_students.some((x) => ids.includes(x.student_id)));
   const mineOnly = new Set(accountIds);
-  const all = allAccount.filter((l) => l.lesson_students.some((x) => ids.includes(x.student_id)) && l.lesson_students.every((x) => mineOnly.has(x.student_id)));
+  const ownLesson = (l: LessonRow) => l.lesson_students.every((x) => mineOnly.has(x.student_id));
   const namesIn = (l: LessonRow) => [...new Set(l.lesson_students.map((x) => nameOf.get(x.student_id)).filter(Boolean) as string[])];
   const now = Date.now();
 
@@ -92,11 +93,11 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
     .slice(0, 6)
     .map((l) => ({ start_at: l.start_at, end_at: l.end_at, names: namesIn(l) }));
 
-  const sent = all.filter((l) => l.sent_at && l.final_message?.trim()).reverse();
+  const sent = all.filter((l) => ownLesson(l) && l.sent_at && l.final_message?.trim()).reverse();
   const messages = sent.slice(0, 8).map((l) => ({ date: bkkDateKey(l.start_at), names: namesIn(l), text: l.final_message!.trim() }));
 
   // Saved work pictures from the last 6 weeks.
-  const recentIds = all.filter((l) => new Date(l.start_at).getTime() > now - 42 * 86_400_000).map((l) => l.id);
+  const recentIds = all.filter((l) => ownLesson(l) && new Date(l.start_at).getTime() > now - 42 * 86_400_000).map((l) => l.id);
   let work: FamilyPage["work"] = [];
   if (recentIds.length) {
     const { data: mats } = await admin

@@ -57,6 +57,7 @@ export function parseOccurrences(icsText: string, from: Date, to: Date): Occurre
 
     if (ev.rrule) {
       const instances = ical.expandRecurringEvent(ev, { from, to });
+      const used = new Set<string>(); // two repeats on one day (rare) get the time added to stay apart
       for (const inst of instances) {
         if (inst.isFullDay) continue;
         const src = inst.event;
@@ -64,9 +65,12 @@ export function parseOccurrences(icsText: string, from: Date, to: Date): Occurre
         const originalStart = inst.isOverride
           ? ((src as VEvent & { recurrenceid?: Date }).recurrenceid ?? inst.start)
           : inst.start;
+        let key = repeatKey(new Date(originalStart));
+        if (used.has(key)) key = `${key}@${new Date(new Date(originalStart).getTime() + 7 * 3_600_000).toISOString().slice(11, 16)}`;
+        used.add(key);
         out.push({
           uid: ev.uid,
-          key: repeatKey(new Date(originalStart)),
+          key,
           start: new Date(inst.start),
           end: new Date(inst.end ?? inst.start),
           title: text(src.summary ?? ev.summary).trim(),

@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { accountBalance, CHARGED_STATUSES, type Balance, type HoursLesson } from "@/lib/hours";
-import { addDays, bkkDateKey as dateKeyOf } from "@/lib/time";
+import { addDays, bkkDateKey as dateKeyOf, bkkStartOfDay } from "@/lib/time";
 
 export type Student = {
   id: string;
@@ -91,6 +91,23 @@ export async function getLessons(fromIso: string, toIso: string, opts: { include
   if (!opts.includeIgnored) q = q.eq("ignored", false);
   const { data } = await q;
   return (data ?? []) as Lesson[];
+}
+
+/** Finished classes with a student since `sinceKey` (Bangkok date): what the reminders on Home are made from.
+ *  Its own small query, so Home's main one stays short. */
+export async function getReminderLessons(sinceKey: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("lessons")
+    .select(LESSON_SELECT.replace("lesson_students(", "lesson_students!inner("))
+    .gte("start_at", bkkStartOfDay(sinceKey).toISOString())
+    .lt("end_at", new Date().toISOString())
+    .in("status", ["scheduled", "done"])
+    .eq("in_calendar", true)
+    .eq("ignored", false)
+    .order("start_at")
+    .limit(500);
+  return (data ?? []) as unknown as Lesson[];
 }
 
 export async function getLesson(id: string) {
@@ -229,8 +246,8 @@ export function lessonPlace(l: Lesson): string | null {
 
 // ⏰ Reminders. Home, Week, Money and the "Mark all done" button all use these, so they always agree.
 
-/** Reminders go back to Settings' "start tracking from" date, but never more than 60 days: older is history. */
-export const REMINDER_DAYS = 60;
+/** Reminders go back to Settings' "start tracking from" date, but never more than 30 days: older is history. */
+export const REMINDER_DAYS = 30;
 export function reminderSince(trackFrom: string | null | undefined, today: string): string {
   const floor = addDays(today, -REMINDER_DAYS);
   return trackFrom && trackFrom > floor ? trackFrom : floor;

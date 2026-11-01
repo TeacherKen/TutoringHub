@@ -32,8 +32,10 @@ export async function makeBackup(): Promise<{ ok: boolean; name?: string; error?
     const rows: Record<string, unknown>[] = [];
     for (let from = 0; ; from += 1000) {
       const { data, error } = await admin.from(t.name).select("*").order(t.order).range(from, from + 999);
-      if (error && from === 0) break; // table not created yet (database update not run) — skip it
-      if (error) return { ok: false, error: `Backup stopped: couldn't read all of ${t.name}. Try again.` }; // never save half a table
+      // A table that doesn't exist yet (database update not run) is skipped; any other problem stops the
+      // backup, so it never quietly saves half a table or leaves one out.
+      if (error && (error.code === "PGRST205" || error.code === "42P01")) break;
+      if (error) return { ok: false, error: `Backup stopped: couldn't read ${t.name}. Try again.` };
       rows.push(...((data ?? []) as Record<string, unknown>[]));
       if (!data || data.length < 1000) break;
     }
