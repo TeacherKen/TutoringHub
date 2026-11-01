@@ -88,9 +88,9 @@ export function Controls({
   );
 }
 
-export function BallIcon() {
+export function BallIcon({ className = "h-6 w-6" }: { className?: string } = {}) {
   return (
-    <svg viewBox="-13 -13 26 26" className="h-6 w-6" aria-hidden>
+    <svg viewBox="-13 -13 26 26" className={className} aria-hidden>
       <circle r="12" fill="#ffffff" stroke="#0b1d42" strokeWidth="1.5" />
       <path d="M0 -4.6 L4.4 -1.4 L2.7 3.8 L-2.7 3.8 L-4.4 -1.4Z" fill="#0b1d42" />
       <path d="M0 -4.6 L0 -11 M4.4 -1.4 L10.5 -3.4 M2.7 3.8 L6.5 9.5 M-2.7 3.8 L-6.5 9.5 M-4.4 -1.4 L-10.5 -3.4" stroke="#0b1d42" strokeWidth="1.3" />

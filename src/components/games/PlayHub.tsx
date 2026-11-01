@@ -3,12 +3,14 @@ import "@fontsource/barlow-condensed/700.css";
 import "@fontsource/barlow-condensed/800-italic.css";
 import { useEffect, useState, useTransition } from "react";
 import QRCode from "qrcode";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MODE_EXAMPLES, MODE_NAMES, MODES, TABLES, type GameMode } from "@/lib/facts";
 import { ensureRoomToken } from "@/app/actions/rooms";
 import { startMatch } from "@/app/actions/match";
 import { GLASS, PANEL } from "./Controls";
 import { KITS } from "./Stadium";
+import { GAMES } from "@/lib/games";
 
 type Kid = { id: string; name: string; token: string | null; tables: number[]; mode: GameMode; onsite: boolean };
 export const SEAT_KITS = ["red", "blue", "yellow", "purple"].map((id) => KITS.find((k) => k.id === id)!);
@@ -70,8 +72,30 @@ export function PlayHub({ students }: { students: Kid[] }) {
     <div className="space-y-6">
       <header>
         <h1 className="h1">Play</h1>
-        <p className="mt-1 text-muted">Football Times Tables on this device, or a match between two to four children.</p>
+        <p className="mt-1 text-muted">Games for lessons: the games corner on the iPad, Football Times Tables, or a match between two to four children.</p>
       </header>
+
+      <section className={`${PANEL} overflow-hidden px-4 py-5 sm:px-6`}>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-md">
+            <h2 className="font-sport text-3xl font-extrabold italic">Games corner</h2>
+            <p className="mt-1 text-sm text-white/75">
+              All {GAMES.length} games full screen, for children in an onsite lesson. No TutoringHub menu, so they can&apos;t open Money or Settings. To leave, hold
+              Exit for 2 seconds.
+            </p>
+          </div>
+          <Link href="/arcade" className="font-sport inline-flex h-14 items-center rounded-2xl bg-[#ffc629] px-6 text-2xl font-extrabold italic text-[#0b1d42] shadow-lg transition hover:bg-[#ffd447] active:scale-95">
+            Open games corner
+          </Link>
+        </div>
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {GAMES.map((g) => (
+            <li key={g.id} className="rounded-full px-3 py-1 text-sm font-medium" style={{ background: g.bg, color: g.fg }}>
+              {g.name}
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className={`${PANEL} space-y-3 px-4 py-5 sm:px-6`}>
         <h2 className="font-sport text-3xl font-extrabold italic">Who&apos;s playing?</h2>
@@ -188,12 +212,12 @@ export function PlayHub({ students }: { students: Kid[] }) {
 
 /** Open TutoringHub (or one child's game) on the iPad by scanning a QR code, then add it to the home screen. */
 function IPadSetup({ students }: { students: Kid[] }) {
-  const [who, setWho] = useState("me");
+  const [who, setWho] = useState("me"); // "me", "arcade" or a student's id
   const [tokens, setTokens] = useState<Record<string, string>>(() => Object.fromEntries(students.filter((k) => k.token).map((k) => [k.id, k.token!])));
   const [qr, setQr] = useState<{ url: string; src: string } | null>(null);
   const [busy, start] = useTransition();
   const kid = students.find((k) => k.id === who);
-  const path = who === "me" ? "/play" : tokens[who] ? `/room/${tokens[who]}?tab=practice` : null;
+  const path = who === "me" ? "/play" : who === "arcade" ? "/arcade" : tokens[who] ? `/room/${tokens[who]}?tab=practice` : null;
 
   useEffect(() => {
     if (!path) return;
@@ -207,7 +231,7 @@ function IPadSetup({ students }: { students: Kid[] }) {
 
   function choose(id: string) {
     setWho(id);
-    if (id !== "me" && !tokens[id]) {
+    if (id !== "me" && id !== "arcade" && !tokens[id]) {
       start(async () => {
         const t = (await ensureRoomToken(id)).token;
         if (t) setTokens((m) => ({ ...m, [id]: t }));
@@ -231,6 +255,14 @@ function IPadSetup({ students }: { students: Kid[] }) {
         >
           TutoringHub (you)
         </button>
+        <button
+          type="button"
+          aria-pressed={who === "arcade"}
+          onClick={() => choose("arcade")}
+          className={`min-h-10 rounded-xl border px-3 text-sm font-medium ${who === "arcade" ? "border-ink bg-surface-2" : "border-line bg-surface"}`}
+        >
+          Games corner
+        </button>
         {students.map((k) => (
           <button
             key={k.id}
@@ -246,7 +278,7 @@ function IPadSetup({ students }: { students: Kid[] }) {
       <div className="flex flex-wrap items-center gap-4">
         {shown ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={shown.src} alt={`QR code to open ${who === "me" ? "TutoringHub" : `${kid?.name}'s game`} on the iPad`} className="h-40 w-40 rounded-lg border border-line bg-white p-1" />
+          <img src={shown.src} alt={`QR code to open ${who === "me" ? "TutoringHub" : who === "arcade" ? "the games corner" : `${kid?.name}'s game`} on the iPad`} className="h-40 w-40 rounded-lg border border-line bg-white p-1" />
         ) : (
           <div className="flex h-40 w-40 items-center justify-center rounded-lg bg-surface-2 text-xs text-muted">{busy ? "Making link…" : ""}</div>
         )}
@@ -258,6 +290,8 @@ function IPadSetup({ students }: { students: Kid[] }) {
           <li>
             {who === "me"
               ? "Open TutoringHub from the new icon and sign in once. The app keeps its own sign-in, separate from Safari."
+              : who === "arcade"
+                ? "A \"Games\" icon appears. It opens straight into the games corner. Sign in once (as you), then hand the iPad to the children."
               : `A football icon called "${kid?.name}" appears. It opens straight into ${kid?.name}'s game, with no sign-in needed.`}
           </li>
         </ol>

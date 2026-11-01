@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
 
 const ALL = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -26,7 +27,6 @@ export function TimesTables() {
   const [missed, setMissed] = useState<Q[]>([]);
   const [shake, setShake] = useState(false);
   const [newBest, setNewBest] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const key = `tt-${[...tables].sort((x, y) => x - y).join("-")}`;
   const { best, offer } = useBest(key, (a, b) => a > b);
 
@@ -54,7 +54,6 @@ export function TimesTables() {
     setQ(makeQ(tables));
     setPhase("play");
     setNewBest(false);
-    setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   function submit() {
@@ -69,7 +68,6 @@ export function TimesTables() {
       setTimeout(() => setShake(false), 300);
     }
     setAnswer("");
-    inputRef.current?.focus();
   }
 
   if (phase === "setup") {
@@ -109,7 +107,11 @@ export function TimesTables() {
         {missed.length ? (
           <div className="rounded-xl bg-surface-2 p-3 text-left">
             <p className="text-sm font-medium">Practise these:</p>
-            <p className="mt-1 text-lg tabular-nums">{missed.map((m) => `${m.a} × ${m.b} = ${m.a * m.b}`).join("   ·   ")}</p>
+            <p className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-lg tabular-nums">
+              {missed.map((m) => (
+                <span key={`${m.a}x${m.b}`}>{`${m.a} × ${m.b} = ${m.a * m.b}`}</span>
+              ))}
+            </p>
           </div>
         ) : null}
         <div className="flex gap-2">
@@ -136,24 +138,7 @@ export function TimesTables() {
       <p className={`py-4 text-center text-6xl font-semibold tabular-nums ${shake ? "animate-pulse text-danger" : ""}`}>
         {q.a} × {q.b}
       </p>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-        className="flex gap-2"
-      >
-        <input
-          ref={inputRef}
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value.replace(/\D/g, "").slice(0, 3))}
-          inputMode="numeric"
-          autoComplete="off"
-          aria-label="Your answer"
-          className="input text-center text-3xl font-semibold tabular-nums"
-        />
-        <button className="btn-primary px-6">OK</button>
-      </form>
+      <NumberPad value={answer} onChange={setAnswer} onSubmit={submit} max={3} wrong={shake} />
     </div>
   );
 }

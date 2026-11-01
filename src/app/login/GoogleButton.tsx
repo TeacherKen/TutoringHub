@@ -1,11 +1,14 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { NEXT_COOKIE } from "@/lib/safeNext";
 
-export function GoogleButton() {
+export function GoogleButton({ next }: { next?: string | null }) {
   const [busy, setBusy] = useState(false);
   async function signIn() {
     setBusy(true);
+    // Remember where to go after Google (the callback reads this, then clears it).
+    document.cookie = next ? `${NEXT_COOKIE}=${encodeURIComponent(next)}; path=/; max-age=600; samesite=lax` : `${NEXT_COOKIE}=; path=/; max-age=0`;
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",

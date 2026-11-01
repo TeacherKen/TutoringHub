@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
 
 const LEVELS = {
@@ -65,7 +66,6 @@ export function QuickMaths() {
   const [elapsed, setElapsed] = useState(0);
   const [wrong, setWrong] = useState(false);
   const [newBest, setNewBest] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   // Best = fastest time (lower is better), in tenths of a second.
   const { best, offer } = useBest(`qm-${level}`, (a, b) => a < b);
 
@@ -83,7 +83,6 @@ export function QuickMaths() {
     setElapsed(0);
     setPhase("play");
     setNewBest(false);
-    setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   function submit() {
@@ -104,7 +103,6 @@ export function QuickMaths() {
       setWrong(true);
     }
     setAnswer("");
-    inputRef.current?.focus();
   }
 
   const secs = (tenths: number) => `${(tenths / 10).toFixed(1)}s`;
@@ -164,25 +162,17 @@ export function QuickMaths() {
         <div className="h-full bg-accent transition-all" style={{ width: `${(n / COUNT) * 100}%` }} />
       </div>
       <p className="py-4 text-center text-5xl font-semibold tabular-nums sm:text-6xl">{q.text}</p>
-      {wrong ? <p className="-mt-3 text-center text-sm text-danger">Not quite — try again</p> : null}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
+      {wrong ? <p className="-mt-3 text-center text-sm text-danger">Not quite. Try again</p> : null}
+      <NumberPad
+        value={answer}
+        onChange={(v) => {
+          setAnswer(v);
+          setWrong(false);
         }}
-        className="flex gap-2"
-      >
-        <input
-          ref={inputRef}
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value.replace(/\D/g, "").slice(0, 5))}
-          inputMode="numeric"
-          autoComplete="off"
-          aria-label="Your answer"
-          className="input text-center text-3xl font-semibold tabular-nums"
-        />
-        <button className="btn-primary px-6">OK</button>
-      </form>
+        onSubmit={submit}
+        max={5}
+        wrong={wrong}
+      />
     </div>
   );
 }

@@ -10,18 +10,13 @@ import { MiniSudoku } from "./games/MiniSudoku";
 import { snapshotDocument, snapshotElement } from "@/lib/snapshot";
 import { Whiteboard } from "./Whiteboard";
 import { FootballTables } from "./games/FootballTables";
+import { GAMES as ALL_GAMES, type GameInfo } from "@/lib/games";
 import { useWolfLink, WVS_SRC } from "./games/WolfOnline";
 import { SIDE_NAME, type Side } from "@/lib/wvs";
 
-// Games with a `src` are Mr Ken's own games, copied into /public/games.
-const GAMES = [
-  { id: "magic-square", name: "Magic Square Academy", blurb: "Mr Ken's magic square adventure", src: "/games/magic-square/index.html" },
-  { id: "wolf-vs-sheep", name: "Wolf vs Sheep", blurb: "Mr Ken's strategy game", src: "/games/wolf-vs-sheep/index.html" },
-  { id: "tt", name: "Times Tables Sprint", blurb: "How many in 60 seconds?" },
-  { id: "qm", name: "Quick Maths", blurb: "10 questions, beat your time" },
-  { id: "sd", name: "Mini Sudoku", blurb: "Fill the grid with 1 to 4 (or 6)" },
-] as const;
-type GameId = (typeof GAMES)[number]["id"];
+// Break-time games (football is the Practice tab). Games with a `src` are Mr Ken's own games.
+const GAMES = ALL_GAMES.filter((g) => g.id !== "football");
+type GameId = GameInfo["id"];
 const SCREEN_EVERY_MS = 2000;
 
 const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) =>
@@ -382,7 +377,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
           <h2 className="mt-3 text-xl font-semibold">Games open at break time</h2>
           <p className="mt-1 text-muted">Mr Ken will unlock them. This page will update by itself.</p>
         </section>
-      ) : game && gameInfo && "src" in gameInfo ? (
+      ) : game && gameInfo?.src ? (
         <section className="flex flex-1 flex-col gap-2">
           <div className="flex items-center justify-between">
             <button className="btn-quiet px-0" onClick={() => setGame(null)}>
