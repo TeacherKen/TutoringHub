@@ -89,7 +89,7 @@ export function RoomControls({ students, showGames = true, lessonId }: { student
   }
 
   return (
-    <section className="card space-y-3">
+    <section id="room" className="card scroll-mt-24 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="h2">Student room</h2>
         {showGames ? (

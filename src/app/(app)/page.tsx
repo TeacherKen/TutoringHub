@@ -11,6 +11,8 @@ import { linkEventToStudent, setIgnored } from "@/app/actions/calendar";
 import { markPastDone } from "@/app/actions/lessons";
 import { backupIfDue } from "@/lib/backup";
 import { after } from "next/server";
+import { loadPrep } from "@/lib/prepData";
+import { PrepCard } from "@/components/PrepCard";
 
 export default async function Home() {
   const me = await getMe();
@@ -45,6 +47,12 @@ export default async function Home() {
     const k = bkkDateKey(l.start_at);
     byDay.set(k, [...(byDay.get(k) ?? []), l]);
   }
+  // ✅ Before class, for today's lessons still to come.
+  const prep = await loadPrep(
+    todays,
+    students,
+    money.accounts.map((a) => ({ studentIds: a.studentIds, leftHours: a.leftHours, low: renewSoon(a, today, Number(settings.low_hours_threshold), Number(settings.renew_weeks ?? 2)) })),
+  );
   const unpaid = money.packages.filter((p) => !p.paid_on && p.price_thb != null && Number(p.price_thb) > 0);
   const unpaidNames = new Map(money.accounts.map((a) => [a.id, a.name]));
   const attention = missing.length + unsent.length + low.length + unmatched.length + unpaid.length;
@@ -74,7 +82,12 @@ export default async function Home() {
 
       <section className="space-y-3">
         {todays.length ? (
-          todays.map((l) => <LessonCard key={l.id} lesson={l} />)
+          todays.map((l) => (
+            <div key={l.id} className="space-y-2">
+              <LessonCard lesson={l} />
+              {prep.get(l.id) ? <PrepCard lessonId={l.id} students={prep.get(l.id)!} /> : null}
+            </div>
+          ))
         ) : (
           <p className="card text-muted">No lessons today.</p>
         )}
