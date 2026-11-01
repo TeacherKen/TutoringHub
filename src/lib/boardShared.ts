@@ -189,13 +189,75 @@ export function grabsMark(m: MarkData, x: number, y: number, r: number, aspect: 
   return hitsMark(m, x, y, r, aspect);
 }
 
+/** The rectangle around several marks. */
+export function groupBounds(list: MarkData[], aspect: number): Box {
+  if (!list.length) return { x1: 0, y1: 0, x2: 0, y2: 0 };
+  const all = list.map((m) => markBounds(m, aspect));
+  return {
+    x1: Math.min(...all.map((b) => b.x1)),
+    y1: Math.min(...all.map((b) => b.y1)),
+    x2: Math.max(...all.map((b) => b.x2)),
+    y2: Math.max(...all.map((b) => b.y2)),
+  };
+}
+
+/** A mark shifted by exactly (dx, dy), with every number kept inside what the server accepts. */
+function shiftMark(m: MarkData, dx: number, dy: number): MarkData {
+  if (m.t === "text" || m.t === "img") return { ...m, x: r4b(clamp01(m.x + dx)), y: r4b(clamp01(m.y + dy)) };
+  return { ...m, p: m.p.map((v, i) => r4b(Math.min(1.05, Math.max(-0.05, v + (i % 2 ? dy : dx))))) };
+}
+
+/** Several marks moved together by (dx, dy): they keep their places and the group stays on the page. */
+export function translateGroup(list: MarkData[], dx: number, dy: number, aspect: number): MarkData[] {
+  if (!list.length) return [];
+  const b = groupBounds(list, aspect);
+  // (Something already hanging over an edge can't go further out, but can always come back in.)
+  const ddx = Math.min(Math.max(dx, Math.min(0, -b.x1)), Math.max(0, 1 - b.x2));
+  const ddy = Math.min(Math.max(dy, Math.min(0, -b.y1)), Math.max(0, 1 - b.y2));
+  return list.map((m) => shiftMark(m, ddx, ddy));
+}
+
 /** The same mark moved by (dx, dy), kept on the page. */
 export function translateMark(m: MarkData, dx: number, dy: number, aspect: number): MarkData {
+  return translateGroup([m], dx, dy, aspect)[0];
+}
+
+/**
+ * Is this mark inside the box dragged with ✋ Move? Handwriting counts when nearly all of it is
+ * inside (so a tail poking out still gets picked up); lines, boxes, words and pictures must be
+ * wholly inside (with a little slack at the edges).
+ */
+export function insideBox(m: MarkData, box: Box, aspect: number, slack = 0.01): boolean {
+  const x1 = Math.min(box.x1, box.x2) - slack;
+  const x2 = Math.max(box.x1, box.x2) + slack;
+  const y1 = Math.min(box.y1, box.y2) - slack / aspect;
+  const y2 = Math.max(box.y1, box.y2) + slack / aspect;
+  if (m.t === "pen" || m.t === "hl") {
+    let inside = 0;
+    for (let i = 0; i < m.p.length; i += 2) if (m.p[i] >= x1 && m.p[i] <= x2 && m.p[i + 1] >= y1 && m.p[i + 1] <= y2) inside++;
+    return inside >= Math.ceil((m.p.length / 2) * 0.8);
+  }
   const b = markBounds(m, aspect);
-  const ddx = Math.min(Math.max(dx, -b.x1), 1 - b.x2);
-  const ddy = Math.min(Math.max(dy, -b.y1), 1 - b.y2);
-  if (m.t === "text" || m.t === "img") return { ...m, x: r4b(m.x + ddx), y: r4b(m.y + ddy) };
-  return { ...m, p: m.p.map((v, i) => r4b(v + (i % 2 ? ddy : ddx))) };
+  return b.x1 >= x1 && b.x2 <= x2 && b.y1 >= y1 && b.y2 <= y2;
+}
+
+/** Split many marks into batches small enough for one save (the server takes 120,000 characters). */
+export function markBatches<T extends { data: MarkData }>(list: T[], maxCount = 50, maxChars = 80_000): T[][] {
+  const out: T[][] = [];
+  let cur: T[] = [];
+  let size = 0;
+  for (const m of list) {
+    const n = JSON.stringify(m.data).length + 80;
+    if (cur.length && (cur.length >= maxCount || size + n > maxChars)) {
+      out.push(cur);
+      cur = [];
+      size = 0;
+    }
+    cur.push(m);
+    size += n;
+  }
+  if (cur.length) out.push(cur);
+  return out;
 }
 
 /** Grab points for resizing: the two ends of a line, the four corners of a box. */

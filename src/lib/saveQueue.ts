@@ -2,7 +2,10 @@
 // changes wait here (and in the browser's storage, in case the page is reloaded)
 // and are sent again automatically.
 
-export type QueuedOp = { op: "add"; mark: { id: string; page: number; data: unknown } } | { op: "del"; ids: string[] };
+export type QueuedOp =
+  | { op: "add"; mark: { id: string; page: number; data: unknown } }
+  | { op: "addMany"; marks: { id: string; page: number; data: unknown }[] }
+  | { op: "del"; ids: string[] };
 type Item = { body: QueuedOp; boardId: string; tries: number };
 export type SendResult = "ok" | "retry" | "drop";
 

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { addMaterialFile } from "@/app/actions/lessons";
 import { MATERIALS_BUCKET } from "@/lib/constants";
 import { SaveQueue, type QueuedOp, type SendResult } from "@/lib/saveQueue";
+import { randomId } from "@/lib/randomId";
 import {
   cleanMark,
   COLORS,
@@ -19,8 +20,11 @@ import {
   grabsMark,
   handlesOf,
   markBounds,
+  groupBounds,
+  insideBox,
+  markBatches,
   moveHandle,
-  translateMark,
+  translateGroup,
   pageKind,
   type BoardInfo,
   type BoardPoll,
@@ -54,6 +58,12 @@ type Props = {
   /** Tutor only: the lesson that "Save work" adds the pictures to. */
   saveLessonId?: string | null;
 };
+
+/** ✋ Move: resizing one thing, moving the selected things, or dragging a box to select. */
+type Drag =
+  | { mode: "handle"; id: string; handle: number; x: number; y: number; preview: MarkData | null }
+  | { mode: "move"; ids: string[]; x: number; y: number; previews: Map<string, MarkData> | null }
+  | { mode: "box"; x: number; y: number; x2: number; y2: number; base: string[]; tap: string | null };
 
 const GRID_CELLS = 32; // squares across a squared-paper page
 const GRID_LINE = "#d6def0";
@@ -242,10 +252,10 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const pictures = useRef(new Map<string, HTMLImageElement>());
   const fileInput = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const selectedRef = useRef<string | null>(null);
-  const drag = useRef<{ id: string; mode: "move" | "handle"; handle: number; x: number; y: number; preview: MarkData | null } | null>(null);
-  const keys = useRef<{ undo: () => void; redo: () => void; del: () => void }>({ undo: () => {}, redo: () => {}, del: () => {} });
+  const [selected, setSelected] = useState<string[]>([]);
+  const selectedRef = useRef<string[]>([]);
+  const drag = useRef<Drag | null>(null);
+  const keys = useRef<{ undo: () => void; redo: () => void; del: () => void; all: () => void; none: () => void }>({ undo: () => {}, redo: () => {}, del: () => {}, all: () => {}, none: () => {} });
   const [size, setSize] = useState<keyof typeof SIZES>("thin");
   const [other, setOther] = useState<Live | null>(null);
   const [follow, setFollow] = useState(true);
@@ -291,30 +301,61 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     ctx.clearRect(0, 0, W, H);
     const pg = stateRef.current.page;
     const d = drag.current;
+    // While dragging, things being moved or resized are drawn where they're going.
+    const shown = (m: Mark): MarkData =>
+      d?.mode === "handle" && d.id === m.id && d.preview ? d.preview : d?.mode === "move" ? (d.previews?.get(m.id) ?? m.data) : m.data;
     for (const m of marks.current.values()) {
       if (m.page !== pg) continue;
-      drawMark(ctx, d?.preview && d.id === m.id ? d.preview : m.data, W, H, 1, picture);
+      drawMark(ctx, shown(m), W, H, 1, picture);
     }
     if (other?.stroke && other.page === pg) drawMark(ctx, other.stroke, W, H, 0.6);
     if (drawing.current) drawMark(ctx, currentStroke(drawing.current), W, H);
-    // The selected mark: a dashed box around it, and dots to drag for resizing.
-    const sel = selectedRef.current ? marks.current.get(selectedRef.current) : null;
-    if (sel && sel.page === pg && stateRef.current.tool === "select") {
-      const data = d?.preview && d.id === sel.id ? d.preview : sel.data;
+    if (stateRef.current.tool === "select") {
       const aspect = H / W;
-      const b = markBounds(data, aspect);
+      const sel = selectedRef.current.map((id) => marks.current.get(id)).filter((m): m is Mark => !!m && m.page === pg);
       ctx.save();
       ctx.strokeStyle = "#0f766e";
       ctx.lineWidth = 1.5;
-      ctx.setLineDash([6, 4]);
-      ctx.strokeRect(b.x1 * W - 4, b.y1 * H - 4, (b.x2 - b.x1) * W + 8, (b.y2 - b.y1) * H + 8);
-      ctx.setLineDash([]);
-      for (const [hx, hy] of handlesOf(data)) {
-        ctx.beginPath();
-        ctx.arc(hx * W, hy * H, 7, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
-        ctx.fill();
-        ctx.stroke();
+      if (sel.length === 1) {
+        // One thing: a dashed box around it, and dots to drag for resizing.
+        const data = shown(sel[0]);
+        const b = markBounds(data, aspect);
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(b.x1 * W - 4, b.y1 * H - 4, (b.x2 - b.x1) * W + 8, (b.y2 - b.y1) * H + 8);
+        ctx.setLineDash([]);
+        for (const [hx, hy] of handlesOf(data)) {
+          ctx.beginPath();
+          ctx.arc(hx * W, hy * H, 7, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.fill();
+          ctx.stroke();
+        }
+      } else if (sel.length > 1) {
+        // Several things: a light outline on each, and one box around them all (grab anywhere inside it).
+        const datas = sel.map(shown);
+        ctx.globalAlpha = 0.45;
+        ctx.setLineDash([3, 3]);
+        for (const data of datas) {
+          const b = markBounds(data, aspect);
+          ctx.strokeRect(b.x1 * W - 2, b.y1 * H - 2, (b.x2 - b.x1) * W + 4, (b.y2 - b.y1) * H + 4);
+        }
+        ctx.globalAlpha = 1;
+        const g = groupBounds(datas, aspect);
+        ctx.fillStyle = "rgba(15, 118, 110, 0.06)";
+        ctx.fillRect(g.x1 * W - 8, g.y1 * H - 8, (g.x2 - g.x1) * W + 16, (g.y2 - g.y1) * H + 16);
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(g.x1 * W - 8, g.y1 * H - 8, (g.x2 - g.x1) * W + 16, (g.y2 - g.y1) * H + 16);
+      }
+      // The box being dragged to select things.
+      if (d?.mode === "box") {
+        const x = Math.min(d.x, d.x2) * W;
+        const y = Math.min(d.y, d.y2) * H;
+        const w = Math.abs(d.x2 - d.x) * W;
+        const h = Math.abs(d.y2 - d.y) * H;
+        ctx.fillStyle = "rgba(15, 118, 110, 0.10)";
+        ctx.fillRect(x, y, w, h);
+        ctx.setLineDash([5, 4]);
+        ctx.strokeRect(x, y, w, h);
       }
       ctx.restore();
     }
@@ -406,6 +447,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       return; // no live connection — checking every second still works
     }
     const other = isTutor ? "student" : "tutor";
+    /** A line or word from the other screen (checked first). */
+    const take = (raw: unknown): boolean => {
+      const m = raw as Mark | undefined;
+      if (!m || typeof m.id !== "string" || !Number.isInteger(m.page) || removed.current.has(m.id)) return false;
+      const data = cleanMark(m.data);
+      if (!data) return false;
+      marks.current.set(m.id, { id: m.id, page: m.page, author: other, data });
+      return true;
+    };
     const ch = sb.channel(`tutoringhub-board-${boardId}`, { config: { broadcast: { self: false, ack: false } } });
     ch.on("broadcast", { event: "live" }, ({ payload }) => {
       if (payload?.who !== other || !payload.live) return;
@@ -415,12 +465,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       applyOther({ ...l, stroke: stroke && stroke.t !== "text" && stroke.t !== "img" ? stroke : null, updated_at: new Date().toISOString() }, true);
     })
       .on("broadcast", { event: "mark" }, ({ payload }) => {
-        const m = payload?.mark as Mark | undefined;
-        if (payload?.who !== other || !m || typeof m.id !== "string" || !Number.isInteger(m.page) || removed.current.has(m.id)) return;
-        const data = cleanMark(m.data);
-        if (!data) return;
-        marks.current.set(m.id, { id: m.id, page: m.page, author: other, data });
-        bump();
+        if (payload?.who !== other) return;
+        if (take(payload.mark)) bump();
+      })
+      .on("broadcast", { event: "marks" }, ({ payload }) => {
+        // Several at once (moved together with ✋ Move, or brought back with Undo).
+        if (payload?.who !== other || !Array.isArray(payload.marks)) return;
+        let changed = false;
+        for (const m of payload.marks as unknown[]) changed = take(m) || changed;
+        if (changed) bump();
       })
       .on("broadcast", { event: "del" }, ({ payload }) => {
         if (payload?.who !== other || !Array.isArray(payload.ids)) return;
@@ -574,7 +627,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
                 const m = op.mark as { id: string; page: number; data: MarkData };
                 marks.current.set(m.id, { id: m.id, page: m.page, author: me, data: m.data });
                 history.current.push({ add: [{ id: m.id, page: m.page, author: me, data: m.data }], del: [] });
-              } else for (const id of op.ids) removed.current.add(id);
+              } else if (op.op === "addMany") {
+                const list = (op.marks as { id: string; page: number; data: MarkData }[]).map((m) => ({ id: m.id, page: m.page, author: me, data: m.data }) as Mark);
+                for (const m of list) marks.current.set(m.id, m);
+                history.current.push({ add: list, del: [] });
+              } else
+                for (const id of op.ids) {
+                  removed.current.add(id);
+                  marks.current.delete(id);
+                }
             }
             void q.flush();
           }
@@ -643,7 +704,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
   // ---- Keyboard: Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl+Y redo ----------------------
   useLayoutEffect(() => {
-    keys.current = { undo, redo, del: deleteSelected };
+    keys.current = { undo, redo, del: deleteSelected, all: selectAll, none: () => select([]) };
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -653,9 +714,14 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         keys.current.del();
         return;
       }
+      if (e.key === "Escape") keys.current.none();
       if (!(e.metaKey || e.ctrlKey)) return;
       const k = e.key.toLowerCase();
-      if (k === "z" && !e.shiftKey) {
+      if (k === "a" && stateRef.current.tool === "select") {
+        // ⌘A / Ctrl+A with ✋ Move: pick everything on this page.
+        e.preventDefault();
+        keys.current.all();
+      } else if (k === "z" && !e.shiftKey) {
         e.preventDefault();
         keys.current.undo();
       } else if ((k === "z" && e.shiftKey) || k === "y") {
@@ -773,46 +839,179 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     save({ op: "del", ids: hit });
   }
 
-  // ---- ✋ Move: pick, drag, resize ------------------------------------------------------
-  function select(id: string | null) {
-    selectedRef.current = id;
-    setSelected(id);
+  // ---- ✋ Move: pick, drag a box, move together, resize -----------------------------------
+  function select(ids: string[]) {
+    selectedRef.current = ids;
+    setSelected(ids);
+  }
+
+  /** Things on this page that I'm allowed to move (students can't move Mr Ken's writing). */
+  function movable(): Mark[] {
+    return [...marks.current.values()].filter((m) => m.page === page && (isTutor || m.author === "student"));
+  }
+
+  /** The selected things that are still on this page. */
+  function selectedHere(): Mark[] {
+    return selectedRef.current.map((id) => marks.current.get(id)).filter((m): m is Mark => !!m && m.page === page);
+  }
+
+  function selectAll() {
+    if (stateRef.current.tool !== "select") return;
+    select(movable().map((m) => m.id));
+    render();
   }
 
   /** The topmost mark under (x, y) that I'm allowed to move. */
   function pickAt(x: number, y: number): Mark | null {
     if (!board) return null;
-    const list = [...marks.current.values()].filter((m) => m.page === page && (isTutor || m.author === "student")).reverse();
-    return list.find((m) => grabsMark(m.data, x, y, 0.018, board.aspect)) ?? null;
+    return movable().reverse().find((m) => grabsMark(m.data, x, y, 0.018, board.aspect)) ?? null;
   }
 
-  /** Swap a mark for a changed copy (a new id, so both screens and the server stay simple). */
-  function replaceMark(old: Mark, data: MarkData): Mark {
-    const m: Mark = { id: crypto.randomUUID(), page: old.page, author: me, data };
-    marks.current.delete(old.id);
-    removed.current.add(old.id);
-    marks.current.set(m.id, m);
-    broadcast("del", { ids: [old.id] });
-    broadcast("mark", { mark: m });
-    save({ op: "del", ids: [old.id] });
-    save({ op: "add", mark: { id: m.id, page: m.page, data } });
-    history.current.push({ add: [m], del: [old] });
+  /** Is (x, y) inside the box drawn around several selected things? */
+  function inGroupBox(list: Mark[], x: number, y: number): boolean {
+    if (!board || list.length < 2) return false;
+    const g = groupBounds(list.map((m) => m.data), board.aspect);
+    const W = sizeRef.current.W || 1;
+    const H = sizeRef.current.H || 1;
+    return x >= g.x1 - 8 / W && x <= g.x2 + 8 / W && y >= g.y1 - 8 / H && y <= g.y2 + 8 / H;
+  }
+
+  /** Show new marks on the other screen and save them (in batches the server accepts). */
+  function sendMarks(list: Mark[]) {
+    if (list.length === 1) {
+      const [m] = list;
+      broadcast("mark", { mark: m });
+      save({ op: "add", mark: { id: m.id, page: m.page, data: m.data } });
+      return;
+    }
+    for (const batch of markBatches(list)) {
+      broadcast("marks", { marks: batch });
+      save({ op: "addMany", marks: batch.map((m) => ({ id: m.id, page: m.page, data: m.data })) });
+    }
+  }
+
+  /** Rub out these marks on the other screen and on the server. */
+  function sendDel(ids: string[]) {
+    if (!ids.length) return;
+    broadcast("del", { ids });
+    for (let i = 0; i < ids.length; i += 200) save({ op: "del", ids: ids.slice(i, i + 200) });
+  }
+
+  /**
+   * Swap marks for changed copies (new ids, so both screens and the server stay simple).
+   * The new copies are saved before the old ones are rubbed out, so nothing is ever lost. One Undo step.
+   */
+  function replaceMarks(pairs: [Mark, MarkData][]): Mark[] {
+    const fresh = pairs.map(([old, data]) => ({ id: randomId(), page: old.page, author: me, data }) as Mark);
+    const olds = pairs.map(([old]) => old);
+    for (const old of olds) {
+      marks.current.delete(old.id);
+      removed.current.add(old.id);
+    }
+    for (const m of fresh) marks.current.set(m.id, m);
+    sendMarks(fresh);
+    sendDel(olds.map((m) => m.id));
+    history.current.push({ add: fresh, del: olds });
     future.current = [];
     bump();
-    return m;
+    return fresh;
   }
 
   function deleteSelected() {
-    const m = selectedRef.current ? marks.current.get(selectedRef.current) : null;
-    if (!m) return;
-    marks.current.delete(m.id);
-    removed.current.add(m.id);
-    broadcast("del", { ids: [m.id] });
-    save({ op: "del", ids: [m.id] });
-    history.current.push({ add: [], del: [m] });
+    const list = selectedHere();
+    if (!list.length) return;
+    for (const m of list) {
+      marks.current.delete(m.id);
+      removed.current.add(m.id);
+    }
+    sendDel(list.map((m) => m.id));
+    history.current.push({ add: [], del: list });
     future.current = [];
-    select(null);
+    select([]);
     bump();
+  }
+
+  /** ✋ Move, finger or mouse down: resize, move what's selected, pick one thing, or start a box. */
+  function moveToolDown(x: number, y: number, shift: boolean) {
+    const sel = selectedHere();
+    // A resize dot of the one selected line, box or picture?
+    if (sel.length === 1 && !shift) {
+      const W = sizeRef.current.W || 1;
+      const H = sizeRef.current.H || 1;
+      const h = handlesOf(sel[0].data).findIndex(([hx, hy]) => Math.hypot((hx - x) * W, (hy - y) * H) < 16);
+      if (h >= 0) {
+        drag.current = { mode: "handle", id: sel[0].id, handle: h, x, y, preview: null };
+        return;
+      }
+    }
+    const hit = pickAt(x, y);
+    if (shift) {
+      // Shift: a tap adds or takes away one thing; a drag draws a box that adds more.
+      drag.current = { mode: "box", x, y, x2: x, y2: y, base: sel.map((m) => m.id), tap: hit?.id ?? null };
+    } else if ((hit && sel.some((m) => m.id === hit.id)) || inGroupBox(sel, x, y)) {
+      drag.current = { mode: "move", ids: sel.map((m) => m.id), x, y, previews: null };
+    } else if (hit) {
+      select([hit.id]);
+      drag.current = { mode: "move", ids: [hit.id], x, y, previews: null };
+    } else {
+      // An empty spot: drag a box around the things to pick.
+      select([]);
+      drag.current = { mode: "box", x, y, x2: x, y2: y, base: [], tap: null };
+    }
+    render();
+  }
+
+  function moveToolMove(x: number, y: number) {
+    const d = drag.current;
+    if (!d || !board) return;
+    if (d.mode === "box") {
+      d.x2 = x;
+      d.y2 = y;
+    } else if (d.mode === "handle") {
+      const m = marks.current.get(d.id);
+      if (!m) return;
+      d.preview = moveHandle(m.data, d.handle, x, y, board.aspect);
+    } else {
+      const list = d.ids.map((id) => marks.current.get(id)).filter((m): m is Mark => !!m);
+      if (!list.length) return;
+      const moved = translateGroup(list.map((m) => m.data), x - d.x, y - d.y, board.aspect);
+      d.previews = new Map(list.map((m, i) => [m.id, moved[i]]));
+    }
+    render();
+  }
+
+  function moveToolUp() {
+    const d = drag.current;
+    drag.current = null;
+    if (!d || !board) return render();
+    const changed = (m: Mark | undefined, data: MarkData | null | undefined): m is Mark => !!m && !!data && JSON.stringify(data) !== JSON.stringify(m.data);
+    if (d.mode === "handle") {
+      const m = marks.current.get(d.id);
+      if (changed(m, d.preview)) select(replaceMarks([[m, d.preview!]]).map((n) => n.id));
+    } else if (d.mode === "move") {
+      const pairs: [Mark, MarkData][] = [];
+      for (const [id, data] of d.previews ?? []) {
+        const m = marks.current.get(id);
+        if (changed(m, data)) pairs.push([m, data]);
+      }
+      if (pairs.length) {
+        const fresh = replaceMarks(pairs);
+        const newId = new Map(pairs.map(([old], i) => [old.id, fresh[i].id]));
+        select(selectedRef.current.map((id) => newId.get(id) ?? id)); // still selected, to move again
+      }
+    } else {
+      const tiny = Math.abs(d.x2 - d.x) < 0.006 && Math.abs(d.y2 - d.y) < 0.006;
+      if (tiny) {
+        if (d.tap) select(d.base.includes(d.tap) ? d.base.filter((id) => id !== d.tap) : [...d.base, d.tap]);
+      } else {
+        const box = { x1: d.x, y1: d.y, x2: d.x2, y2: d.y2 };
+        const inside = movable()
+          .filter((m) => insideBox(m.data, box, board.aspect))
+          .map((m) => m.id);
+        select([...new Set([...d.base, ...inside])]);
+      }
+    }
+    render();
   }
 
   /** Show my pointer on the other screen (only over the live connection). */
@@ -842,8 +1041,9 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       if (pencilRef.current) return;
       touches.current.add(e.pointerId);
       if (touches.current.size > 1) {
-        // Two fingers at once (e.g. a pinch): don't draw a stray line.
+        // Two fingers at once (e.g. a pinch): don't draw a stray line or move anything.
         drawing.current = null;
+        drag.current = null;
         erasing.current = false;
         activePointer.current = null;
         render();
@@ -865,21 +1065,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     }
     capture(e);
     if (tool === "select") {
-      const cur = selectedRef.current ? marks.current.get(selectedRef.current) : null;
-      // A resize dot of the selected line or box?
-      if (cur) {
-        const W = sizeRef.current.W || 1;
-        const H = sizeRef.current.H || 1;
-        const h = handlesOf(cur.data).findIndex(([hx, hy]) => Math.hypot((hx - x) * W, (hy - y) * H) < 16);
-        if (h >= 0) {
-          drag.current = { id: cur.id, mode: "handle", handle: h, x, y, preview: null };
-          return;
-        }
-      }
-      const hit = pickAt(x, y);
-      select(hit?.id ?? null);
-      drag.current = hit ? { id: hit.id, mode: "move", handle: -1, x, y, preview: null } : null;
-      render();
+      moveToolDown(x, y, e.shiftKey);
       return;
     }
     if (tool === "eraser") {
@@ -910,12 +1096,16 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       return;
     }
     if (tool === "select") {
-      const d = drag.current;
-      const m = d ? marks.current.get(d.id) : null;
-      if (!d || !m || !board) return;
       const { x, y } = at(e);
-      d.preview = d.mode === "handle" ? moveHandle(m.data, d.handle, x, y, board.aspect) : translateMark(m.data, x - d.x, y - d.y, board.aspect);
-      render();
+      if (!drag.current) {
+        // Mouse hovering: a move arrow over things, a crosshair over empty space (drag a box there).
+        if (e.pointerType === "mouse" && canvas.current) {
+          const over = !!pickAt(x, y) || inGroupBox(selectedHere(), x, y);
+          canvas.current.style.cursor = over ? "move" : "crosshair";
+        }
+        return;
+      }
+      moveToolMove(x, y);
       return;
     }
     const pts = drawing.current;
@@ -951,11 +1141,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     eraseStep.current = null;
     erasing.current = false;
     if (tool === "select") {
-      const d = drag.current;
-      drag.current = null;
-      const m = d ? marks.current.get(d.id) : null;
-      if (d && m && d.preview && JSON.stringify(d.preview) !== JSON.stringify(m.data)) select(replaceMark(m, d.preview).id);
-      render();
+      moveToolUp();
       return;
     }
     const pts = drawing.current;
@@ -975,7 +1161,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
   function addMark(data: MarkData) {
     future.current = []; // something new: nothing to redo
-    const id = crypto.randomUUID();
+    const id = randomId();
     const m: Mark = { id, page, author: me, data };
     marks.current.set(id, m);
     history.current.push({ add: [m], del: [] });
@@ -1034,23 +1220,17 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   /** Reverse one step: take away what it added, put back (as copies) what it took away. Returns the opposite step. */
   function reverse(step: { add: Mark[]; del: Mark[] }): { add: Mark[]; del: Mark[] } | null {
     const gone = step.add.filter((m) => marks.current.has(m.id));
-    const back = step.del.map((m) => ({ id: crypto.randomUUID(), page: m.page, author: me, data: m.data }) as Mark);
+    const back = step.del.map((m) => ({ id: randomId(), page: m.page, author: me, data: m.data }) as Mark);
     if (!gone.length && !back.length) return null;
-    if (gone.length) {
-      for (const m of gone) {
-        marks.current.delete(m.id);
-        removed.current.add(m.id);
-      }
-      const ids = gone.map((m) => m.id);
-      broadcast("del", { ids });
-      for (let i = 0; i < ids.length; i += 200) save({ op: "del", ids: ids.slice(i, i + 200) });
+    for (const m of gone) {
+      marks.current.delete(m.id);
+      removed.current.add(m.id);
     }
-    for (const m of back) {
-      marks.current.set(m.id, m);
-      broadcast("mark", { mark: m });
-      save({ op: "add", mark: { id: m.id, page: m.page, data: m.data } });
-    }
-    select(null);
+    for (const m of back) marks.current.set(m.id, m);
+    // What comes back is saved first, then what goes is rubbed out (in batches).
+    if (back.length) sendMarks(back);
+    sendDel(gone.map((m) => m.id));
+    select([]);
     bump();
     return { add: back, del: gone };
   }
@@ -1102,7 +1282,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       history.current.push({ add: [], del: gone }); // Undo brings it all back
       future.current = [];
     }
-    select(null);
+    select([]);
     bump();
     setConfirmClear(false);
     broadcast("clear", { page });
@@ -1118,7 +1298,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     setPage(next);
     setPageMenu(false);
     setConfirmRemove(false);
-    select(null);
+    select([]);
     setTextAt(null);
   }
 
@@ -1168,7 +1348,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         const pos = board.layout.indexOf(id) + 1;
         setSaving(`Saving page ${pos}…`);
         const blob = await pagePicture(board, id, marks.current.values(), imageSrc);
-        const path = `${saveLessonId}/${crypto.randomUUID()}.jpg`;
+        const path = `${saveLessonId}/${randomId()}.jpg`;
         const { error } = await sb.storage.from(MATERIALS_BUCKET).upload(path, blob, { contentType: "image/jpeg" });
         if (error) throw error;
         const r = await addMaterialFile(saveLessonId, path, "photo", `${otherName}'s work · ${board.title} · page ${pos}`.slice(0, 120));
@@ -1196,6 +1376,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const secsLeft = timer && clock ? Math.max(0, Math.ceil((timer.endsAt - clock) / 1000)) : timer ? timer.total : 0;
   const mmss = `${Math.floor(secsLeft / 60)}:${String(secsLeft % 60).padStart(2, "0")}`;
   const myMarksOnPage = [...marks.current.values()].some((m) => m.page === page && (isTutor || m.author === "student"));
+  const selCount = selected.filter((id) => marks.current.get(id)?.page === page).length;
   const btn = (active: boolean) =>
     `flex ${full ? "h-11 min-w-11" : "h-12 min-w-12"} items-center justify-center rounded-xl border px-3 text-base font-medium ${active ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`;
   // In full screen the page is as big as fits; otherwise it fits the window height.
@@ -1399,7 +1580,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           {(["select", "pen", "hl", "line", "rect", "text", "eraser", "pointer"] as const).map((t) => (
             <button key={t} type="button" className={btn(tool === t)} onClick={() => {
                 if (tool === "pointer" && t !== "pointer") broadcast("point", { hide: true });
-                if (t !== "select") select(null);
+                if (t !== "select") select([]);
                 setTool(t);
               }} aria-pressed={tool === t} title={TOOL_NAMES[t]}>
               <span aria-hidden>{TOOL_NAMES[t].split(" ")[0]}</span>
@@ -1446,9 +1627,9 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         ) : null}
 
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
-          {selected && tool === "select" ? (
+          {selCount && tool === "select" ? (
             <button type="button" className="btn-danger h-11 px-3 text-sm" onClick={deleteSelected} title="Delete what's selected (Delete key)">
-              🗑 Delete
+              🗑 Delete{selCount > 1 ? ` ${selCount}` : ""}
             </button>
           ) : null}
           <button type="button" className={btn(false)} onClick={undo} title="Undo (Ctrl/⌘ + Z)">

@@ -103,8 +103,7 @@ export function RoomControls({ students, showGames = true, lessonId }: { student
                 );
                 if (r.ok) {
                   setOpen(!open);
-                  if (open) setWatching(null);
-                  else if (students.length === 1) setWatching(students[0].id);
+                  if (!open && students.length === 1) setWatching(students[0].id); // opening games: watch straight away
                 }
               })
             }
@@ -116,22 +115,21 @@ export function RoomControls({ students, showGames = true, lessonId }: { student
       </div>
       <p className="text-sm text-muted">
         Each student has one private link. It always shows the slides for their current or next lesson.
-        {showGames
-          ? " Games stay locked until you open them, and close by themselves after 45 minutes. While they're open, tap Watch to see their game screen."
-          : ""}
+        {showGames ? " Games stay locked until you open them, and close by themselves after 45 minutes." : ""} Tap 👀 Watch to see what
+        they&apos;re doing in their room, live: football practice answer by answer, and their game screen.
       </p>
       {students.map((s) => (
         <div key={s.id} className="space-y-3 rounded-xl bg-surface-2 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-medium">{s.first_name}</span>
             <div className="flex flex-wrap items-center gap-2">
-              {showGames && open ? (
+              {tokens[s.id] ? (
                 <button
                   type="button"
                   className={watching === s.id ? "btn-secondary min-h-10 px-3 text-sm" : "btn-primary min-h-10 px-3 text-sm"}
                   onClick={() => setWatching(watching === s.id ? null : s.id)}
                 >
-                  {watching === s.id ? "Stop watching" : "Watch"}
+                  {watching === s.id ? "Stop watching" : "👀 Watch"}
                 </button>
               ) : null}
               <button type="button" className="btn-primary min-h-10 px-3 text-sm" onClick={() => share(s)}>
@@ -156,7 +154,7 @@ export function RoomControls({ students, showGames = true, lessonId }: { student
           </div>
           <SmartSlides studentId={s.id} name={s.first_name} currentId={s.board_id ?? null} lessonId={lessonId} />
           <SlidesField student={s} />
-          {showGames && open && watching === s.id ? <WatchScreen studentId={s.id} name={s.first_name} /> : null}
+          {watching === s.id ? <WatchScreen studentId={s.id} name={s.first_name} token={tokens[s.id]} /> : null}
         </div>
       ))}
       {msg ? (

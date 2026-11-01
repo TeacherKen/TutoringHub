@@ -1,6 +1,9 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { RoomData } from "@/lib/room";
+import { createClient } from "@/lib/supabase/client";
+import { MAX_LIVE_HTML, watchChannel, type PracticeLive, type WatchView } from "@/lib/watch";
 import { TimesTables } from "./games/TimesTables";
 import { QuickMaths } from "./games/QuickMaths";
 import { MiniSudoku } from "./games/MiniSudoku";
@@ -34,19 +37,113 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   const gameFrame = useRef<HTMLIFrameElement>(null);
   const gameInfo = GAMES.find((g) => g.id === game);
 
+  /** A picture (HTML copy, no scripts) of the game screen right now, or "" if there's no game. */
+  const snapGame = useCallback((): string => {
+    try {
+      const frameDoc = gameFrame.current?.contentDocument;
+      if (frameDoc?.documentElement) return snapshotDocument(frameDoc, new URL(gameFrame.current!.src, location.href).href.replace(/[^/]*$/, ""));
+      if (gameBox.current) return snapshotElement(gameBox.current);
+    } catch {
+      /* the game is still loading */
+    }
+    return "";
+  }, []);
+
+  // ---- 👀 Mr Ken watching live ---------------------------------------------------------------
+  // His screen says "I'm watching" every few seconds; while it does, this room tells it what's
+  // happening (football answers as they're typed, a picture of a game screen when it changes).
+  const [watched, setWatched] = useState(false);
+  const watchedUntil = useRef(0);
+  const watchCh = useRef<RealtimeChannel | null>(null);
+  const practiceNow = useRef<PracticeLive | null>(null);
+  const lastLiveHtml = useRef("");
+  const viewRef = useRef({ tab, game });
+  useLayoutEffect(() => {
+    viewRef.current = { tab, game };
+  }, [tab, game]);
+
+  const sendView = useCallback(
+    (full: boolean, snap?: string) => {
+      const ch = watchCh.current;
+      if (!ch || Date.now() > watchedUntil.current) return;
+      const { tab: t, game: g } = viewRef.current;
+      const view: WatchView = { tab: t, game: t === "games" ? g : null, practice: t === "practice" ? practiceNow.current : null };
+      if (t === "games" && g) {
+        const html = snap ?? snapGame();
+        if (html && html.length <= MAX_LIVE_HTML && (full || html !== lastLiveHtml.current)) {
+          view.html = html;
+          lastLiveHtml.current = html;
+        }
+      }
+      void ch.send({ type: "broadcast", event: "view", payload: view });
+    },
+    [snapGame],
+  );
+
+  useEffect(() => {
+    let sb: ReturnType<typeof createClient>;
+    try {
+      sb = createClient();
+    } catch {
+      return; // no live connection: Mr Ken still sees game pictures the slower way
+    }
+    const ch = sb.channel(watchChannel(token), { config: { broadcast: { self: false, ack: false } } });
+    ch.on("broadcast", { event: "watch" }, ({ payload }) => {
+      if (payload?.on === false) {
+        watchedUntil.current = 0;
+        setWatched(false);
+        return;
+      }
+      watchedUntil.current = Date.now() + 12_000;
+      setWatched(true);
+      sendView(payload?.need === true);
+    }).subscribe();
+    watchCh.current = ch;
+    const tick = setInterval(() => {
+      if (Date.now() > watchedUntil.current) return setWatched(false);
+      const { tab: t, game: g } = viewRef.current;
+      if (t !== "games" || !g) return;
+      const html = snapGame();
+      if (html && html !== lastLiveHtml.current) sendView(false, html);
+    }, 1000);
+    return () => {
+      clearInterval(tick);
+      watchCh.current = null;
+      void sb.removeChannel(ch);
+    };
+  }, [token, sendView, snapGame]);
+
+  // A new tab or game: tell Mr Ken straight away.
+  useEffect(() => {
+    sendView(true);
+  }, [tab, game, sendView]);
+
+  const onPracticeLive = useCallback(
+    (p: PracticeLive) => {
+      practiceNow.current = p;
+      sendView(false);
+    },
+    [sendView],
+  );
+
+  /** After a tap in a game, send the new picture quickly (and again once any animation ends). */
+  const quickPicture = useCallback(() => {
+    if (Date.now() > watchedUntil.current) return;
+    for (const wait of [150, 700]) {
+      setTimeout(() => {
+        const html = snapGame();
+        if (html && html !== lastLiveHtml.current) sendView(false, html);
+      }, wait);
+    }
+  }, [snapGame, sendView]);
+
   // While games are open, send Mr Ken a picture of the game screen every 2 seconds.
   useEffect(() => {
     if (!room.gamesOpen || !game) return;
     let last = "";
     const send = async () => {
       try {
-        let html = "";
-        const frameDoc = gameFrame.current?.contentDocument;
-        if (frameDoc?.documentElement) {
-          html = snapshotDocument(frameDoc, new URL(gameFrame.current!.src, location.href).href.replace(/[^/]*$/, ""));
-        } else if (gameBox.current) {
-          html = snapshotElement(gameBox.current);
-        }
+        const html = snapGame();
         if (!html || html === last || html.length > 400_000) return;
         last = html;
         await fetch(`/api/room/${token}/screen`, {
@@ -65,7 +162,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
       clearInterval(id);
       clearTimeout(first);
     };
-  }, [room.gamesOpen, game, token]);
+  }, [room.gamesOpen, game, token, snapGame]);
 
   // Check every few seconds whether Mr Ken has opened or closed games, or added slides.
   useEffect(() => {
@@ -118,6 +215,11 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
           ) : (
             <p className="text-sm text-muted">Maths with Mr Ken</p>
           )}
+          {watched ? (
+            <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent" role="status">
+              👀 Mr Ken is watching
+            </p>
+          ) : null}
         </div>
         <div role="tablist" aria-label="Room" className="flex rounded-xl border border-line bg-surface p-1">
           <button
@@ -218,7 +320,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
           ) : null}
         </section>
       ) : tab === "practice" ? (
-        <FootballTables api={`/api/room/${token}/practice`} />
+        <FootballTables api={`/api/room/${token}/practice`} onLive={onPracticeLive} />
       ) : !room.gamesOpen ? (
         <section className="card flex flex-1 flex-col items-center justify-center py-16 text-center">
           <p className="text-4xl" aria-hidden>
@@ -233,12 +335,21 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
             <button className="btn-quiet px-0" onClick={() => setGame(null)}>
               ‹ All games
             </button>
-            <span className="text-xs text-muted">Mr Ken can see your game screen during break.</span>
+            <span className="text-xs text-muted">Mr Ken can see your game screen.</span>
           </div>
           <iframe
             ref={gameFrame}
             key={gameInfo.id}
             src={gameInfo.src}
+            onLoad={(e) => {
+              // Mr Ken's games are on this site, so taps inside them can be noticed.
+              try {
+                e.currentTarget.contentDocument?.addEventListener("pointerup", quickPicture);
+                e.currentTarget.contentDocument?.addEventListener("keyup", quickPicture);
+              } catch {
+                /* fine: the 1-second check still sends changes */
+              }
+            }}
             title={gameInfo.name}
             className="w-full flex-1 rounded-2xl border border-line bg-surface"
             style={{ minHeight: "75dvh" }}
@@ -250,9 +361,9 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
             <button className="btn-quiet px-0" onClick={() => setGame(null)}>
               ‹ All games
             </button>
-            <span className="text-xs text-muted">Mr Ken can see your game screen during break.</span>
+            <span className="text-xs text-muted">Mr Ken can see your game screen.</span>
           </div>
-          <div ref={gameBox} className="card">
+          <div ref={gameBox} className="card" onPointerUp={quickPicture} onKeyUp={quickPicture}>
             <h2 className="mb-4 text-xl font-semibold">{gameInfo?.name}</h2>
             {game === "tt" ? <TimesTables /> : game === "qm" ? <QuickMaths /> : <MiniSudoku />}
           </div>

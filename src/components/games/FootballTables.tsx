@@ -4,12 +4,14 @@ import "@fontsource/barlow-condensed/700-italic.css";
 import "@fontsource/barlow-condensed/800-italic.css";
 import { useCallback, useEffect, useState } from "react";
 import {
+  answerFor,
   cleanMode,
   makeQuestion,
   MODE_EXAMPLES,
   MODE_NAMES,
   MODES,
   pickRound,
+  questionParts,
   questionWithAnswer,
   TABLES,
   updateFact,
@@ -25,6 +27,7 @@ import { Medal, TrophyShelf } from "../Trophies";
 import { KITS, Stadium, type Kit } from "./Stadium";
 import { ConfettiBurst, Controls, GLASS, makeConfetti, PANEL, Shirt, type Confetti } from "./Controls";
 import { useKeys, usePenalty } from "./usePenalty";
+import type { KickLog, PracticeLive } from "@/lib/watch";
 
 // ⚽ Football Times Tables: a penalty shootout. Type the answer, tap the goal to aim, score!
 // Facts answered wrong or slowly come back sooner (see lib/facts.ts).
@@ -46,7 +49,8 @@ const PENDING_KEY = "tutoringhub-tt-pending";
 const KIT_KEY = "tutoringhub-tt-kit";
 const MODE_KEY = "tutoringhub-tt-mode";
 
-export function FootballTables({ api }: { api: string }) {
+/** `onLive`: told what's happening after every change, so Mr Ken can watch live. */
+export function FootballTables({ api, onLive }: { api: string; onLive?: (s: PracticeLive) => void }) {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tables, setTables] = useState<number[]>([]);
@@ -61,6 +65,7 @@ export function FootballTables({ api }: { api: string }) {
   const [confetti, setConfetti] = useState<Confetti[]>([]);
   const [result, setResult] = useState<Result | null>(null);
   const [allTrophies, setAllTrophies] = useState(false);
+  const [log, setLog] = useState<KickLog[]>([]); // this round's answers, for Mr Ken's watch panel
   const pen = usePenalty();
 
   useEffect(() => {
@@ -93,6 +98,7 @@ export function FootballTables({ api }: { api: string }) {
     setConfetti([]);
     setAnswers([]);
     setGoals([]);
+    setLog([]);
     setResult(null);
     reset();
     setStage("play");
@@ -157,10 +163,33 @@ export function FootballTables({ api }: { api: string }) {
           if (!kick.second) setGoals((g) => [...g, res.correct]); // the score box updates as the ball lands
         },
       });
+      if (r) setLog((l) => [...l, { text: questionWithAnswer(kick.q), given: typed, correct: r.correct, ms: r.ms, second: kick.second }]);
       return r;
     },
     [kick, takeKick, typed, answers, goals, kicks, i, finish, pen.bestStreak, pen.powers],
   );
+
+  // 👀 Tell Mr Ken's screen what's happening (his room only sends it while he's watching).
+  useEffect(() => {
+    if (!onLive || !data) return;
+    const playing = stage === "play" && kick;
+    onLive({
+      stage,
+      mode,
+      tables,
+      q: playing ? { parts: questionParts(kick.q), answer: answerFor(kick.q) } : null,
+      typed: playing ? pen.typed : "",
+      second: !!(playing && kick.second),
+      kick: i + 1,
+      kicks: kicks.length,
+      goals: goals.filter(Boolean).length,
+      misses: goals.filter((g) => !g).length,
+      streak: pen.streak,
+      log: log.slice(-20),
+      score: stage === "done" && result ? result.score : null,
+      total: stage === "done" && result ? result.total : null,
+    });
+  }, [onLive, data, stage, mode, tables, kick, pen.typed, i, kicks.length, goals, pen.streak, log, result]);
 
   useKeys(stage === "play" && !pen.shot, pen.press, shoot);
 

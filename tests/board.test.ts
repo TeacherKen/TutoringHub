@@ -111,3 +111,41 @@ describe("pasted pictures", () => {
     expect(big.h / big.w).toBeCloseTo(0.3 / 0.4, 3);
   });
 });
+
+import { insideBox, markBatches, translateGroup } from "@/lib/boardShared";
+describe("moving several things at once", () => {
+  const a = { t: "rect" as const, c: "#000000", w: 0.003, p: [0.1, 0.1, 0.3, 0.2] };
+  const b = { t: "text" as const, c: "#000000", s: 0.03, x: 0.5, y: 0.5, text: "24" };
+  const pen = { t: "pen" as const, c: "#000000", w: 0.003, p: [0.6, 0.6, 0.62, 0.61, 0.64, 0.6, 0.66, 0.62, 0.9, 0.9] };
+
+  it("moves the group together, keeping their places", () => {
+    const [ma, mb] = translateGroup([a, b], 0.1, 0.05, 0.5625) as [typeof a, typeof b];
+    expect(ma.p).toEqual([0.2, 0.15, 0.4, 0.25]);
+    expect(mb).toMatchObject({ x: 0.6, y: 0.55 });
+  });
+
+  it("stops the whole group at the edge of the page without squashing it", () => {
+    const [ma, mb] = translateGroup([a, b], 5, 0, 0.5625) as [typeof a, typeof b];
+    const gap = mb.x - ma.p[0];
+    expect(gap).toBeCloseTo(b.x - a.p[0], 3); // same distance apart as before
+    expect(Math.max(ma.p[2], mb.x)).toBeLessThanOrEqual(1);
+  });
+
+  it("picks what's inside the dragged box (handwriting can poke out a little)", () => {
+    const box = { x1: 0.05, y1: 0.05, x2: 0.7, y2: 0.7 };
+    expect(insideBox(a, box, 0.5625)).toBe(true);
+    expect(insideBox(b, box, 0.5625)).toBe(true);
+    expect(insideBox(pen, box, 0.5625)).toBe(true); // 4 of 5 points inside
+    expect(insideBox(a, { x1: 0.2, y1: 0, x2: 1, y2: 1 }, 0.5625)).toBe(false); // the box is only half inside
+    expect(insideBox(pen, { x1: 0, y1: 0, x2: 0.61, y2: 1 }, 0.5625)).toBe(false);
+  });
+
+  it("splits a big move into saves the server accepts", () => {
+    const long = { t: "pen" as const, c: "#000000", w: 0.003, p: Array.from({ length: 3998 }, (_, i) => (i % 100) / 100) };
+    const many = Array.from({ length: 30 }, (_, i) => ({ id: String(i), data: long }));
+    const batches = markBatches(many);
+    expect(batches.flat()).toHaveLength(30);
+    for (const batch of batches) expect(JSON.stringify(batch).length).toBeLessThan(120_000);
+    expect(markBatches(Array.from({ length: 120 }, (_, i) => ({ id: String(i), data: a })))).toHaveLength(3);
+  });
+});

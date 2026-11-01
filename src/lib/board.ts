@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { MATERIALS_BUCKET } from "@/lib/constants";
 import { randomUUID } from "node:crypto";
-import { BOARD_KEEP_DAYS, IMG_KEY_RE, boardExpired, boardLayout, cleanLive, cleanMark, insertPage, isUuid, removePage, type BoardInfo, type BoardPoll, type Live, type Mark } from "@/lib/boardShared";
+import { BOARD_KEEP_DAYS, IMG_KEY_RE, boardExpired, boardLayout, cleanLive, cleanMark, insertPage, isUuid, removePage, type BoardInfo, type BoardPoll, type Live, type Mark, type MarkData } from "@/lib/boardShared";
 
 // Smart slides on the server. Both the student's room (private link) and Mr Ken's
 // view (signed in) come through here, after their own checks, using the admin client.
@@ -96,8 +96,26 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
 /** Handle one change sent from a screen: add a line, rub out, or "here's what I'm doing". */
 export async function changeBoard(b: BoardRow, me: Who, body: unknown): Promise<{ ok: boolean; error?: string; layout?: number[] }> {
   const admin = createAdminClient();
-  const req = (body ?? {}) as { op?: unknown; mark?: unknown; ids?: unknown; live?: unknown; page?: unknown; kind?: unknown };
+  const req = (body ?? {}) as { op?: unknown; mark?: unknown; marks?: unknown; ids?: unknown; live?: unknown; page?: unknown; kind?: unknown };
   const layout = boardLayout(b.pages, b.layout);
+
+  if (req.op === "addMany") {
+    // Several things at once (e.g. moved together with ✋ Move). Anything not valid is skipped.
+    const list = Array.isArray(req.marks) ? req.marks.slice(0, 100) : [];
+    const rows: { id: string; board_id: string; page: number; author: Who; data: MarkData }[] = [];
+    for (const raw of list) {
+      const m = (raw ?? {}) as { id?: unknown; page?: unknown; data?: unknown };
+      const data = cleanMark(m.data);
+      if (isUuid(m.id) && data && Number.isInteger(m.page) && layout.includes(m.page as number)) {
+        rows.push({ id: m.id, board_id: b.id, page: m.page as number, author: me, data });
+      }
+    }
+    if (!rows.length) return { ok: false, error: "bad mark" };
+    const { count } = await admin.from("board_marks").select("id", { count: "exact", head: true }).eq("board_id", b.id);
+    if ((count ?? 0) + rows.length > MAX_MARKS_PER_BOARD) return { ok: false, error: "board full" };
+    const { error } = await admin.from("board_marks").upsert(rows, { onConflict: "id", ignoreDuplicates: true });
+    return { ok: !error };
+  }
 
   if (req.op === "add") {
     const m = (req.mark ?? {}) as { id?: unknown; page?: unknown; data?: unknown };
