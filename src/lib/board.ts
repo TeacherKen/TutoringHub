@@ -66,7 +66,7 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
   const [marksRes, liveRes, urls] = await Promise.all([
     admin
       .from("board_marks")
-      .select("id, page, author, data, deleted, rev")
+      .select("id, page, author, data, deleted, rev, created_at")
       .eq("board_id", b.id)
       .gt("rev", after)
       .order("rev")

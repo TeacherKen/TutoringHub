@@ -186,3 +186,16 @@ export async function markPastDone(form: FormData): Promise<void> {
   }
   revalidatePath("/", "layout");
 }
+
+/** ✨ AI lesson summary: parent feedback, lesson notes and the next worksheet prompt (kept with the lesson). */
+export async function summariseLessonWithAI(lessonId: string): Promise<{ summary?: import("@/lib/lessonSummary").LessonSummary; error?: string }> {
+  await assertTutor();
+  const { summariseLesson } = await import("@/lib/lessonSummary");
+  const r = await summariseLesson(lessonId);
+  if (r.summary) {
+    const supabase = await createClient();
+    // Needs database update 0019; without it the summary still shows, it just isn't kept.
+    await supabase.from("lessons").update({ ai_summary: r.summary, ai_summary_at: new Date().toISOString() }).eq("id", lessonId);
+  }
+  return r;
+}

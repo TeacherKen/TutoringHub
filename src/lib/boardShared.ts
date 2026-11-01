@@ -30,7 +30,7 @@ export type TextData = { t: "text"; c: string; s: number; x: number; y: number; 
 export type ImageData = { t: "img"; k: string; x: number; y: number; w: number; h: number };
 export type MarkData = StrokeData | TextData | ImageData;
 export const IMG_KEY_RE = /^img-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png)$/;
-export type Mark = { id: string; page: number; author: "student" | "tutor"; data: MarkData; deleted?: boolean; rev?: number };
+export type Mark = { id: string; page: number; author: "student" | "tutor"; data: MarkData; deleted?: boolean; rev?: number; created_at?: string };
 
 export type Live = {
   page: number;
@@ -265,3 +265,11 @@ export function snapLine(x1: number, y1: number, x2: number, y2: number, aspect:
 export const BOARD_KEEP_DAYS = 28;
 export const boardExpiry = (createdAt: string): Date => new Date(new Date(createdAt).getTime() + BOARD_KEEP_DAYS * 86_400_000);
 export const boardExpired = (createdAt: string, now = Date.now()): boolean => boardExpiry(createdAt).getTime() <= now;
+
+/** Writing done during a lesson (not rubbed out), and the pages it's on, in page order. */
+export function lessonWriting(marks: Mark[], layout: number[], fromIso: string, toIso: string): { marks: Mark[]; pages: number[] } {
+  const from = Date.parse(fromIso);
+  const to = Date.parse(toIso);
+  const inLesson = marks.filter((m) => !m.deleted && m.created_at && Date.parse(m.created_at) >= from && Date.parse(m.created_at) <= to);
+  return { marks: inLesson, pages: layout.filter((id) => inLesson.some((m) => m.page === id)) };
+}

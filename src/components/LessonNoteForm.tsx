@@ -162,6 +162,35 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
 
   const set = <K extends keyof NoteInput>(k: K, v: NoteInput[K]) => setNote((n) => ({ ...n, [k]: v }));
 
+  // The ✨ AI lesson summary (above this form) can fill in the notes and the parent message.
+  useEffect(() => {
+    const onNotes = (e: Event) => {
+      const d = (e as CustomEvent<Partial<NoteInput>>).detail ?? {};
+      // Only empty boxes are filled: what Mr Ken typed himself always stays.
+      setNote((n) => ({
+        ...n,
+        learned: n.learned.trim() ? n.learned : (d.learned ?? ""),
+        next_time: n.next_time.trim() ? n.next_time : (d.next_time ?? ""),
+        homework: n.homework.trim() ? n.homework : (d.homework ?? ""),
+        how_it_went: n.how_it_went ?? d.how_it_went ?? null,
+        topics: [...new Set([...n.topics, ...(d.topics ?? [])])].slice(0, 12),
+      }));
+    };
+    const onMessage = (e: Event) => {
+      const text = (e as CustomEvent<string>).detail;
+      if (typeof text !== "string" || !text.trim()) return;
+      setFinalMsg(text);
+      setFinalState("idle");
+      document.getElementById("parent-message")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    window.addEventListener("tutoringhub:use-notes", onNotes);
+    window.addEventListener("tutoringhub:use-message", onMessage);
+    return () => {
+      window.removeEventListener("tutoringhub:use-notes", onNotes);
+      window.removeEventListener("tutoringhub:use-message", onMessage);
+    };
+  }, []);
+
   function addTopic(t: string) {
     const v = t.trim().toLowerCase();
     if (!v || note.topics.includes(v)) return;
@@ -369,6 +398,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
         <label className="block">
           <span className="label">Final message (what the parent will receive)</span>
           <textarea
+            id="parent-message"
             className="input min-h-48"
             value={finalMsg}
             onChange={(e) => {

@@ -6,6 +6,8 @@ import { getLesson, getMoneyData, getProgress, getSettings, getStudents, lessonM
 import { MATERIALS_BUCKET, tutorName } from "@/lib/env";
 import { bkkDateKey, fmtLongDay, fmtTime, hoursBetween, isPast } from "@/lib/time";
 import { LessonNoteForm } from "@/components/LessonNoteForm";
+import { LessonAISummary } from "@/components/LessonAISummary";
+import { cleanSummary, lessonWindow } from "@/lib/lessonSummary";
 import { Materials, type MaterialView } from "@/components/Materials";
 import { RoomControls } from "@/components/RoomControls";
 import { aiAvailable } from "@/lib/ai";
@@ -51,6 +53,23 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
       return { id: m.id, kind: m.kind, label: m.label ?? "", href };
     }),
   );
+
+  // ✨ AI summary: smart slides written on during this lesson, photos, and any summary already made.
+  const win = lessonWindow(lesson.start_at, lesson.end_at);
+  const { data: kidBoards } = studentIds.length ? await supabase.from("boards").select("id, student_id").in("student_id", studentIds) : { data: [] };
+  const boardIds = ((kidBoards ?? []) as { id: string; student_id: string }[]).map((b) => b.id);
+  const { data: active } = boardIds.length
+    ? await supabase.from("board_marks").select("board_id").in("board_id", boardIds).gte("created_at", win.from).lte("created_at", win.to).limit(2000)
+    : { data: [] };
+  const activeIds = new Set(((active ?? []) as { board_id: string }[]).map((r) => r.board_id));
+  const nameOfStudent = new Map(lesson.lesson_students.map((ls) => [ls.student_id, ls.students?.first_name ?? "Student"]));
+  const summaryBoards = ((kidBoards ?? []) as { id: string; student_id: string }[])
+    .filter((b) => activeIds.has(b.id))
+    .map((b) => ({ id: b.id, name: nameOfStudent.get(b.student_id) ?? "Student" }));
+  const { data: saved, error: summaryErr } = await supabase.from("lessons").select("ai_summary").eq("id", id).maybeSingle();
+  const savedSummary = summaryErr ? null : cleanSummary((saved as { ai_summary?: unknown } | null)?.ai_summary);
+  if (savedSummary) savedSummary.pictures_read = Number(((saved as { ai_summary?: { pictures_read?: number } }).ai_summary ?? {}).pictures_read) || 0;
+  const photoLabels = materials.filter((m) => m.kind === "photo").map((m) => m.label);
 
   const topicSuggestions = [...new Set((recentTopics ?? []).flatMap((r) => r.topics as string[]))].slice(0, 30);
   const prevPlans = ((prev.data ?? []) as unknown as { lessons: { start_at: string; next_time: string } }[])
@@ -148,6 +167,18 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
           </form>
         ) : null}
       </section>
+
+      {isPast(lesson.start_at) ? (
+        <LessonAISummary
+          lessonId={lesson.id}
+          aiEnabled={aiAvailable()}
+          boards={summaryBoards}
+          window={win}
+          savedLabels={photoLabels}
+          photoCount={photoLabels.length}
+          initial={savedSummary}
+        />
+      ) : null}
 
       <LessonNoteForm
         lessonId={lesson.id}
