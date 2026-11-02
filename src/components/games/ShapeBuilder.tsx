@@ -20,7 +20,24 @@ const top = (cells: Cell[]) => [Math.min(...cells.map((c) => c[0])), Math.min(..
 
 /** Where each loose block is: in the tray (with its current turn), or on the board at a top-left square. */
 type Loose = { id: PieceId; shape: Cell[]; at: Cell | null };
-type Drag = { id: PieceId; shape: Cell[]; x: number; y: number; dx: number; dy: number; fromBoard: boolean; /** the board's corner on screen when the drag began */ bx: number; by: number };
+type Drag = {
+  id: PieceId;
+  shape: Cell[];
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  /** where the finger went down, to tell a tap from a drag */
+  sx: number;
+  sy: number;
+  /** where the block was before it was picked up (a tap puts it back there) */
+  from: Cell | null;
+  /** it was already selected, so a tap turns it */
+  wasSelected: boolean;
+  /** the board's corner on screen when the drag began */
+  bx: number;
+  by: number;
+};
 
 export function ShapeBuilder() {
   const [pictureId, setPictureId] = useState(PICTURES[0].id);
@@ -35,6 +52,7 @@ export function ShapeBuilder() {
   const [startedAt, setStartedAt] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [newBest, setNewBest] = useState(false);
+  const [spin, setSpin] = useState(0); // bumps on every turn, to replay the little turn animation
   const { best, offer } = useBest(`sb-${pictureId}-${level}`, (a, b) => a < b);
   const picture = pictureById(pictureId)!;
   const { rows, cols } = pictureSize(picture);
@@ -103,18 +121,41 @@ export function ShapeBuilder() {
 
   // ---- Turning ---------------------------------------------------------------------------------
   /** Turn a block in place. On the board it stays only if it still fits; otherwise it hops to the tray. */
-  function turnSelected(how: (s: Cell[]) => Cell[]) {
-    if (!selected || given.has(selected)) return;
-    const b = blocks.find((x) => x.id === selected)!;
+  function turn(id: PieceId, how: (s: Cell[]) => Cell[], at?: Cell | null) {
+    if (given.has(id)) return;
+    const b = blocks.find((x) => x.id === id)!;
+    const where = at === undefined ? b.at : at;
     const shape = how(b.shape);
-    if (b.at) {
-      const cells = shape.map(([r, c]): Cell => [r + b.at![0], c + b.at![1]]);
-      if (fits(picture, cells, placedExcept(b.id))) return update(b.id, { shape });
+    setSpin((n) => n + 1);
+    if (where) {
+      // Turn it around its middle, then nudge it to the nearest spot that fits.
+      const oh = Math.max(...b.shape.map((q) => q[0])), ow = Math.max(...b.shape.map((q) => q[1]));
+      const nh = Math.max(...shape.map((q) => q[0])), nw = Math.max(...shape.map((q) => q[1]));
+      const base: Cell = [where[0] + Math.round((oh - nh) / 2), where[1] + Math.round((ow - nw) / 2)];
+      const tries: Cell[] = [base, where, ...[[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dr, dc]): Cell => [base[0] + dr, base[1] + dc])];
+      const ok = tries.find((t) => fits(picture, shape.map(([r, c]): Cell => [r + t[0], c + t[1]]), placedExcept(id)));
+      if (ok) return update(id, { shape, at: ok });
       setMsg("It doesn't fit that way there, so it's back in the tray.");
-      return update(b.id, { shape, at: null });
+      return update(id, { shape, at: null });
     }
-    update(b.id, { shape });
+    update(id, { shape });
   }
+  const turnSelected = (how: (s: Cell[]) => Cell[]) => selected && turn(selected, how);
+
+  // Keyboard on a computer: R turns, F flips, Delete takes it off.
+  useEffect(() => {
+    if (phase !== "play") return;
+    const key = (e: KeyboardEvent) => {
+      if (!selected || e.metaKey || e.ctrlKey) return;
+      const k = e.key.toLowerCase();
+      if (k === "r") turn(selected, rotate);
+      else if (k === "f") turn(selected, flip);
+      else if (k === "delete" || k === "backspace") update(selected, { at: null });
+      else if (k === "escape") setSelected(null);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  });
 
   // ---- Dragging --------------------------------------------------------------------------------
   const boardTopLeftFor = (d: Drag): Cell | null => {
@@ -135,7 +176,7 @@ export function ShapeBuilder() {
     setSelected(id);
     setMsg(null);
     const g = gridRef.current?.getBoundingClientRect();
-    setDrag({ id, shape: b.shape, x: e.clientX, y: e.clientY, fromBoard: !!b.at, bx: g?.left ?? 0, by: g?.top ?? 0, ...grab });
+    setDrag({ id, shape: b.shape, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, from: b.at, wasSelected: selected === id, bx: g?.left ?? 0, by: g?.top ?? 0, ...grab });
     if (b.at) setBlocks((l) => l.map((x) => (x.id === id ? { ...x, at: null } : x))); // lift it off the board
   }
   useEffect(() => {
@@ -145,6 +186,12 @@ export function ShapeBuilder() {
       // `drag` here is this render's value (the effect re-subscribes every render), so no state updater needed.
       const d = drag;
       setDrag(null);
+      // A tap (the finger hardly moved): put it back, and if it was already chosen, turn it.
+      if (Math.hypot(d.x - d.sx, d.y - d.sy) < 8) {
+        if (d.from) setBlocks((l) => l.map((x) => (x.id === d.id ? { ...x, at: d.from } : x)));
+        if (d.wasSelected) turn(d.id, rotate, d.from);
+        return;
+      }
       const at = boardTopLeftFor(d);
       const cells = at ? d.shape.map(([r, c]): Cell => [r + at[0], c + at[1]]) : null;
       if (at && cells && fits(picture, cells, placedExcept(d.id))) update(d.id, { at });
@@ -217,11 +264,14 @@ export function ShapeBuilder() {
 
   if (phase === "done") {
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-sm text-muted">
-          {picture.emoji} {picture.name} finished!
+      <div className="relative space-y-4 overflow-hidden text-center">
+        <Confetti />
+        <p className="text-3xl font-semibold">
+          <span className="sb-pop inline-block text-5xl">{picture.emoji}</span> {picture.name} finished!
         </p>
-        <Board picture={picture} placed={placed} px={Math.min(px, 32)} />
+        <div className="sb-pop">
+          <Board picture={picture} placed={placed} px={Math.min(px, 32)} />
+        </div>
         <p className="text-5xl font-semibold tabular-nums">{secs(Math.round(elapsed / 100))}</p>
         <p className={newBest ? "font-medium text-ok" : "text-muted"}>
           {newBest ? "New fastest time! 🧩" : hints ? `With ${hints} hint${hints === 1 ? "" : "s"}` : `Your fastest: ${best != null ? secs(best) : "—"}`}
@@ -274,25 +324,36 @@ export function ShapeBuilder() {
               const k = `${r},${c}`;
               if (!want.has(k)) return null;
               const snap = snapSet.has(k);
+              const out = (dr: number, dc: number) => !want.has(`${r + dr},${c + dc}`);
+              const edge = "3px solid #33415c";
               return (
                 <div
                   key={k}
                   role="gridcell"
-                  className="absolute rounded-[3px]"
+                  className="absolute"
                   style={{
                     left: c * px,
                     top: r * px,
                     width: px,
                     height: px,
-                    background: snap ? (snapOk ? "rgba(47,107,98,.35)" : "rgba(200,40,40,.35)") : "var(--surface-2)",
-                    boxShadow: snap ? `inset 0 0 0 2px ${snapOk ? "var(--accent)" : "var(--danger)"}` : "inset 0 0 0 1px var(--border)",
+                    background: snap ? (snapOk ? "rgba(47,107,98,.4)" : "rgba(200,40,40,.35)") : (r + c) % 2 ? "#e4e8ef" : "#dde2ea",
+                    borderTop: out(-1, 0) ? edge : "1px solid rgba(51,65,92,.12)",
+                    borderLeft: out(0, -1) ? edge : "1px solid rgba(51,65,92,.12)",
+                    borderBottom: out(1, 0) ? edge : undefined,
+                    borderRight: out(0, 1) ? edge : undefined,
+                    borderTopLeftRadius: out(-1, 0) && out(0, -1) ? 8 : 0,
+                    borderTopRightRadius: out(-1, 0) && out(0, 1) ? 8 : 0,
+                    borderBottomLeftRadius: out(1, 0) && out(0, -1) ? 8 : 0,
+                    borderBottomRightRadius: out(1, 0) && out(0, 1) ? 8 : 0,
+                    boxShadow: snap ? `inset 0 0 0 2px ${snapOk ? "var(--accent)" : "var(--danger)"}` : undefined,
                   }}
                 />
               );
             })}
             {onBoard.map((b) => (
               <Block
-                key={b.id}
+                key={selected === b.id ? `${b.id}-${spin}` : b.id}
+                spin={selected === b.id && spin > 0}
                 id={b.id}
                 shape={b.shape}
                 px={px}
@@ -306,6 +367,7 @@ export function ShapeBuilder() {
                 }}
               />
             ))}
+            {sel?.at && !drag && !given.has(sel.id) ? <TurnButtons block={sel} px={px} rows={rows} onTurn={(how) => turn(sel.id, how)} /> : null}
           </div>
         </div>
 
@@ -327,7 +389,7 @@ export function ShapeBuilder() {
                 ) : null}
               </>
             ) : (
-              <span className="px-2 text-center text-sm text-muted">Drag a block onto the picture. Tap a block to turn or flip it.</span>
+              <span className="px-2 text-center text-sm text-muted">Drag a block onto the picture. Tap a block, then tap it again to turn it.</span>
             )}
           </div>
           <p aria-live="polite" className={`min-h-6 text-center text-sm ${msg?.startsWith("Hint") ? "text-accent" : "text-danger"}`}>
@@ -338,10 +400,11 @@ export function ShapeBuilder() {
           <div className="flex min-h-28 flex-wrap items-center justify-center gap-4 rounded-2xl bg-surface-2 p-4">
             {inTray.map((b) => (
               <Block
-                key={b.id}
+                key={selected === b.id ? `${b.id}-${spin}` : b.id}
+                spin={selected === b.id && spin > 0}
                 id={b.id}
                 shape={b.shape}
-                px={Math.min(px, 26)}
+                px={Math.min(px, 30)}
                 selected={selected === b.id}
                 onPointerDown={(e) => beginDrag(b.id, e)}
                 onClick={(e) => {
@@ -383,6 +446,7 @@ function Block({
   locked,
   selected,
   lifted,
+  spin,
   onPointerDown,
   onClick,
 }: {
@@ -393,6 +457,7 @@ function Block({
   locked?: boolean;
   selected?: boolean;
   lifted?: boolean;
+  spin?: boolean;
   onPointerDown?: (e: React.PointerEvent<HTMLElement>) => void;
   onClick?: (e: React.MouseEvent) => void;
 }) {
@@ -406,8 +471,8 @@ function Block({
       aria-label={`${p.name} block${locked ? " (fixed)" : ""}`}
       onPointerDown={locked ? undefined : onPointerDown}
       onClick={onClick}
-      className={`relative touch-none ${locked ? "" : "cursor-grab active:cursor-grabbing"} ${lifted ? "drop-shadow-2xl" : ""}`}
-      style={{ width: w * px, height: h * px, filter: selected ? "brightness(1.08)" : undefined, ...style }}
+      className={`relative touch-none ${locked ? "" : "cursor-grab active:cursor-grabbing"} ${lifted ? "scale-105 drop-shadow-2xl" : ""} ${spin ? "sb-spin" : ""}`}
+      style={{ width: w * px, height: h * px, filter: selected ? "drop-shadow(0 0 6px rgba(255,198,41,.95)) brightness(1.06)" : undefined, ...style }}
     >
       {shape.map(([r, c]) => (
         <span
@@ -419,7 +484,8 @@ function Block({
             width: px,
             height: px,
             background: p.color,
-            opacity: locked ? 0.8 : 1,
+            // a fixed (given) block wears a little pin in each square, so children see they can't move it
+            backgroundImage: locked ? "radial-gradient(circle at 50% 50%, rgba(255,255,255,.55) 0 3px, transparent 3.5px)" : undefined,
             // rounded only on outside corners so the squares read as one piece
             borderTopLeftRadius: !has(r - 1, c) && !has(r, c - 1) ? 6 : 0,
             borderTopRightRadius: !has(r - 1, c) && !has(r, c + 1) ? 6 : 0,
@@ -430,11 +496,60 @@ function Block({
               !has(r + 1, c) ? "inset 0 -3px 0 rgba(0,0,0,.25)" : "",
               !has(r, c - 1) ? "inset 2px 0 0 rgba(255,255,255,.2)" : "",
               !has(r, c + 1) ? "inset -2px 0 0 rgba(0,0,0,.18)" : "",
-              selected ? "0 0 0 3px var(--accent)" : "",
             ]
               .filter(Boolean)
               .join(", "),
           }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Round Rotate and Flip buttons sitting right next to a block on the picture. */
+function TurnButtons({ block, px, rows, onTurn }: { block: Loose; px: number; rows: number; onTurn: (how: (s: Cell[]) => Cell[]) => void }) {
+  const h = Math.max(...block.shape.map((c) => c[0])) + 1;
+  const w = Math.max(...block.shape.map((c) => c[1])) + 1;
+  const [r, c] = block.at!;
+  const above = r > 0 || r + h >= rows; // usually above the block; below it when it's on the top row
+  const btn = "grid h-11 w-11 place-items-center rounded-full bg-[#ffc629] text-xl font-bold text-[#0b1d42] shadow-lg ring-2 ring-white transition active:scale-90";
+  return (
+    <div
+      className="absolute z-20 flex gap-2"
+      style={{ left: (c + w / 2) * px, top: above ? r * px - 52 : (r + h) * px + 8, transform: "translateX(-50%)" }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button type="button" aria-label="Rotate" className={btn} onClick={() => onTurn(rotate)}>
+        ↻
+      </button>
+      <button type="button" aria-label="Flip" className={btn} onClick={() => onTurn(flip)}>
+        ⇋
+      </button>
+    </div>
+  );
+}
+
+/** A short burst of falling colours for a finished picture. */
+function Confetti() {
+  const bits = useMemo(
+    () =>
+      Array.from({ length: 36 }, (_, i) => ({
+        left: (i * 37) % 100,
+        delay: (i % 9) * 0.12,
+        dur: 1.6 + ((i * 7) % 10) / 10,
+        color: PIECES[i % PIECES.length].color,
+        rot: (i * 47) % 360,
+      })),
+    [],
+  );
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-10">
+      {bits.map((b, i) => (
+        <span
+          key={i}
+          className="sb-confetti absolute top-0 h-3 w-2 rounded-sm"
+          style={{ left: `${b.left}%`, background: b.color, animationDelay: `${b.delay}s`, animationDuration: `${b.dur}s`, transform: `rotate(${b.rot}deg)` }}
         />
       ))}
     </div>
