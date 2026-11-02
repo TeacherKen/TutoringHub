@@ -10,7 +10,8 @@ import { ensureRoomToken } from "@/app/actions/rooms";
 import { startMatch } from "@/app/actions/match";
 import { GLASS, PANEL } from "./Controls";
 import { KITS } from "./Stadium";
-import { GAMES } from "@/lib/games";
+import { GAMES, type GameInfo } from "@/lib/games";
+import { Glyph } from "./Arcade";
 
 type Kid = { id: string; name: string; token: string | null; tables: number[]; mode: GameMode; onsite: boolean };
 export const SEAT_KITS = ["red", "blue", "yellow", "purple"].map((id) => KITS.find((k) => k.id === id)!);
@@ -75,29 +76,9 @@ export function PlayHub({ students }: { students: Kid[] }) {
         <p className="mt-1 text-muted">Games for lessons: the games corner on the iPad, Football Times Tables, or a match between two to four children.</p>
       </header>
 
-      <section className={`${PANEL} overflow-hidden px-4 py-5 sm:px-6`}>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="max-w-md">
-            <h2 className="font-sport text-3xl font-extrabold italic">Games corner</h2>
-            <p className="mt-1 text-sm text-white/75">
-              All {GAMES.length} games full screen, for children in an onsite lesson. No TutoringHub menu, so they can&apos;t open Money or Settings. To leave, hold
-              Exit for 2 seconds.
-            </p>
-          </div>
-          <Link href="/arcade" className="font-sport inline-flex h-14 items-center rounded-2xl bg-[#ffc629] px-6 text-2xl font-extrabold italic text-[#0b1d42] shadow-lg transition hover:bg-[#ffd447] active:scale-95">
-            Open games corner
-          </Link>
-        </div>
-        <ul className="mt-4 flex flex-wrap gap-2">
-          {GAMES.map((g) => (
-            <li key={g.id} className="rounded-full px-3 py-1 text-sm font-medium" style={{ background: g.bg, color: g.fg }}>
-              {g.name}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <GamesCorner />
 
-      <section className={`${PANEL} space-y-3 px-4 py-5 sm:px-6`}>
+      <section id="whos-playing" className={`${PANEL} scroll-mt-4 space-y-3 px-4 py-5 sm:px-6`}>
         <h2 className="font-sport text-3xl font-extrabold italic">Who&apos;s playing?</h2>
         <p className="text-sm text-white/70">Tap a name to practise on this device. Their chart and trophies update as they play.</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -207,6 +188,72 @@ export function PlayHub({ students }: { students: Kid[] }) {
         {error ? <p className="text-sm text-danger">{error}</p> : null}
       </section>
     </div>
+  );
+}
+
+const TOPICS: { topic: GameInfo["topic"]; emoji: string }[] = [
+  { topic: "Times tables", emoji: "✖️" },
+  { topic: "Fractions", emoji: "🍕" },
+  { topic: "Thinking", emoji: "🧠" },
+];
+
+/** The games corner on the Play page: the big button, then every game as a small coloured tile, by topic. */
+function GamesCorner() {
+  return (
+    <section className={`${PANEL} relative overflow-hidden px-4 py-5 sm:px-6 sm:py-6`}>
+      <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#ffc629]/15 blur-3xl" />
+      <div className="relative flex flex-wrap items-center justify-between gap-4">
+        <div className="max-w-md">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#ffc629]">{GAMES.length} games</p>
+          <h2 className="font-sport text-4xl font-extrabold italic leading-none">Games corner</h2>
+          <p className="mt-2 text-sm text-white/75">Full screen for children in an onsite lesson, with no TutoringHub menu. To leave, hold Exit for 2 seconds.</p>
+        </div>
+        <Link
+          href="/arcade"
+          className="font-sport inline-flex h-16 items-center gap-3 rounded-2xl bg-[#ffc629] px-7 text-2xl font-extrabold italic text-[#0b1d42] shadow-[0_8px_0_#c99400,0_14px_24px_rgba(0,0,0,.35)] transition hover:bg-[#ffd447] active:translate-y-1 active:shadow-[0_4px_0_#c99400,0_8px_16px_rgba(0,0,0,.3)]"
+        >
+          <span aria-hidden>🎮</span> Open games corner
+        </Link>
+      </div>
+
+      <div className="relative mt-6 space-y-5">
+        {TOPICS.map(({ topic, emoji }) => {
+          const games = GAMES.filter((g) => g.topic === topic);
+          if (!games.length) return null;
+          return (
+            <div key={topic}>
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-white/80">
+                <span aria-hidden>{emoji}</span> {topic}
+                <span className="h-px flex-1 bg-white/15" />
+              </h3>
+              <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+                {games.map((g) => (
+                  <li key={g.id}>
+                    <Link
+                      href={g.id === "football" ? "#whos-playing" : `/arcade/${g.id}`}
+                      title={g.blurb}
+                      className="group flex h-full min-h-32 flex-col overflow-hidden rounded-2xl p-3 shadow-[0_6px_16px_rgba(0,0,0,.3)] ring-1 ring-white/10 transition hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgba(0,0,0,.4)] active:scale-[.97]"
+                      style={{
+                        background: g.id === "football" ? `repeating-linear-gradient(90deg, ${g.bg} 0 28px, #227a43 28px 56px)` : g.bg,
+                        color: g.fg,
+                      }}
+                    >
+                      <span className="flex h-20 items-center justify-center overflow-hidden">
+                        <span className="origin-center scale-[0.55] whitespace-nowrap transition group-hover:scale-[0.6] sm:scale-50 sm:group-hover:scale-[0.55]">
+                          <Glyph id={g.id} />
+                        </span>
+                      </span>
+                      <span className="font-sport mt-auto block text-xl font-extrabold italic leading-tight">{g.name}</span>
+                      <span className="mt-0.5 line-clamp-1 text-xs opacity-75">{g.blurb}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

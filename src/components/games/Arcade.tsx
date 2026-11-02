@@ -84,7 +84,7 @@ function HoldToExit() {
 }
 
 /** The picture on each game's tile, drawn from the game itself. */
-function Glyph({ id }: { id: GameInfo["id"] }) {
+export function Glyph({ id }: { id: GameInfo["id"] }) {
   if (id === "football") return <BallIcon className="h-20 w-20 drop-shadow-lg sm:h-24 sm:w-24" />;
   if (id === "wolf-vs-sheep")
     return (

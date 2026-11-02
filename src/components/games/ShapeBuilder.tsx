@@ -3,9 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PICTURES, PIECES, fits, hintFor, isSolved, normalize, pictureById, pictureCells, pictureSize, rotate, flip, solutionsFor, type Cell, type PieceId, type Picture, type Placement } from "@/lib/pentomino";
 import { useBest } from "./useBest";
 
-// 🧩 Shape Builder: fit all 12 blocks into the picture. Built for the iPad: drag a block from the tray
-// onto the grid (it snaps to the squares), Rotate and Flip buttons, tap a placed block to pick it up again.
-// Any arrangement that covers the picture wins, not just the model answer.
+// 🧩 Shape Builder: fit all 12 blocks into the picture. Built for the iPad.
+// Drag a block (from the tray or from the picture) and it rides under your finger as a real block; let go
+// over the picture and it snaps into the squares if it fits, or slides back if it doesn't. Tap a block to
+// select it, then Rotate / Flip. Any arrangement that fills the picture wins, not only the model answer.
 
 type Level = "easy" | "medium" | "hard";
 const LEVELS: Record<Level, { name: string; blurb: string; given: number }> = {
@@ -15,17 +16,20 @@ const LEVELS: Record<Level, { name: string; blurb: string; given: number }> = {
 };
 const secs = (tenths: number) => `${(tenths / 10).toFixed(1)}s`;
 const pieceOf = (id: PieceId) => PIECES.find((p) => p.id === id)!;
+const top = (cells: Cell[]) => [Math.min(...cells.map((c) => c[0])), Math.min(...cells.map((c) => c[1]))] as Cell;
 
-type Held = { id: PieceId; shape: Cell[]; from: "tray" | "board" };
+/** Where each loose block is: in the tray (with its current turn), or on the board at a top-left square. */
+type Loose = { id: PieceId; shape: Cell[]; at: Cell | null };
+type Drag = { id: PieceId; shape: Cell[]; x: number; y: number; dx: number; dy: number; fromBoard: boolean; /** the board's corner on screen when the drag began */ bx: number; by: number };
 
 export function ShapeBuilder() {
   const [pictureId, setPictureId] = useState(PICTURES[0].id);
   const [level, setLevel] = useState<Level>("medium");
   const [phase, setPhase] = useState<"setup" | "play" | "done">("setup");
-  const [placed, setPlaced] = useState<Placement[]>([]);
+  const [blocks, setBlocks] = useState<Loose[]>([]);
   const [given, setGiven] = useState<Set<PieceId>>(new Set());
-  const [held, setHeld] = useState<Held | null>(null);
-  const [hover, setHover] = useState<Cell | null>(null); // grid cell under the held piece's anchor
+  const [selected, setSelected] = useState<PieceId | null>(null);
+  const [drag, setDrag] = useState<Drag | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [hints, setHints] = useState(0);
   const [startedAt, setStartedAt] = useState(0);
@@ -36,8 +40,8 @@ export function ShapeBuilder() {
   const { rows, cols } = pictureSize(picture);
   const want = useMemo(() => new Set(pictureCells(picture).map((c) => c.join(","))), [picture]);
   const gridRef = useRef<HTMLDivElement>(null);
-  // Square size: as big as fits a tablet screen, smaller for tall or wide pictures.
-  // Square size: as big as fits (600px board on a tablet), never wider than the screen on a phone.
+
+  // Square size: big on a tablet, never wider than the screen on a phone.
   const [screenW, setScreenW] = useState(1024);
   useEffect(() => {
     const on = () => setScreenW(window.innerWidth);
@@ -45,7 +49,7 @@ export function ShapeBuilder() {
     window.addEventListener("resize", on);
     return () => window.removeEventListener("resize", on);
   }, []);
-  const px = Math.max(20, Math.min(48, Math.floor(Math.min(600, screenW - 56) / Math.max(cols, rows))));
+  const px = Math.max(22, Math.min(50, Math.floor(Math.min(620, screenW - 56) / Math.max(cols, rows))));
 
   useEffect(() => {
     if (phase !== "play") return;
@@ -53,15 +57,22 @@ export function ShapeBuilder() {
     return () => clearInterval(id);
   }, [phase, startedAt]);
 
+  const placed = useMemo((): Placement[] => blocks.filter((b) => b.at).map((b) => ({ id: b.id, cells: b.shape.map(([r, c]) => [r + b.at![0], c + b.at![1]]) })), [blocks]);
+  const placedExcept = (id: PieceId) => placed.filter((p) => p.id !== id);
+
   function start() {
     const sols = solutionsFor(pictureId);
     const sol = sols[Math.floor(Math.random() * sols.length)] ?? [];
-    const n = LEVELS[level].given;
-    const pre = [...sol].sort(() => Math.random() - 0.5).slice(0, n);
-    setPlaced(pre);
+    const pre = [...sol].sort(() => Math.random() - 0.5).slice(0, LEVELS[level].given);
+    setBlocks(
+      PIECES.map((p) => {
+        const g = pre.find((x) => x.id === p.id);
+        return g ? { id: p.id, shape: normalize(g.cells), at: top(g.cells) } : { id: p.id, shape: normalize(p.cells), at: null };
+      }),
+    );
     setGiven(new Set(pre.map((p) => p.id)));
-    setHeld(null);
-    setHover(null);
+    setSelected(null);
+    setDrag(null);
     setMsg(null);
     setHints(0);
     setStartedAt(Date.now());
@@ -82,81 +93,70 @@ export function ShapeBuilder() {
     [picture, startedAt, offer],
   );
 
-  // ---- Picking up and putting down -------------------------------------------------------------
-  const inTray = PIECES.filter((p) => !placed.some((x) => x.id === p.id) && held?.id !== p.id);
-
-  function pickFromTray(id: PieceId) {
-    if (held?.id === id) return setHeld(null);
-    if (held?.from === "board") return; // put the held one down first
-    setHeld({ id, shape: normalize(pieceOf(id).cells), from: "tray" });
-    setMsg(null);
+  /** Change one block, then see if the picture is complete. */
+  function update(id: PieceId, change: Partial<Loose>) {
+    const next = blocks.map((b) => (b.id === id ? { ...b, ...change } : b));
+    setBlocks(next);
+    const list: Placement[] = next.filter((b) => b.at).map((b) => ({ id: b.id, cells: b.shape.map(([r, c]) => [r + b.at![0], c + b.at![1]]) }));
+    finish(list, hints);
   }
-  function pickFromBoard(id: PieceId) {
-    if (given.has(id) || held) return;
-    const pl = placed.find((p) => p.id === id)!;
-    setPlaced((l) => l.filter((p) => p.id !== id));
-    setHeld({ id, shape: normalize(pl.cells), from: "board" });
-    setMsg(null);
-  }
-  const turn = () => held && setHeld({ ...held, shape: rotate(held.shape) });
-  const mirror = () => held && setHeld({ ...held, shape: flip(held.shape) });
 
-  /** Where the held piece would land if its anchor (first cell) is at grid cell `at`. */
-  const landing = (at: Cell): Cell[] | null => {
-    if (!held) return null;
-    const a = held.shape[0];
-    return held.shape.map(([r, c]) => [r - a[0] + at[0], c - a[1] + at[1]]);
-  };
-  function drop(at: Cell) {
-    if (!held) return;
-    const cells = landing(at)!;
-    if (!fits(picture, cells, placed)) {
-      setMsg("That doesn't fit there. Try turning it, or another spot.");
-      return;
+  // ---- Turning ---------------------------------------------------------------------------------
+  /** Turn a block in place. On the board it stays only if it still fits; otherwise it hops to the tray. */
+  function turnSelected(how: (s: Cell[]) => Cell[]) {
+    if (!selected || given.has(selected)) return;
+    const b = blocks.find((x) => x.id === selected)!;
+    const shape = how(b.shape);
+    if (b.at) {
+      const cells = shape.map(([r, c]): Cell => [r + b.at![0], c + b.at![1]]);
+      if (fits(picture, cells, placedExcept(b.id))) return update(b.id, { shape });
+      setMsg("It doesn't fit that way there, so it's back in the tray.");
+      return update(b.id, { shape, at: null });
     }
-    const next = [...placed, { id: held.id, cells }];
-    setPlaced(next);
-    setHeld(null);
-    setHover(null);
-    setMsg(null);
-    finish(next, hints);
+    update(b.id, { shape });
   }
 
-  // Pointer handling on the grid: moving shows a ghost; releasing (or tapping) drops.
-  const cellAt = (e: { clientX: number; clientY: number }): Cell | null => {
-    const g = gridRef.current;
-    if (!g) return null;
-    const b = g.getBoundingClientRect();
-    const c = Math.floor((e.clientX - b.left) / px);
-    const r = Math.floor((e.clientY - b.top) / px);
-    return r >= 0 && c >= 0 && r < rows && c < cols ? [r, c] : null;
+  // ---- Dragging --------------------------------------------------------------------------------
+  const boardTopLeftFor = (d: Drag): Cell | null => {
+    // the block's own top-left corner is at (x - dx, y - dy); snap to the nearest square
+    const c = Math.round((d.x - d.dx - d.bx) / px);
+    const r = Math.round((d.y - d.dy - d.by) / px);
+    const h = Math.max(...d.shape.map((s) => s[0])) + 1;
+    const w = Math.max(...d.shape.map((s) => s[1])) + 1;
+    return r > -h && c > -w && r < rows && c < cols ? [r, c] : null;
   };
-  // Drag from the tray: pointer down on a tray piece picks it up and follows the finger.
-  const dragging = useRef(false);
-  function trayPointerDown(id: PieceId, e: React.PointerEvent) {
-    if (held && held.id !== id) return;
+  function beginDrag(id: PieceId, e: React.PointerEvent<HTMLElement>) {
+    if (given.has(id) || e.button > 0) return;
     e.preventDefault();
-    if (!held) pickFromTray(id);
-    dragging.current = true;
-    (e.target as Element).releasePointerCapture?.(e.pointerId);
+    const b = blocks.find((x) => x.id === id)!;
+    const box = e.currentTarget.getBoundingClientRect();
+    // hold the block where the finger took it (within the block's bounding box)
+    const grab = b.at ? { dx: e.clientX - box.left, dy: e.clientY - box.top } : { dx: Math.min(e.clientX - box.left, (Math.max(...b.shape.map((s) => s[1])) + 1) * px), dy: Math.min(e.clientY - box.top, (Math.max(...b.shape.map((s) => s[0])) + 1) * px) };
+    setSelected(id);
+    setMsg(null);
+    const g = gridRef.current?.getBoundingClientRect();
+    setDrag({ id, shape: b.shape, x: e.clientX, y: e.clientY, fromBoard: !!b.at, bx: g?.left ?? 0, by: g?.top ?? 0, ...grab });
+    if (b.at) setBlocks((l) => l.map((x) => (x.id === id ? { ...x, at: null } : x))); // lift it off the board
   }
   useEffect(() => {
-    if (!held) return;
-    const move = (e: PointerEvent) => {
-      if (!dragging.current) return;
-      setHover(cellAt(e));
-    };
-    const up = (e: PointerEvent) => {
-      if (!dragging.current) return;
-      dragging.current = false;
-      const at = cellAt(e);
-      if (at) drop(at);
+    if (!drag) return;
+    const move = (e: PointerEvent) => setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
+    const up = () => {
+      // `drag` here is this render's value (the effect re-subscribes every render), so no state updater needed.
+      const d = drag;
+      setDrag(null);
+      const at = boardTopLeftFor(d);
+      const cells = at ? d.shape.map(([r, c]): Cell => [r + at[0], c + at[1]]) : null;
+      if (at && cells && fits(picture, cells, placedExcept(d.id))) update(d.id, { at });
+      else if (at) setMsg("That doesn't fit there. Try turning it, or another spot.");
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
     };
   });
 
@@ -165,23 +165,19 @@ export function ShapeBuilder() {
     if (!h) return setMsg("No hint for this one, sorry!");
     const used = hints + 1;
     setHints(used);
-    if ("wrong" in h) {
-      const name = pieceOf(h.wrong).name;
-      setMsg(`Try moving the ${name} block. It's in the way of a full solution.`);
-      return;
-    }
-    if (held?.id === h.place.id) setHeld(null);
-    const next = [...placed, h.place];
-    setPlaced(next);
+    if ("wrong" in h) return setMsg(`Try moving the ${pieceOf(h.wrong).name} block. It's in the way of a full solution.`);
     setMsg(`Hint: the ${pieceOf(h.place.id).name} block goes here.`);
-    finish(next, used);
+    const next = blocks.map((b) => (b.id === h.place.id ? { ...b, shape: normalize(h.place.cells), at: top(h.place.cells) } : b));
+    setBlocks(next);
+    setSelected(null);
+    finish(next.filter((b) => b.at).map((b) => ({ id: b.id, cells: b.shape.map(([r, c]) => [r + b.at![0], c + b.at![1]]) })), used);
   }
 
   // ---- Screens -----------------------------------------------------------------------------------
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <p className="text-muted">Fit all 12 blocks into the picture. You can turn and flip them. Any way that fills the picture wins!</p>
+        <p className="text-muted">Fit all 12 blocks into the picture. Drag them in, turn and flip them. Any way that fills the picture wins!</p>
         <div className="grid grid-cols-3 gap-2">
           {PICTURES.map((p) => (
             <button
@@ -219,10 +215,6 @@ export function ShapeBuilder() {
     );
   }
 
-  const ghost = held && hover ? landing(hover) : null;
-  const ghostOk = ghost ? fits(picture, ghost, placed) : false;
-  const ownerOf = new Map<string, PieceId>();
-  for (const p of placed) for (const c of p.cells) ownerOf.set(c.join(","), p.id);
   if (phase === "done") {
     return (
       <div className="space-y-4 text-center">
@@ -246,100 +238,121 @@ export function ShapeBuilder() {
     );
   }
 
+  // Snap preview while dragging over the board.
+  const snapAt = drag ? boardTopLeftFor(drag) : null;
+  const snapCells = drag && snapAt ? drag.shape.map(([r, c]): Cell => [r + snapAt[0], c + snapAt[1]]) : null;
+  const snapOk = drag && snapCells ? fits(picture, snapCells, placedExcept(drag.id)) : false;
+  const snapSet = new Set((snapCells ?? []).map((c) => c.join(",")));
+  const onBoard = blocks.filter((b) => b.at);
+  const inTray = blocks.filter((b) => !b.at && drag?.id !== b.id);
+  const toGo = 12 - onBoard.length;
+  const sel = selected ? blocks.find((b) => b.id === selected) : null;
+
   return (
     <div className="select-none space-y-3">
       <div className="flex items-center justify-between text-sm text-muted">
         <span>
-          {picture.emoji} {picture.name} · <strong className="text-ink tabular-nums">{12 - placed.length}</strong> to go
+          {picture.emoji} {picture.name} · <strong className="text-ink tabular-nums">{toGo}</strong> to go
         </span>
         <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
       </div>
 
       <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-start lg:justify-center lg:gap-6">
-      {/* The picture */}
-      <div className="flex justify-center overflow-x-auto">
-        <div
-          ref={gridRef}
-          role="grid"
-          aria-label={`${picture.name} picture, ${rows} rows by ${cols} columns`}
-          className="relative touch-none rounded-xl bg-surface-2 p-0"
-          style={{ width: cols * px, height: rows * px, display: "grid", gridTemplateColumns: `repeat(${cols}, ${px}px)`, gridTemplateRows: `repeat(${rows}, ${px}px)` }}
-          onPointerMove={(e) => held && !dragging.current && setHover(cellAt(e))}
-          onPointerLeave={() => !dragging.current && setHover(null)}
-          onClick={(e) => {
-            const at = cellAt(e);
-            if (!at) return;
-            if (held) return drop(at);
-            const owner = ownerOf.get(at.join(","));
-            if (owner) pickFromBoard(owner);
-          }}
-        >
-          {Array.from({ length: rows * cols }, (_, i) => {
-            const r = Math.floor(i / cols);
-            const c = i % cols;
-            const k = `${r},${c}`;
-            const inPic = want.has(k);
-            const owner = ownerOf.get(k);
-            const g = ghost?.some(([gr, gc]) => gr === r && gc === c);
-            const color = owner ? pieceOf(owner).color : undefined;
-            return (
-              <div
-                key={k}
-                role="gridcell"
-                aria-label={inPic ? (owner ? `${pieceOf(owner).name} block` : "empty") : undefined}
-                className={`${inPic ? "border border-line/60" : ""} ${owner && !given.has(owner) ? "cursor-pointer" : ""}`}
-                style={{
-                  background: g ? (ghostOk ? `${held ? pieceOf(held.id).color : "#888"}cc` : "rgba(220,60,60,.55)") : color ?? (inPic ? "var(--surface)" : "transparent"),
-                  boxShadow: owner ? "inset 0 0 0 1px rgba(0,0,0,.25)" : undefined,
-                  opacity: owner && given.has(owner) ? 0.85 : 1,
+        {/* The picture: the outline squares, then each placed block drawn as one piece on top */}
+        <div className="flex justify-center overflow-x-auto">
+          <div
+            ref={gridRef}
+            role="grid"
+            aria-label={`${picture.name} picture, ${rows} rows by ${cols} columns`}
+            className="relative touch-none rounded-xl"
+            style={{ width: cols * px, height: rows * px }}
+            onClick={() => setSelected(null)}
+          >
+            {Array.from({ length: rows * cols }, (_, i) => {
+              const r = Math.floor(i / cols);
+              const c = i % cols;
+              const k = `${r},${c}`;
+              if (!want.has(k)) return null;
+              const snap = snapSet.has(k);
+              return (
+                <div
+                  key={k}
+                  role="gridcell"
+                  className="absolute rounded-[3px]"
+                  style={{
+                    left: c * px,
+                    top: r * px,
+                    width: px,
+                    height: px,
+                    background: snap ? (snapOk ? "rgba(47,107,98,.35)" : "rgba(200,40,40,.35)") : "var(--surface-2)",
+                    boxShadow: snap ? `inset 0 0 0 2px ${snapOk ? "var(--accent)" : "var(--danger)"}` : "inset 0 0 0 1px var(--border)",
+                  }}
+                />
+              );
+            })}
+            {onBoard.map((b) => (
+              <Block
+                key={b.id}
+                id={b.id}
+                shape={b.shape}
+                px={px}
+                style={{ position: "absolute", left: b.at![1] * px, top: b.at![0] * px }}
+                locked={given.has(b.id)}
+                selected={selected === b.id}
+                onPointerDown={(e) => beginDrag(b.id, e)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!given.has(b.id)) setSelected(b.id);
                 }}
               />
-            );
-          })}
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="flex w-full flex-col gap-3 lg:w-80">
-      {/* Controls for the held piece */}
-      <div className="flex min-h-14 flex-wrap items-center justify-center gap-2 rounded-2xl bg-surface-2 p-2">
-        {held ? (
-          <>
-            <Mini shape={held.shape} color={pieceOf(held.id).color} size={16} />
-            <button type="button" className="btn-secondary min-h-12" onClick={turn}>
-              ↻ Rotate
-            </button>
-            <button type="button" className="btn-secondary min-h-12" onClick={mirror}>
-              ⇋ Flip
-            </button>
-            <button type="button" className="btn-quiet min-h-12" onClick={() => setHeld(null)}>
-              Put back
-            </button>
-          </>
-        ) : (
-          <span className="text-sm text-muted">Tap or drag a block, then tap the picture to place it.</span>
-        )}
-      </div>
-      <p aria-live="polite" className={`min-h-6 text-center text-sm ${msg?.startsWith("Hint") ? "text-accent" : "text-danger"}`}>
-        {msg}
-      </p>
+        <div className="flex w-full flex-col gap-3 lg:w-80">
+          {/* Turn the selected block */}
+          <div className="flex min-h-14 flex-wrap items-center justify-center gap-2 rounded-2xl bg-surface-2 p-2">
+            {sel && !given.has(sel.id) ? (
+              <>
+                <button type="button" className="btn-secondary min-h-12" onClick={() => turnSelected(rotate)}>
+                  ↻ Rotate
+                </button>
+                <button type="button" className="btn-secondary min-h-12" onClick={() => turnSelected(flip)}>
+                  ⇋ Flip
+                </button>
+                {sel.at ? (
+                  <button type="button" className="btn-quiet min-h-12" onClick={() => update(sel.id, { at: null })}>
+                    Take off
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <span className="px-2 text-center text-sm text-muted">Drag a block onto the picture. Tap a block to turn or flip it.</span>
+            )}
+          </div>
+          <p aria-live="polite" className={`min-h-6 text-center text-sm ${msg?.startsWith("Hint") ? "text-accent" : "text-danger"}`}>
+            {msg}
+          </p>
 
-      {/* The tray */}
-      <div className="flex flex-wrap items-end justify-center gap-3 rounded-2xl bg-surface-2 p-3">
-        {inTray.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            aria-label={`${p.name} block`}
-            onPointerDown={(e) => trayPointerDown(p.id, e)}
-            onClick={() => pickFromTray(p.id)}
-            className="touch-none rounded-xl p-1.5 transition hover:bg-line active:scale-95"
-          >
-            <Mini shape={normalize(p.cells)} color={p.color} size={18} />
-          </button>
-        ))}
-        {!inTray.length && !held ? <span className="text-sm text-muted">All blocks are on the picture.</span> : null}
-      </div>
-      </div>
+          {/* The tray */}
+          <div className="flex min-h-28 flex-wrap items-center justify-center gap-4 rounded-2xl bg-surface-2 p-4">
+            {inTray.map((b) => (
+              <Block
+                key={b.id}
+                id={b.id}
+                shape={b.shape}
+                px={Math.min(px, 26)}
+                selected={selected === b.id}
+                onPointerDown={(e) => beginDrag(b.id, e)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelected(b.id);
+                }}
+              />
+            ))}
+            {!inTray.length && !drag ? <span className="text-sm text-muted">All blocks are on the picture.</span> : null}
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-between">
@@ -350,40 +363,94 @@ export function ShapeBuilder() {
           💡 Hint
         </button>
       </div>
+
+      {/* The block riding under the finger */}
+      {drag ? (
+        <div className="pointer-events-none fixed z-50" style={{ left: drag.x - drag.dx, top: drag.y - drag.dy }} aria-hidden>
+          <Block id={drag.id} shape={drag.shape} px={px} lifted />
+        </div>
+      ) : null}
     </div>
   );
 }
 
-/** A small picture of a block (tray, held piece). */
-function Mini({ shape, color, size }: { shape: Cell[]; color: string; size: number }) {
+/** One block drawn as a single piece (its squares touching, with a soft 3D edge). */
+function Block({
+  id,
+  shape,
+  px,
+  style,
+  locked,
+  selected,
+  lifted,
+  onPointerDown,
+  onClick,
+}: {
+  id: PieceId;
+  shape: Cell[];
+  px: number;
+  style?: React.CSSProperties;
+  locked?: boolean;
+  selected?: boolean;
+  lifted?: boolean;
+  onPointerDown?: (e: React.PointerEvent<HTMLElement>) => void;
+  onClick?: (e: React.MouseEvent) => void;
+}) {
+  const p = pieceOf(id);
   const h = Math.max(...shape.map((c) => c[0])) + 1;
   const w = Math.max(...shape.map((c) => c[1])) + 1;
+  const has = (r: number, c: number) => shape.some(([sr, sc]) => sr === r && sc === c);
   return (
-    <span aria-hidden className="inline-grid" style={{ gridTemplateColumns: `repeat(${w}, ${size}px)`, gridTemplateRows: `repeat(${h}, ${size}px)`, gap: 1 }}>
-      {Array.from({ length: h * w }, (_, i) => {
-        const r = Math.floor(i / w);
-        const c = i % w;
-        const on = shape.some(([sr, sc]) => sr === r && sc === c);
-        return <span key={i} style={{ background: on ? color : "transparent", borderRadius: 2, boxShadow: on ? "inset 0 0 0 1px rgba(0,0,0,.25)" : undefined }} />;
-      })}
-    </span>
+    <div
+      role={onPointerDown ? "button" : undefined}
+      aria-label={`${p.name} block${locked ? " (fixed)" : ""}`}
+      onPointerDown={locked ? undefined : onPointerDown}
+      onClick={onClick}
+      className={`relative touch-none ${locked ? "" : "cursor-grab active:cursor-grabbing"} ${lifted ? "drop-shadow-2xl" : ""}`}
+      style={{ width: w * px, height: h * px, filter: selected ? "brightness(1.08)" : undefined, ...style }}
+    >
+      {shape.map(([r, c]) => (
+        <span
+          key={`${r},${c}`}
+          className="absolute"
+          style={{
+            left: c * px,
+            top: r * px,
+            width: px,
+            height: px,
+            background: p.color,
+            opacity: locked ? 0.8 : 1,
+            // rounded only on outside corners so the squares read as one piece
+            borderTopLeftRadius: !has(r - 1, c) && !has(r, c - 1) ? 6 : 0,
+            borderTopRightRadius: !has(r - 1, c) && !has(r, c + 1) ? 6 : 0,
+            borderBottomLeftRadius: !has(r + 1, c) && !has(r, c - 1) ? 6 : 0,
+            borderBottomRightRadius: !has(r + 1, c) && !has(r, c + 1) ? 6 : 0,
+            boxShadow: [
+              !has(r - 1, c) ? "inset 0 2px 0 rgba(255,255,255,.35)" : "",
+              !has(r + 1, c) ? "inset 0 -3px 0 rgba(0,0,0,.25)" : "",
+              !has(r, c - 1) ? "inset 2px 0 0 rgba(255,255,255,.2)" : "",
+              !has(r, c + 1) ? "inset -2px 0 0 rgba(0,0,0,.18)" : "",
+              selected ? "0 0 0 3px var(--accent)" : "",
+            ]
+              .filter(Boolean)
+              .join(", "),
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
 /** The finished picture, small. */
 function Board({ picture, placed, px }: { picture: Picture; placed: Placement[]; px: number }) {
   const { rows, cols } = pictureSize(picture);
-  const own = new Map<string, string>();
-  for (const p of placed) for (const c of p.cells) own.set(c.join(","), pieceOf(p.id).color);
   return (
     <div className="flex justify-center">
-      <div aria-hidden style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, ${px}px)`, gridTemplateRows: `repeat(${rows}, ${px}px)` }}>
-        {Array.from({ length: rows * cols }, (_, i) => {
-          const k = `${Math.floor(i / cols)},${i % cols}`;
-          return <div key={k} style={{ background: own.get(k) ?? "transparent", boxShadow: own.has(k) ? "inset 0 0 0 1px rgba(0,0,0,.25)" : undefined }} />;
-        })}
+      <div aria-hidden className="relative" style={{ width: cols * px, height: rows * px }}>
+        {placed.map((p) => (
+          <Block key={p.id} id={p.id} shape={normalize(p.cells)} px={px} style={{ position: "absolute", left: top(p.cells)[1] * px, top: top(p.cells)[0] * px }} />
+        ))}
       </div>
     </div>
   );
 }
-
