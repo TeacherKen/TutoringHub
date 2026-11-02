@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { PICTURES, PIECES, cellsKey, fits, hintFor, isSolved, orientations, pictureCells, solutionsFor, solve } from "@/lib/pentomino";
+import { PICTURES, PIECES, cellsKey, fits, hintFor, isSolved, orientations, pictureCells, piecesOf, solutionsFor, solve } from "@/lib/pentomino";
 
-// 🧩 Shape Builder: the 12 pieces, 9 pictures of 60 squares, stored solutions and hints.
+// 🧩 Shape Builder: the 12 pieces, big pictures (60 squares, all 12) and little ones (4–6 blocks), stored solutions and hints.
 
 describe("the pieces", () => {
   it("are the 12 pentominoes, all different", () => {
@@ -14,13 +14,26 @@ describe("the pieces", () => {
 
 describe("the pictures", () => {
   for (const p of PICTURES) {
-    it(`${p.name} has 60 squares and stored solutions that really solve it`, () => {
-      expect(pictureCells(p)).toHaveLength(60);
+    it(`${p.name} has 5 squares per block and stored solutions that really solve it`, () => {
+      const n = piecesOf(p).length;
+      expect(p.pieces ? n >= 4 && n <= 6 : n === 12).toBe(true);
+      expect(pictureCells(p)).toHaveLength(5 * n);
       const sols = solutionsFor(p.id);
       expect(sols.length).toBeGreaterThanOrEqual(2);
       for (const s of sols) expect(isSolved(p, s)).toBe(true);
     });
   }
+  it("a little picture only counts with its own blocks", () => {
+    const p = PICTURES.find((x) => x.id === "goldfish")!;
+    const sol = solutionsFor(p.id)[0];
+    expect(isSolved(p, sol)).toBe(true);
+    expect(sol.map((s) => s.id).sort()).toEqual([...p.pieces!].sort());
+    expect(isSolved(p, solve(p, [], { budget: 200_000 })!)).toBe(true);
+  });
+  it("there are big and little pictures", () => {
+    expect(PICTURES.filter((x) => !x.pieces).length).toBeGreaterThanOrEqual(14);
+    expect(PICTURES.filter((x) => x.pieces).length).toBeGreaterThanOrEqual(6);
+  });
   it("a different arrangement counts too, not just the stored one", () => {
     const p = PICTURES.find((x) => x.id === "camel")!;
     const fresh = solve(p, [], { budget: 2_000_000 })!;

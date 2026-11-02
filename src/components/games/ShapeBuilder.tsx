@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { PICTURES, PIECES, fits, hintFor, isSolved, normalize, pictureById, pictureCells, pictureSize, rotate, flip, solutionsFor, type Cell, type PieceId, type Picture, type Placement } from "@/lib/pentomino";
+import { PICTURES, PIECES, piecesOf, fits, hintFor, isSolved, normalize, pictureById, pictureCells, pictureSize, rotate, flip, solutionsFor, type Cell, type PieceId, type Picture, type Placement } from "@/lib/pentomino";
 import { useBest } from "./useBest";
 import { sfx } from "@/lib/gameSound";
 
@@ -10,11 +10,18 @@ import { sfx } from "@/lib/gameSound";
 // select it, then Rotate / Flip. Any arrangement that fills the picture wins, not only the model answer.
 
 type Level = "easy" | "medium" | "hard";
-const LEVELS: Record<Level, { name: string; blurb: string; given: number }> = {
-  easy: { name: "Easy", blurb: "6 blocks already in place, 6 to go", given: 6 },
-  medium: { name: "Medium", blurb: "3 blocks in place, 9 to go", given: 3 },
-  hard: { name: "Hard", blurb: "All 12 blocks, like the paper puzzle", given: 0 },
+const LEVELS: Record<Level, { name: string; share: number }> = {
+  easy: { name: "Easy", share: 1 / 2 }, // half the blocks already in place
+  medium: { name: "Medium", share: 1 / 4 },
+  hard: { name: "Hard", share: 0 },
 };
+/** How many blocks the game puts in for you: 6 / 3 / 0 of 12, or 2 / 1 / 0 of 4. */
+const givenFor = (level: Level, n: number) => Math.round(n * LEVELS[level].share);
+function levelBlurb(level: Level, n: number) {
+  const g = givenFor(level, n);
+  if (!g) return n === 12 ? "All 12 blocks, like the paper puzzle" : `All ${n} blocks yourself`;
+  return `${g} block${g === 1 ? "" : "s"} already in place, ${n - g} to go`;
+}
 const secs = (tenths: number) => `${(tenths / 10).toFixed(1)}s`;
 const pieceOf = (id: PieceId) => PIECES.find((p) => p.id === id)!;
 const top = (cells: Cell[]) => [Math.min(...cells.map((c) => c[0])), Math.min(...cells.map((c) => c[1]))] as Cell;
@@ -104,7 +111,8 @@ export function ShapeBuilder() {
   const savedRaw = useStored(SAVED_KEY);
   const allStars = parse<Record<string, number>>(starsRaw, {});
   const saved = parse<Saved | null>(savedRaw, null);
-  const resumable = saved && pictureById(saved.pictureId) && saved.blocks?.length === PIECES.length ? saved : null;
+  const savedPic = saved ? pictureById(saved.pictureId) : null;
+  const resumable = saved && savedPic && saved.blocks?.length === piecesOf(savedPic).length ? saved : null;
   // The little turn animation plays only just after a real turn, not every time a block is put down.
   const [turning, setTurning] = useState<{ id: PieceId; n: number } | null>(null);
   useEffect(() => {
@@ -138,7 +146,7 @@ export function ShapeBuilder() {
   const colW = side ? Math.max(300, Math.min(480, inner - cols * px - 24)) : availW;
   const trayW = colW - 24;
   const trayH = side ? screen.h - 236 - 100 : 260;
-  const trayFit = Math.floor((Math.sqrt((0.55 * trayW * trayH) / 12) - 12) / 3);
+  const trayFit = Math.floor((Math.sqrt((0.55 * trayW * trayH) / Math.max(8, piecesOf(picture).length)) - 12) / 3);
   const trayPx = Math.max(16, Math.min(42, Math.round(px * 0.8), trayFit));
 
   useEffect(() => {
@@ -153,9 +161,10 @@ export function ShapeBuilder() {
   function start() {
     const sols = solutionsFor(pictureId);
     const sol = sols[Math.floor(Math.random() * sols.length)] ?? [];
-    const pre = [...sol].sort(() => Math.random() - 0.5).slice(0, LEVELS[level].given);
+    const pre = [...sol].sort(() => Math.random() - 0.5).slice(0, givenFor(level, piecesOf(picture).length));
     setBlocks(
-      PIECES.map((p) => {
+      piecesOf(picture).map((id) => {
+        const p = pieceOf(id);
         const g = pre.find((x) => x.id === p.id);
         return g ? { id: p.id, shape: normalize(g.cells), at: top(g.cells) } : { id: p.id, shape: normalize(p.cells), at: null };
       }),
@@ -293,9 +302,11 @@ export function ShapeBuilder() {
   useEffect(() => {
     if (!drag) return;
     const move = (e: PointerEvent) => setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
-    const up = () => {
-      // `drag` here is this render's value (the effect re-subscribes every render), so no state updater needed.
-      const d = drag;
+    const up = (e: PointerEvent) => {
+      // `drag` is this render's value (the effect re-subscribes every render). A quick flick can lift the
+      // finger before the last move is drawn, so drop where the finger actually lifted (not on a cancel,
+      // which has no real position).
+      const d = e.type === "pointerup" ? { ...drag, x: e.clientX, y: e.clientY } : drag;
       setDrag(null);
       // A tap (the finger hardly moved): put it back, and if it was already chosen, turn it.
       if (Math.hypot(d.x - d.sx, d.y - d.sy) < 8) {
@@ -345,30 +356,43 @@ export function ShapeBuilder() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <p className="text-muted">Fit all 12 blocks into the picture. Drag them in, turn and flip them. Any way that fills the picture wins!</p>
+        <p className="text-muted">Fit all the blocks into the picture. Drag them in, turn and flip them. Any way that fills the picture wins!</p>
         {resumable ? (
           <button type="button" className="btn-primary flex min-h-14 w-full items-center justify-center gap-2 text-lg" onClick={() => resume(resumable)}>
             ▶ Carry on: {pictureById(resumable.pictureId)!.emoji} {pictureById(resumable.pictureId)!.name} · {LEVELS[resumable.level].name} ·{" "}
             {resumable.blocks.filter((b) => !b.at).length} to go
           </button>
         ) : null}
-        <div className="grid grid-cols-3 gap-2">
-          {PICTURES.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              aria-pressed={pictureId === p.id}
-              onClick={() => setPictureId(p.id)}
-              className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border px-2 ${pictureId === p.id ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
-            >
-              <span className="text-3xl" aria-hidden>
-                {p.emoji}
-              </span>
-              <span className="text-sm">{p.name}</span>
-              <StarRow n={allStars[`${p.id}-${level}`] ?? 0} small />
-            </button>
-          ))}
-        </div>
+        {[
+          { title: "Little pictures", note: "4 to 6 blocks · a good start", list: PICTURES.filter((p) => p.pieces) },
+          { title: "Big pictures", note: "all 12 blocks", list: PICTURES.filter((p) => !p.pieces) },
+        ].map((group) => (
+          <div key={group.title}>
+            <h3 className="mb-2 text-sm font-semibold">
+              {group.title} <span className="font-normal text-muted">· {group.note}</span>
+            </h3>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+              {group.list.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-pressed={pictureId === p.id}
+                  onClick={() => setPictureId(p.id)}
+                  className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-1 ${pictureId === p.id ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
+                >
+                  <span className="text-3xl" aria-hidden>
+                    {p.emoji}
+                  </span>
+                  <span className="text-sm leading-tight">
+                    {p.name}
+                    {p.pieces ? <span className="text-muted"> · {p.pieces.length}</span> : null}
+                  </span>
+                  <StarRow n={allStars[`${p.id}-${level}`] ?? 0} small />
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
         <div className="grid gap-2">
           {(Object.keys(LEVELS) as Level[]).map((l) => (
             <button
@@ -378,7 +402,7 @@ export function ShapeBuilder() {
               onClick={() => setLevel(l)}
               className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
             >
-              {LEVELS[l].name} · {LEVELS[l].blurb}
+              {LEVELS[l].name} · {levelBlurb(l, piecesOf(picture).length)}
             </button>
           ))}
         </div>
@@ -425,7 +449,7 @@ export function ShapeBuilder() {
   const snapSet = new Set((snapCells ?? []).map((c) => c.join(",")));
   const onBoard = blocks.filter((b) => b.at);
   const inTray = blocks.filter((b) => !b.at && drag?.id !== b.id);
-  const toGo = 12 - onBoard.length;
+  const toGo = blocks.length - onBoard.length;
   const sel = selected ? blocks.find((b) => b.id === selected) : null;
   const bestStars = allStars[`${pictureId}-${level}`] ?? 0;
   // Free space beside the picture (it sits in the middle of its space), for the round buttons.
@@ -831,6 +855,18 @@ const TINT: Record<string, string> = {
   camel: "#c8964a",
   rooster: "#d64534",
   giraffe: "#e0a42b",
+  cat: "#e08a3c",
+  house: "#c0563a",
+  rocket: "#6b7a99",
+  tree: "#2e8b47",
+  turtle: "#4f9a4a",
+  goldfish: "#f08a24",
+  toadstool: "#d63c3c",
+  boat: "#2f78c4",
+  heart: "#e23d6d",
+  icecream: "#f2a9c2",
+  car: "#d6322e",
+  bunny: "#a8a2b8",
 };
 
 /** The finished picture, small: the blocks fade into one colour so the animal shows. */

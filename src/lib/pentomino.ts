@@ -1,5 +1,5 @@
 // 🧩 Shape Builder: the 12 pentomino pieces (Mr Ken's page 1), the picture outlines, and a solver.
-// Every outline has exactly 60 squares, so all 12 pieces always fit, usually in many ways.
+// A big picture has 60 squares and uses all 12 pieces; a little one (for the youngest) uses 4–6 of them.
 // A puzzle is solved when every outline square is covered: any arrangement counts, not just the model one.
 
 export type Cell = [number, number]; // [row, col]
@@ -57,7 +57,15 @@ export function orientations(cells: Cell[]): Cell[][] {
 // ---- Pictures -------------------------------------------------------------------------------
 // Drawn as text: '#' is a square of the picture, '.' is empty. Each has exactly 60 squares.
 
-export type Picture = { id: string; name: string; emoji: string; rows: string[] };
+export type Picture = {
+  id: string;
+  name: string;
+  emoji: string;
+  rows: string[];
+  /** A little picture uses only these blocks (4–6); a big one uses all 12. */
+  pieces?: PieceId[];
+};
+export const piecesOf = (p: Picture): PieceId[] => p.pieces ?? PIECES.map((x) => x.id);
 
 export const PICTURES: Picture[] = [
   { id: "bear", name: "Bear", emoji: "🐻", rows: ["##.....##", "####.####", "#########", ".#######.", ".#######.", "..#####..", ".#######.", ".#######.", ".###.###."] },
@@ -69,6 +77,18 @@ export const PICTURES: Picture[] = [
   { id: "camel", name: "Camel", emoji: "🐪", rows: [".#...........", "####.........", "..##.........", "..###....#...", "..####..###..", "...##########", "....#########", "....#########", ".....########", ".....#......#", ".....#......#", ".....#......#"] },
   { id: "rooster", name: "Rooster", emoji: "🐓", rows: ["........###", ".......####", ".......####", ".......#...", "###....##..", "#########..", "#########..", ".########..", "..######...", "....###....", "....##.....", "....##.....", "....##.....", "....##....."] },
   { id: "giraffe", name: "Giraffe", emoji: "🦒", rows: [".....#.#.", ".....####", "....#####", ".....##..", ".....##..", ".....##..", ".....###.", ".########", "#########", ".########", ".########", ".#.#..#.#", ".#.#....#"] },
+  { id: "cat", name: "Cat", emoji: "🐱", rows: ["#.....#..", "##...##..", ".######..", "#######..", ".#####...", "..###....", ".#####..#", ".######.#", ".######.#", "#########", ".####...."] },
+  { id: "house", name: "House", emoji: "🏠", rows: ["....##....", "...####...", "..######..", "##########", "##########", ".########.", ".###..###.", ".###..###.", ".########."] },
+  { id: "rocket", name: "Rocket", emoji: "🚀", rows: ["...##...", "..####..", "..####..", ".######.", ".######.", ".######.", ".######.", "########", "########", "##.##.##", "#..##..#"] },
+  { id: "tree", name: "Tree", emoji: "🎄", rows: ["....##....", "..#####...", "..######..", "...####...", "..######..", ".########.", "..######..", ".########.", ".#########", "....##....", "....##....", "....##...."] },
+  { id: "turtle", name: "Turtle", emoji: "🐢", rows: ["....#####....", "...#######...", "..#########.#", ".############", "#############", "..#########..", "..##.....##.."] },
+  { id: "goldfish", name: "Goldfish", emoji: "🐠", rows: [".##...", "####.#", "######", "####.#", ".##..."], pieces: ["P", "V", "Z", "F"] },
+  { id: "toadstool", name: "Mushroom", emoji: "🍄", rows: [".####.", "######", "######", "..##..", "..##.."], pieces: ["I", "T", "P", "N"] },
+  { id: "boat", name: "Boat", emoji: "⛵", rows: ["...#....", "...##...", "...###..", "...####.", "...#....", "########", ".######."], pieces: ["L", "Y", "T", "P", "N"] },
+  { id: "heart", name: "Heart", emoji: "❤️", rows: [".#...#.", "#######", "#######", ".#####.", "..###..", "...#..."], pieces: ["Y", "T", "P", "F", "N"] },
+  { id: "icecream", name: "Ice cream", emoji: "🍦", rows: ["..##..", ".####.", "######", "######", ".####.", "..##..", "..#..."], pieces: ["P", "Z", "U", "F", "N"] },
+  { id: "car", name: "Car", emoji: "🚗", rows: ["..####...", ".######..", "#########", "#########", ".#....#."], pieces: ["I", "Y", "T", "W", "P", "Z"] },
+  { id: "bunny", name: "Bunny", emoji: "🐰", rows: ["#..#..", "#..#..", "####..", "####..", "######", "######", "######"], pieces: ["I", "L", "Y", "T", "P", "U"] },
 ];
 
 export const pictureById = (id: string) => PICTURES.find((p) => p.id === id) ?? null;
@@ -91,7 +111,8 @@ export function isSolved(p: Picture, placed: Placement[]): boolean {
       got.add(k);
       n++;
     }
-  return n === want.size && new Set(placed.map((x) => x.id)).size === PIECES.length;
+  const ids = new Set(placed.map((x) => x.id));
+  return n === want.size && ids.size === piecesOf(p).length && piecesOf(p).every((id) => ids.has(id));
 }
 
 /** Is this placement legal on its own (inside the picture, not on another piece)? */
@@ -110,7 +131,7 @@ export function solve(p: Picture, fixed: Placement[] = [], opts: { shuffle?: () 
   const { rows, cols } = pictureSize(p);
   const board: (PieceId | null | undefined)[][] = Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_, c) => (p.rows[r]?.[c] === "#" ? null : undefined)));
   for (const f of fixed) for (const [r, c] of f.cells) board[r][c] = f.id;
-  const free = new Set<PieceId>(PIECES.map((x) => x.id).filter((id) => !fixed.some((f) => f.id === id)));
+  const free = new Set<PieceId>(piecesOf(p).filter((id) => !fixed.some((f) => f.id === id)));
   const shapes = new Map<PieceId, Cell[][]>(PIECES.map((x) => [x.id, orientations(x.cells)]));
   const result: Placement[] = [...fixed];
   let steps = 0;
