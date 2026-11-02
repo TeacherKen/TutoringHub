@@ -350,19 +350,17 @@ export async function getMoneyData() {
 
   const adj = (adjustments ?? []) as { hour_account_id: string; hours: number }[];
   const st = (students ?? []) as (Student & { hourly_rate_thb?: number | null; class_price_thb?: number | null })[];
-  const result = computeEarnings({
-    accounts: (accounts ?? []).map((a) => ({
-      id: a.id as string,
-      name: a.name as string,
-      adjusted: adj.filter((x) => x.hour_account_id === a.id).reduce((s, x) => s + Number(x.hours), 0),
-    })),
-    students: st,
-    packages: pk,
-    lessons: past.map(toLesson),
-    upcoming: ((next ?? []) as Row[]).map(toLesson),
-    today: t,
-  });
-  return { ...result, students: st, packages: pk, today: t };
+  const accs = (accounts ?? []).map((a) => ({
+    id: a.id as string,
+    name: a.name as string,
+    adjusted: adj.filter((x) => x.hour_account_id === a.id).reduce((s, x) => s + Number(x.hours), 0),
+  }));
+  const pastLessons = past.map(toLesson);
+  const upcoming = ((next ?? []) as Row[]).map(toLesson);
+  const result = computeEarnings({ accounts: accs, students: st, packages: pk, lessons: pastLessons, upcoming, today: t });
+  const { buildMoneyDashboard } = await import("@/lib/moneyDash");
+  const dashboard = buildMoneyDashboard({ accounts: accs, students: st, packages: pk, past: pastLessons, upcoming, accountMoney: result.accounts, today: t });
+  return { ...result, students: st, packages: pk, today: t, dashboard };
 }
 
 /** Times tables practice for one student: every fact's box, the latest rounds and trophies. */

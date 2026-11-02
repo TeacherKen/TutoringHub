@@ -2,7 +2,8 @@ import Link from "next/link";
 import { requireTutor } from "@/lib/auth";
 import { getMoneyData, getSettings, reminderSince } from "@/lib/data";
 import { renewSoon, sumEarned, thb, type LessonEarning } from "@/lib/earnings";
-import { PackageCard, Stat } from "@/components/MoneyCards";
+import { PackageCard } from "@/components/MoneyCards";
+import { MoneyDashboard, MoneyKpis } from "@/components/money/MoneyDashboard";
 import { autoMarkDone, unmarkedPastLessonIds } from "@/lib/autoDone";
 import { markPastDone } from "@/app/actions/lessons";
 import { markPackagePaid } from "@/app/actions/students";
@@ -53,6 +54,9 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
   const firstStudent = new Map(money.accounts.map((a) => [a.id, a.studentIds[0]]));
   const unpaid = money.packages.filter((p) => !p.paid_on && p.price_thb != null && Number(p.price_thb) > 0);
   const owed = unpaid.reduce((s, p) => s + Number(p.price_thb), 0);
+  const dash = money.dashboard;
+  const monthHours = sumEarned(money.lessons, monthStart, nextMonth).hours;
+  const avgPerHour = monthHours > 0 ? dash.kpi.monthDone / monthHours : null;
   const [from, to] = ranges[view];
   const shown = money.lessons.filter((l) => l.date >= from && l.date < to).reverse();
   const byDay = new Map<string, LessonEarning[]>();
@@ -63,16 +67,11 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
     <div className="space-y-8">
       <header>
         <h1 className="h1">Money</h1>
-        <p className="mt-1 text-sm text-muted">What you earned from the classes you taught. Each class is worth its package&apos;s price per hour.</p>
+        <p className="mt-1 text-sm text-muted">What you earned from the classes you taught, what&apos;s booked, and what&apos;s coming in.</p>
       </header>
 
-      <section className="grid grid-cols-3 gap-2">
-        <Stat label="This week" t={totals.week} href="/money?view=week" active={view === "week"} />
-        <Stat label={monthName(monthStart)} t={totals.month} href="/money?view=month" active={view === "month"} />
-        <Stat label={monthName(lastMonthStart)} t={totals.last} href="/money?view=last" active={view === "last"} />
-      </section>
+      <MoneyKpis dash={dash} month={monthName(monthStart)} lastMonth={monthName(lastMonthStart)} paidThisMonth={paidThisMonth} />
       <div className="-mt-5 space-y-2 text-sm text-muted">
-        {paidThisMonth > 0 ? <p>Packages paid to you in {monthName(monthStart)}: {thb(paidThisMonth)}</p> : null}
         {unmarked ? (
           <div className="rounded-xl bg-warn-soft p-3 text-warn">
             {unmarked} past {unmarked === 1 ? "class isn't" : "classes aren't"} marked yet, so {unmarked === 1 ? "it isn't" : "they aren't"} counted.
@@ -90,6 +89,8 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
           </p>
         ) : null}
       </div>
+
+      <MoneyDashboard dash={dash} today={today} month={monthName(monthStart)} renewWeeks={renewWeeks} avgPerHour={avgPerHour} />
 
       {unpaid.length ? (
         <section id="unpaid" className="space-y-3">

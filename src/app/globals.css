@@ -17,6 +17,16 @@
   --danger-soft: #f8e5e2;
   --ok: #2f6b2f;
   --ok-soft: #e6f1e3;
+  /* Chart colours: one per student group, always in this order (checked for colour-blind readers). */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --booked-opacity: 0.4;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -36,6 +46,15 @@
     --danger-soft: #3a2220;
     --ok: #8fcb8a;
     --ok-soft: #1f2e1e;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --booked-opacity: 0.55;
   }
 }
 
