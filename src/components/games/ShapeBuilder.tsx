@@ -1,7 +1,8 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { PICTURES, PIECES, fits, hintFor, isSolved, normalize, pictureById, pictureCells, pictureSize, rotate, flip, solutionsFor, type Cell, type PieceId, type Picture, type Placement } from "@/lib/pentomino";
 import { useBest } from "./useBest";
+import { sfx } from "@/lib/gameSound";
 
 // 🧩 Shape Builder: fit all 12 blocks into the picture. Built for the iPad.
 // Drag a block (from the tray or from the picture) and it rides under your finger as a real block; let go
@@ -17,6 +18,48 @@ const LEVELS: Record<Level, { name: string; blurb: string; given: number }> = {
 const secs = (tenths: number) => `${(tenths / 10).toFixed(1)}s`;
 const pieceOf = (id: PieceId) => PIECES.find((p) => p.id === id)!;
 const top = (cells: Cell[]) => [Math.min(...cells.map((c) => c[0])), Math.min(...cells.map((c) => c[1]))] as Cell;
+
+/** Stars for a finished picture: 3 with no hints, 2 with one or two, 1 otherwise. */
+export const starsFor = (hints: number) => (hints === 0 ? 3 : hints <= 2 ? 2 : 1);
+
+// Things kept on this device: stars per picture and level, and a puzzle left half-way.
+const STARS_KEY = "th-sb-stars";
+const SAVED_KEY = "th-sb-saved";
+const subscribe = (on: () => void) => {
+  window.addEventListener("storage", on);
+  window.addEventListener("th-sb", on);
+  return () => {
+    window.removeEventListener("storage", on);
+    window.removeEventListener("th-sb", on);
+  };
+};
+function readKey(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function writeKey(key: string, value: string | null) {
+  try {
+    if (value == null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch {
+    /* storage blocked: nothing kept, the game still works */
+  }
+  window.dispatchEvent(new Event("th-sb"));
+}
+function useStored(key: string) {
+  return useSyncExternalStore(subscribe, () => readKey(key), () => null);
+}
+function parse<T>(raw: string | null, fallback: T): T {
+  try {
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+type Saved = { pictureId: string; level: Level; blocks: Loose[]; given: PieceId[]; hints: number; ms: number };
 
 /** Where each loose block is: in the tray (with its current turn), or on the board at a top-left square. */
 type Loose = { id: PieceId; shape: Cell[]; at: Cell | null };
@@ -37,6 +80,8 @@ type Drag = {
   /** the board's corner on screen when the drag began */
   bx: number;
   by: number;
+  /** size it starts at compared with full size (tray blocks are smaller) */
+  grow: number;
 };
 
 export function ShapeBuilder() {
@@ -52,6 +97,14 @@ export function ShapeBuilder() {
   const [startedAt, setStartedAt] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [newBest, setNewBest] = useState(false);
+  const [ghost, setGhost] = useState<Placement | null>(null); // a hint: the shadow of where a block goes
+  const [nudge, setNudge] = useState<PieceId | null>(null); // a hint: this block is in the way
+  const [stars, setStars] = useState(0);
+  const starsRaw = useStored(STARS_KEY);
+  const savedRaw = useStored(SAVED_KEY);
+  const allStars = parse<Record<string, number>>(starsRaw, {});
+  const saved = parse<Saved | null>(savedRaw, null);
+  const resumable = saved && pictureById(saved.pictureId) && saved.blocks?.length === PIECES.length ? saved : null;
   const [spin, setSpin] = useState(0); // bumps on every turn, to replay the little turn animation
   const { best, offer } = useBest(`sb-${pictureId}-${level}`, (a, b) => a < b);
   const picture = pictureById(pictureId)!;
@@ -60,14 +113,24 @@ export function ShapeBuilder() {
   const gridRef = useRef<HTMLDivElement>(null);
 
   // Square size: big on a tablet, never wider than the screen on a phone.
-  const [screenW, setScreenW] = useState(1024);
+  // The whole game fits on the screen: squares are sized by the space left for the picture, across and down.
+  const [screen, setScreen] = useState({ w: 1024, h: 800 });
   useEffect(() => {
-    const on = () => setScreenW(window.innerWidth);
+    const on = () => setScreen({ w: window.innerWidth, h: window.innerHeight });
     on();
     window.addEventListener("resize", on);
     return () => window.removeEventListener("resize", on);
   }, []);
-  const px = Math.max(22, Math.min(50, Math.floor(Math.min(620, screenW - 56) / Math.max(cols, rows))));
+  const side = screen.w >= 1024; // tray beside the picture (computer, iPad sideways); below it otherwise
+  const availW = side ? Math.min(screen.w, 1024) - 56 - 340 - 24 : Math.min(760, screen.w - 48);
+  const availH = side ? screen.h - 236 : screen.h - 236 - 380;
+  const px = Math.max(22, Math.min(56, Math.floor(availW / cols), Math.floor(availH / rows)));
+  // Tray blocks a bit smaller (12 have to fit), growing to full size as they're picked up.
+  // …and small enough that all 12 fit in the tray's space (each block takes about 3×3 squares plus a gap).
+  const trayW = side ? 340 - 24 : availW - 24;
+  const trayH = side ? screen.h - 230 - 90 : 260;
+  const trayFit = Math.floor((Math.sqrt((0.55 * trayW * trayH) / 12) - 12) / 3);
+  const trayPx = Math.max(16, Math.min(36, Math.round(px * 0.72), trayFit));
 
   useEffect(() => {
     if (phase !== "play") return;
@@ -89,6 +152,8 @@ export function ShapeBuilder() {
       }),
     );
     setGiven(new Set(pre.map((p) => p.id)));
+    setGhost(null);
+    setNudge(null);
     setSelected(null);
     setDrag(null);
     setMsg(null);
@@ -96,8 +161,34 @@ export function ShapeBuilder() {
     setStartedAt(Date.now());
     setElapsed(0);
     setNewBest(false);
+    writeKey(SAVED_KEY, null);
     setPhase("play");
   }
+
+  /** Carry on with the puzzle left half-way. */
+  function resume(s: Saved) {
+    setPictureId(s.pictureId);
+    setLevel(s.level);
+    setBlocks(s.blocks);
+    setGiven(new Set(s.given));
+    setHints(s.hints);
+    setGhost(null);
+    setNudge(null);
+    setSelected(null);
+    setDrag(null);
+    setMsg(null);
+    setStartedAt(() => Date.now() - s.ms);
+    setElapsed(s.ms);
+    setNewBest(false);
+    setPhase("play");
+  }
+
+  // Keep the puzzle on this device after every move, so leaving half-way isn't lost.
+  useEffect(() => {
+    if (phase !== "play" || !blocks.length) return;
+    const s: Saved = { pictureId, level, blocks, given: [...given], hints, ms: Date.now() - startedAt };
+    writeKey(SAVED_KEY, JSON.stringify(s));
+  }, [phase, blocks, hints, given, pictureId, level, startedAt]);
 
   const finish = useCallback(
     (list: Placement[], hintsUsed: number) => {
@@ -105,16 +196,25 @@ export function ShapeBuilder() {
       const time = Math.round((Date.now() - startedAt) / 100);
       setElapsed(time * 100);
       setNewBest(hintsUsed === 0 && offer(time)); // a hinted game doesn't count as a best
+      const got = starsFor(hintsUsed);
+      setStars(got);
+      const all = parse<Record<string, number>>(readKey(STARS_KEY), {});
+      const k = `${picture.id}-${level}`;
+      if ((all[k] ?? 0) < got) writeKey(STARS_KEY, JSON.stringify({ ...all, [k]: got }));
+      writeKey(SAVED_KEY, null);
+      sfx.solved();
       setPhase("done");
       return true;
     },
-    [picture, startedAt, offer],
+    [picture, startedAt, offer, level],
   );
 
   /** Change one block, then see if the picture is complete. */
   function update(id: PieceId, change: Partial<Loose>) {
     const next = blocks.map((b) => (b.id === id ? { ...b, ...change } : b));
     setBlocks(next);
+    if (change.at) sfx.snap();
+    if (id === nudge && !change.at) setNudge(null);
     const list: Placement[] = next.filter((b) => b.at).map((b) => ({ id: b.id, cells: b.shape.map(([r, c]) => [r + b.at![0], c + b.at![1]]) }));
     finish(list, hints);
   }
@@ -136,6 +236,7 @@ export function ShapeBuilder() {
       const ok = tries.find((t) => fits(picture, shape.map(([r, c]): Cell => [r + t[0], c + t[1]]), placedExcept(id)));
       if (ok) return update(id, { shape, at: ok });
       setMsg("It doesn't fit that way there, so it's back in the tray.");
+      sfx.bump();
       return update(id, { shape, at: null });
     }
     update(id, { shape });
@@ -172,7 +273,9 @@ export function ShapeBuilder() {
     const b = blocks.find((x) => x.id === id)!;
     const box = e.currentTarget.getBoundingClientRect();
     // hold the block where the finger took it (within the block's bounding box)
-    const grab = b.at ? { dx: e.clientX - box.left, dy: e.clientY - box.top } : { dx: Math.min(e.clientX - box.left, (Math.max(...b.shape.map((s) => s[1])) + 1) * px), dy: Math.min(e.clientY - box.top, (Math.max(...b.shape.map((s) => s[0])) + 1) * px) };
+    // From the tray the block grows to full size, so the finger keeps the same spot on it.
+    const k = b.at ? 1 : px / trayPx;
+    const grab = { dx: Math.min((e.clientX - box.left) * k, (Math.max(...b.shape.map((s) => s[1])) + 1) * px), dy: Math.min((e.clientY - box.top) * k, (Math.max(...b.shape.map((s) => s[0])) + 1) * px), grow: b.at ? 1 : trayPx / px };
     setSelected(id);
     setMsg(null);
     const g = gridRef.current?.getBoundingClientRect();
@@ -195,7 +298,10 @@ export function ShapeBuilder() {
       const at = boardTopLeftFor(d);
       const cells = at ? d.shape.map(([r, c]): Cell => [r + at[0], c + at[1]]) : null;
       if (at && cells && fits(picture, cells, placedExcept(d.id))) update(d.id, { at });
-      else if (at) setMsg("That doesn't fit there. Try turning it, or another spot.");
+      else if (at) {
+        setMsg("That doesn't fit there. Try turning it, or another spot.");
+        sfx.bump();
+      }
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -207,17 +313,24 @@ export function ShapeBuilder() {
     };
   });
 
+  // A hint shows the shadow of where one block goes; the child still drags it there.
+  const ghostShown = ghost && !blocks.find((b) => b.id === ghost.id)?.at ? ghost : null;
   function hint() {
+    if (ghostShown) return setMsg(`Hint: the ${pieceOf(ghostShown.id).name} block fits in the shadow. Drag it there.`);
     const h = hintFor(pictureId, placed);
     if (!h) return setMsg("No hint for this one, sorry!");
-    const used = hints + 1;
-    setHints(used);
-    if ("wrong" in h) return setMsg(`Try moving the ${pieceOf(h.wrong).name} block. It's in the way of a full solution.`);
-    setMsg(`Hint: the ${pieceOf(h.place.id).name} block goes here.`);
-    const next = blocks.map((b) => (b.id === h.place.id ? { ...b, shape: normalize(h.place.cells), at: top(h.place.cells) } : b));
-    setBlocks(next);
+    setHints((n) => n + 1);
     setSelected(null);
-    finish(next.filter((b) => b.at).map((b) => ({ id: b.id, cells: b.shape.map(([r, c]) => [r + b.at![0], c + b.at![1]]) })), used);
+    if ("wrong" in h) {
+      setGhost(null);
+      setNudge(h.wrong);
+      return setMsg(`Hint: try moving the ${pieceOf(h.wrong).name} block. It's in the way.`);
+    }
+    setNudge(null);
+    setGhost(h.place);
+    // On Easy the block is also turned the right way round for them.
+    if (level === "easy") setBlocks((l) => l.map((b) => (b.id === h.place.id ? { ...b, shape: normalize(h.place.cells) } : b)));
+    setMsg(`Hint: the ${pieceOf(h.place.id).name} block fits in the shadow. Drag it there.`);
   }
 
   // ---- Screens -----------------------------------------------------------------------------------
@@ -225,6 +338,12 @@ export function ShapeBuilder() {
     return (
       <div className="space-y-4">
         <p className="text-muted">Fit all 12 blocks into the picture. Drag them in, turn and flip them. Any way that fills the picture wins!</p>
+        {resumable ? (
+          <button type="button" className="btn-primary flex min-h-14 w-full items-center justify-center gap-2 text-lg" onClick={() => resume(resumable)}>
+            ▶ Carry on: {pictureById(resumable.pictureId)!.emoji} {pictureById(resumable.pictureId)!.name} · {LEVELS[resumable.level].name} ·{" "}
+            {resumable.blocks.filter((b) => !b.at).length} to go
+          </button>
+        ) : null}
         <div className="grid grid-cols-3 gap-2">
           {PICTURES.map((p) => (
             <button
@@ -238,6 +357,7 @@ export function ShapeBuilder() {
                 {p.emoji}
               </span>
               <span className="text-sm">{p.name}</span>
+              <StarRow n={allStars[`${p.id}-${level}`] ?? 0} small />
             </button>
           ))}
         </div>
@@ -272,6 +392,8 @@ export function ShapeBuilder() {
         <div className="sb-pop">
           <Board picture={picture} placed={placed} px={Math.min(px, 32)} />
         </div>
+        <StarRow n={stars} />
+        <p className="text-sm text-muted">{stars === 3 ? "3 stars: no hints!" : stars === 2 ? "Try with no hints for 3 stars" : "Try with fewer hints for more stars"}</p>
         <p className="text-5xl font-semibold tabular-nums">{secs(Math.round(elapsed / 100))}</p>
         <p className={newBest ? "font-medium text-ok" : "text-muted"}>
           {newBest ? "New fastest time! 🧩" : hints ? `With ${hints} hint${hints === 1 ? "" : "s"}` : `Your fastest: ${best != null ? secs(best) : "—"}`}
@@ -299,7 +421,7 @@ export function ShapeBuilder() {
   const sel = selected ? blocks.find((b) => b.id === selected) : null;
 
   return (
-    <div className="select-none space-y-3">
+    <div className="select-none space-y-2">
       <div className="flex items-center justify-between text-sm text-muted">
         <span>
           {picture.emoji} {picture.name} · <strong className="text-ink tabular-nums">{toGo}</strong> to go
@@ -350,6 +472,16 @@ export function ShapeBuilder() {
                 />
               );
             })}
+            {ghostShown
+              ? ghostShown.cells.map(([r, c]) => (
+                  <div
+                    key={`g${r},${c}`}
+                    aria-hidden
+                    className="sb-ghost pointer-events-none absolute rounded-[4px]"
+                    style={{ left: c * px + 2, top: r * px + 2, width: px - 4, height: px - 4, background: `${pieceOf(ghostShown.id).color}55`, outline: `2px dashed ${pieceOf(ghostShown.id).color}` }}
+                  />
+                ))
+              : null}
             {onBoard.map((b) => (
               <Block
                 key={selected === b.id ? `${b.id}-${spin}` : b.id}
@@ -360,6 +492,7 @@ export function ShapeBuilder() {
                 style={{ position: "absolute", left: b.at![1] * px, top: b.at![0] * px }}
                 locked={given.has(b.id)}
                 selected={selected === b.id}
+                pulse={nudge === b.id}
                 onPointerDown={(e) => beginDrag(b.id, e)}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -371,7 +504,7 @@ export function ShapeBuilder() {
           </div>
         </div>
 
-        <div className="flex w-full flex-col gap-3 lg:w-80">
+        <div className="flex w-full flex-col gap-3 lg:w-[340px] lg:shrink-0">
           {/* Turn the selected block */}
           <div className="flex min-h-14 flex-wrap items-center justify-center gap-2 rounded-2xl bg-surface-2 p-2">
             {sel && !given.has(sel.id) ? (
@@ -397,15 +530,16 @@ export function ShapeBuilder() {
           </p>
 
           {/* The tray */}
-          <div className="flex min-h-28 flex-wrap items-center justify-center gap-4 rounded-2xl bg-surface-2 p-4">
+          <div className="flex min-h-28 flex-wrap items-center justify-center gap-3 rounded-2xl bg-surface-2 p-3">
             {inTray.map((b) => (
               <Block
                 key={selected === b.id ? `${b.id}-${spin}` : b.id}
                 spin={selected === b.id && spin > 0}
                 id={b.id}
                 shape={b.shape}
-                px={Math.min(px, 30)}
+                px={trayPx}
                 selected={selected === b.id}
+                pulse={ghostShown?.id === b.id}
                 onPointerDown={(e) => beginDrag(b.id, e)}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -429,7 +563,11 @@ export function ShapeBuilder() {
 
       {/* The block riding under the finger */}
       {drag ? (
-        <div className="pointer-events-none fixed z-50" style={{ left: drag.x - drag.dx, top: drag.y - drag.dy }} aria-hidden>
+        <div
+          className="sb-grow pointer-events-none fixed z-50"
+          style={{ left: drag.x - drag.dx, top: drag.y - drag.dy, transformOrigin: `${drag.dx}px ${drag.dy}px`, ["--sb-from" as string]: drag.grow }}
+          aria-hidden
+        >
           <Block id={drag.id} shape={drag.shape} px={px} lifted />
         </div>
       ) : null}
@@ -447,6 +585,7 @@ function Block({
   selected,
   lifted,
   spin,
+  pulse,
   onPointerDown,
   onClick,
 }: {
@@ -458,6 +597,7 @@ function Block({
   selected?: boolean;
   lifted?: boolean;
   spin?: boolean;
+  pulse?: boolean;
   onPointerDown?: (e: React.PointerEvent<HTMLElement>) => void;
   onClick?: (e: React.MouseEvent) => void;
 }) {
@@ -471,7 +611,7 @@ function Block({
       aria-label={`${p.name} block${locked ? " (fixed)" : ""}`}
       onPointerDown={locked ? undefined : onPointerDown}
       onClick={onClick}
-      className={`relative touch-none ${locked ? "" : "cursor-grab active:cursor-grabbing"} ${lifted ? "scale-105 drop-shadow-2xl" : ""} ${spin ? "sb-spin" : ""}`}
+      className={`relative touch-none ${locked ? "" : "cursor-grab active:cursor-grabbing"} ${lifted ? "scale-105 drop-shadow-2xl" : ""} ${spin ? "sb-spin" : ""} ${pulse ? "sb-pulse" : ""}`}
       style={{ width: w * px, height: h * px, filter: selected ? "drop-shadow(0 0 6px rgba(255,198,41,.95)) brightness(1.06)" : undefined, ...style }}
     >
       {shape.map(([r, c]) => (
@@ -503,6 +643,19 @@ function Block({
         />
       ))}
     </div>
+  );
+}
+
+/** ★★☆ */
+function StarRow({ n, small }: { n: number; small?: boolean }) {
+  return (
+    <span aria-label={`${n} of 3 stars`} className={`inline-flex gap-0.5 ${small ? "text-sm" : "sb-pop text-4xl"}`}>
+      {[1, 2, 3].map((i) => (
+        <span key={i} aria-hidden className={i <= n ? "text-[#f5b400]" : "text-[#cfd5df]"}>
+          ★
+        </span>
+      ))}
+    </span>
   );
 }
 

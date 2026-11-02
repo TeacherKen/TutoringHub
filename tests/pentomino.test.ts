@@ -52,3 +52,10 @@ describe("hints", () => {
     expect(h).toEqual({ wrong: sol[0].id });
   });
 });
+
+import { starsFor } from "@/components/games/ShapeBuilder";
+describe("Shape Builder stars", () => {
+  it("gives 3 with no hints, 2 with one or two, 1 with more", () => {
+    expect([0, 1, 2, 3, 9].map(starsFor)).toEqual([3, 2, 2, 1, 1]);
+  });
+});

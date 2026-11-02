@@ -78,6 +78,24 @@ function crowd(a: AudioContext, dur: number, vol: number, freq: number, falling 
 }
 
 export const sfx = {
+  /** A block clicking into place. */
+  snap() {
+    const a = audio();
+    if (!a) return;
+    tone(a, 1400, 0, 0.03, "square", 0.04);
+    tone(a, 660, 0.015, 0.09, "triangle", 0.14, 880);
+  },
+  /** A soft "nope". */
+  bump() {
+    const a = audio();
+    if (a) tone(a, 240, 0, 0.14, "sine", 0.14, 150);
+  },
+  /** A short happy tune, no crowd. */
+  solved() {
+    const a = audio();
+    if (!a) return;
+    [523, 659, 784, 1047, 1319].forEach((f, i) => tone(a, f, i * 0.1, i === 4 ? 0.5 : 0.16, "triangle", 0.12));
+  },
   tap() {
     const a = audio();
     if (a) tone(a, 660, 0, 0.05, "sine", 0.06);
