@@ -199,3 +199,14 @@ export async function skipReminders(kind: "note" | "feedback", ids: string[]): P
   revalidatePath("/", "layout");
   return { ok: true };
 }
+
+/** "Ready" for a coming lesson (worksheet printed, slides set), or not ready again. Needs database update 0022. */
+export async function setLessonReady(form: FormData): Promise<void> {
+  await assertTutor();
+  const id = String(form.get("lesson_id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return;
+  const supabase = await createClient();
+  await supabase.from("lessons").update({ ready_at: form.get("ready") === "true" ? new Date().toISOString() : null }).eq("id", id);
+  revalidatePath("/", "layout");
+}
+

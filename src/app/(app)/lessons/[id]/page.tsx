@@ -16,6 +16,8 @@ import { thb } from "@/lib/earnings";
 import { roomStudent } from "@/lib/roomStudent";
 import { addLessonStudent, removeLessonStudent, setUsesHours } from "@/app/actions/lessons";
 import { setIgnored } from "@/app/actions/calendar";
+import { loadReady } from "@/lib/readyData";
+import { ReadyButton, ReadyChip } from "@/components/home/Dashboard";
 
 export default async function LessonPage({ params }: PageProps<"/lessons/[id]">) {
   await requireTutor();
@@ -89,6 +91,8 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
   const lastPlan = prevPlans[0]?.next_time ?? null;
 
   const inLesson = lesson.lesson_students;
+  // A lesson still to come: is it ready? (Upload smart slides below, or tick it after printing the worksheet.)
+  const ready = (await loadReady([lesson], students)).get(lesson.id) ?? null;
   const notIn = students.filter((s) => !studentIds.includes(s.id));
   const mode = lessonMode(lesson);
   const place = lessonPlace(lesson);
@@ -120,6 +124,12 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
           {earned?.value != null ? <span className="chip-ok">This class: {thb(earned.value)}</span> : null}
           {lesson.title && lesson.title !== lessonNames(lesson) ? <span className="chip">“{lesson.title}”</span> : null}
         </div>
+        {ready ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <ReadyChip r={ready} />
+            <ReadyButton lessonId={lesson.id} r={ready} />
+          </div>
+        ) : null}
       </header>
 
       {inLesson.length ? (

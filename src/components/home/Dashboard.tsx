@@ -4,7 +4,8 @@ import { bkkDateKey, fmtDay, fmtTime } from "@/lib/time";
 import type { PrepStudent } from "@/lib/prep";
 import { PrepCard } from "@/components/PrepCard";
 import { ClearAll, SkipOne } from "@/components/ReminderButtons";
-import { markPastDone } from "@/app/actions/lessons";
+import { markPastDone, setLessonReady } from "@/app/actions/lessons";
+import type { Ready } from "@/lib/ready";
 
 // Home, laid out as a dashboard. The one bold thing is the header on squared exercise-book
 // paper with the next lesson; everything else stays quiet: one surface per area, sentence case.
@@ -32,6 +33,37 @@ const where = (l: Lesson) => {
   const place = lessonPlace(l);
   return [mode === "onsite" ? "Onsite" : mode === "online" ? "Online" : null, place].filter(Boolean).join(", ");
 };
+
+/** "✓ Slides ready", or what's still to do for a coming lesson. */
+export function ReadyChip({ r }: { r: Ready }) {
+  if (r.ready) return <span className="chip-ok">✓ {r.text}</span>;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span className="chip-warn">{r.text}</span>
+      {r.hint ? <span className="text-xs text-muted">{r.hint}</span> : null}
+    </span>
+  );
+}
+
+/** Tick a coming lesson ready (or untick it). Lessons ready by their slides don't need it. */
+export function ReadyButton({ lessonId, r }: { lessonId: string; r: Ready }) {
+  if (r.ready && r.how === "slides") return null;
+  return (
+    <form action={setLessonReady}>
+      <input type="hidden" name="lesson_id" value={lessonId} />
+      <input type="hidden" name="ready" value={r.ready ? "false" : "true"} />
+      {r.ready ? (
+        <button className="min-h-10 rounded-full px-3 text-sm text-muted hover:bg-surface-2" title="Not ready after all">
+          Undo
+        </button>
+      ) : (
+        <button className="min-h-10 rounded-full border border-line px-3 text-sm font-medium text-ok hover:bg-ok-soft" title="Worksheet printed / slides set">
+          Mark ready
+        </button>
+      )}
+    </form>
+  );
+}
 
 export function Hero({
   dateLine,
@@ -73,7 +105,7 @@ export function Hero({
             detail={nextIsToday ? untilText(Date.parse(next.start_at) - now) : fmtDay(bkkDateKey(next.start_at))}
           />
         ) : (
-          <p className="text-lg text-muted">No more lessons booked this week.</p>
+          <p className="text-lg text-muted">No lessons booked in the next 7 days.</p>
         )}
       </div>
     </section>
@@ -108,7 +140,7 @@ const STATUS: Partial<Record<Lesson["status"], { label: string; cls: string }>> 
 };
 
 /** Today's lessons along a time line: done, now, next and later look different. */
-export function TodayTimeline({ lessons, now, prep }: { lessons: Lesson[]; now: number; prep: Map<string, PrepStudent[]> }) {
+export function TodayTimeline({ lessons, now, prep, ready }: { lessons: Lesson[]; now: number; prep: Map<string, PrepStudent[]>; ready: Map<string, Ready> }) {
   const nextId = lessons.find((l) => Date.parse(l.start_at) > now && !l.status.startsWith("cancelled"))?.id;
   return (
     <section aria-labelledby="today-h" className="space-y-3">
@@ -154,6 +186,12 @@ export function TodayTimeline({ lessons, now, prep }: { lessons: Lesson[]; now: 
                       {needsNote(l) ? <span className="chip-warn">Note to write</span> : null}
                     </div>
                   </Link>
+                  {ready.get(l.id) && (state === "next" || state === "later") ? (
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <ReadyChip r={ready.get(l.id)!} />
+                      <ReadyButton lessonId={l.id} r={ready.get(l.id)!} />
+                    </div>
+                  ) : null}
                   {p && state !== "past" ? <PrepCard lessonId={l.id} students={p} inline /> : null}
                 </div>
               </li>
@@ -207,10 +245,13 @@ export function TodoPanel({
   notes,
   unmarked,
   feedback,
+  getReady = [],
   renew,
   unpaid,
   link,
 }: {
+  /** Coming lessons in the next 2 days that aren't ready yet. */
+  getReady?: { lesson: Lesson; r: Ready }[];
   notes: Lesson[];
   /** Past classes still "scheduled" (they don't count for hours or money yet), cleared or not. */
   unmarked: Lesson[];
@@ -241,7 +282,8 @@ export function TodoPanel({
       <button className="rounded-full px-3 py-1 text-sm font-medium text-ok hover:bg-ok-soft">Mark all done</button>
     </form>
   );
-  const empty = !notes.length && !markRows.length && !feedback.length && !renew.length && !unpaid.length && !link;
+  const readyRows = getReady.map(({ lesson: l, r }) => ({ ...lessonRow(l, true), text: `${lessonRow(l, true).text} · ${r.ready ? "ready" : r.text}`, extra: <ReadyButton lessonId={l.id} r={r} /> }));
+  const empty = !notes.length && !markRows.length && !feedback.length && !readyRows.length && !renew.length && !unpaid.length && !link;
   return (
     <section aria-labelledby="todo-h" className="space-y-3">
       <h2 id="todo-h" className="h2">
@@ -256,6 +298,7 @@ export function TodoPanel({
         </p>
       ) : (
         <div className="divide-y divide-line rounded-2xl border border-line bg-surface px-2 py-2">
+          <TodoGroup title="Get ready" rows={readyRows} />
           <TodoGroup
             title="Notes to write"
             rows={noteRows}
@@ -298,37 +341,53 @@ export function MonthPanel({ month, earned, classes, hours, week }: { month: str
   );
 }
 
-/** The rest of the week, one quiet line per lesson. */
-export function WeekList({ days }: { days: [string, Lesson[]][] }) {
+/** The next 7 days, one line per lesson, each with whether it's ready (slides uploaded, worksheet printed). */
+export function WeekList({ days, ready }: { days: [string, Lesson[]][]; ready: Map<string, Ready> }) {
+  const all = days.flatMap(([, list]) => list).filter((l) => ready.has(l.id));
+  const done = all.filter((l) => ready.get(l.id)!.ready).length;
   return (
     <section aria-labelledby="week-h" className="space-y-3">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-3">
         <h2 id="week-h" className="h2">
-          Rest of this week
+          Coming up{" "}
+          {all.length ? (
+            <span className={`ml-1 rounded-full px-2 py-0.5 align-middle text-sm font-medium tabular-nums ${done === all.length ? "bg-ok-soft text-ok" : "bg-surface-2 text-muted"}`}>
+              {done} of {all.length} ready
+            </span>
+          ) : null}
         </h2>
         <Link href="/week" className="text-sm font-medium text-accent">
           Full week
         </Link>
       </div>
       {days.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-line px-4 py-5 text-muted">Nothing else this week.</p>
+        <p className="rounded-2xl border border-dashed border-line px-4 py-5 text-muted">No lessons in the next 7 days.</p>
       ) : (
         <div className="divide-y divide-line rounded-2xl border border-line bg-surface">
           {days.map(([day, list]) => (
             <div key={day} className="grid gap-x-4 px-4 py-3 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
               <h3 className="text-[15px] font-medium text-muted">{fmtDay(day)}</h3>
               <ul>
-                {list.map((l) => (
-                  <li key={l.id}>
-                    <Link href={`/lessons/${l.id}`} className={`flex min-h-10 items-baseline gap-3 rounded-lg hover:text-accent ${l.status.startsWith("cancelled") ? "line-through opacity-60" : ""}`}>
-                      <span className="w-12 shrink-0 font-medium tabular-nums">{fmtTime(l.start_at)}</span>
-                      <span className="min-w-0 truncate">
-                        {lessonNames(l)}
-                        {where(l) ? <span className="ml-2 text-muted">{where(l)}</span> : null}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
+                {list.map((l) => {
+                  const r = ready.get(l.id);
+                  return (
+                    <li key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-0.5">
+                      <Link href={`/lessons/${l.id}`} className={`flex min-h-10 w-full min-w-0 items-baseline gap-3 rounded-lg hover:text-accent sm:w-auto sm:flex-1 ${l.status.startsWith("cancelled") ? "line-through opacity-60" : ""}`}>
+                        <span className="w-12 shrink-0 font-medium tabular-nums">{fmtTime(l.start_at)}</span>
+                        <span className="min-w-0 truncate">
+                          {lessonNames(l)}
+                          {where(l) ? <span className="ml-2 text-muted">{where(l)}</span> : null}
+                        </span>
+                      </Link>
+                      {r ? (
+                        <span className="-mt-1 flex flex-wrap items-center gap-2 pb-1 pl-[3.75rem] text-sm sm:mt-0 sm:pb-0 sm:pl-0">
+                          <ReadyChip r={r} />
+                          <ReadyButton lessonId={l.id} r={r} />
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

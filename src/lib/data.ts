@@ -55,6 +55,8 @@ export type Lesson = {
   note_updated_at: string | null;
   /** "Clear all" on Home: no note needed / no feedback needed (database update 0021). */
   note_skipped?: boolean;
+  /** Ticked "Ready" for a coming lesson (database update 0022). */
+  ready_at?: string | null;
   feedback_skipped?: boolean;
   lesson_students: LessonStudent[];
 };

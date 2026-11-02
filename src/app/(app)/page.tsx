@@ -10,6 +10,7 @@ import { linkEventToStudent, setIgnored } from "@/app/actions/calendar";
 import { backupIfDue } from "@/lib/backup";
 import { after } from "next/server";
 import { loadPrep } from "@/lib/prepData";
+import { loadReady } from "@/lib/readyData";
 import { Hero, MonthPanel, TodayTimeline, TodoPanel, WeekList } from "@/components/home/Dashboard";
 import { tutorName } from "@/lib/env";
 
@@ -21,8 +22,10 @@ export default async function Home() {
   const today = todayKey();
   const now = nowMs();
   const weekEnd = addDays(mondayOf(today), 7);
+  const comingEnd = addDays(today, 8); // "Coming up": the next 7 days after today
+  const loadTo = comingEnd > weekEnd ? comingEnd : weekEnd;
   const [lessons, settings, money, students, recent] = await Promise.all([
-    getLessons(bkkStartOfDay(addDays(today, -14)).toISOString(), bkkStartOfDay(weekEnd).toISOString()),
+    getLessons(bkkStartOfDay(addDays(today, -14)).toISOString(), bkkStartOfDay(loadTo).toISOString()),
     getSettings(),
     getMoneyData(),
     getStudents({ activeOnly: true }),
@@ -31,7 +34,7 @@ export default async function Home() {
 
   const matched = lessons.filter((l) => l.lesson_students.length > 0);
   const todays = matched.filter((l) => bkkDateKey(l.start_at) === today);
-  const rest = matched.filter((l) => bkkDateKey(l.start_at) > today);
+  const rest = matched.filter((l) => bkkDateKey(l.start_at) > today && bkkDateKey(l.start_at) < comingEnd);
   // Reminders: from Settings' "start tracking from" date, at most 60 days back (the same on Week and Money).
   const trackFrom = settings.track_from ?? "0000-01-01";
   const since = reminderSince(settings.track_from, today);
@@ -47,12 +50,17 @@ export default async function Home() {
   const unpaid = money.packages.filter((p) => !p.paid_on && p.price_thb != null && Number(p.price_thb) > 0);
   const accountName = new Map(money.accounts.map((a) => [a.id, a.name]));
 
-  // ✅ Before class, for today's lessons still to come.
-  const prep = await loadPrep(
-    todays,
-    students,
-    money.accounts.map((a) => ({ studentIds: a.studentIds, leftHours: a.leftHours, low: renewSoon(a, today, lowHours, renewWeeks) })),
-  );
+  // ✅ Before class (today's lessons) and ready or not (every lesson still to come in the next 7 days).
+  const [prep, ready] = await Promise.all([
+    loadPrep(
+      todays,
+      students,
+      money.accounts.map((a) => ({ studentIds: a.studentIds, leftHours: a.leftHours, low: renewSoon(a, today, lowHours, renewWeeks) })),
+    ),
+    loadReady([...todays, ...rest], students),
+  ]);
+  // In To do: lessons in the next 2 days that aren't ready yet.
+  const soon = [...todays, ...rest].filter((l) => ready.get(l.id) && !ready.get(l.id)!.ready && Date.parse(l.start_at) < now + 2 * 86_400_000);
 
   // The header: teaching now, or the next lesson (today or later this week).
   const live = todays.filter((l) => !l.status.startsWith("cancelled"));
@@ -98,12 +106,13 @@ export default async function Home() {
 
       {/* Phone: today, to do, then the month. Computer: today and the month on the left, to do on the right. */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-start md:gap-8">
-        <TodayTimeline lessons={todays} now={now} prep={prep} />
+        <TodayTimeline lessons={todays} now={now} prep={prep} ready={ready} />
         <div className="md:row-span-2">
           <TodoPanel
             notes={missing}
             unmarked={unmarked}
             feedback={unsent}
+            getReady={soon.map((l) => ({ lesson: l, r: ready.get(l.id)! }))}
             renew={low.map((a) => ({
               id: a.id,
               href: a.studentIds[0] ? `/students/${a.studentIds[0]}#hours` : "/students",
@@ -125,7 +134,7 @@ export default async function Home() {
         </div>
       </div>
 
-      <WeekList days={[...byDay.entries()]} />
+      <WeekList days={[...byDay.entries()]} ready={ready} />
     </div>
   );
 }
