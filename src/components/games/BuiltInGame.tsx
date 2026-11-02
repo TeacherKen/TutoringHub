@@ -6,6 +6,7 @@ import { MiniSudoku } from "./MiniSudoku";
 import { PizzaFractions } from "./PizzaFractions";
 import { FractionFaceoff } from "./FractionFaceoff";
 import { FractionChallenge } from "./FractionChallenge";
+import { ShapeBuilder } from "./ShapeBuilder";
 
 /** The games that are part of TutoringHub itself, by id (the student room and the games corner both use this). */
 export function BuiltInGame({ id }: { id: GameId }) {
@@ -22,6 +23,8 @@ export function BuiltInGame({ id }: { id: GameId }) {
       return <FractionFaceoff />;
     case "fc":
       return <FractionChallenge />;
+    case "sb":
+      return <ShapeBuilder />;
     default:
       return null;
   }

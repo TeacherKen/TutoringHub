@@ -132,6 +132,14 @@ function Glyph({ id }: { id: GameInfo["id"] }) {
         <span className="text-4xl">of 12</span>
       </span>
     );
+  if (id === "sb")
+    return (
+      <span aria-hidden className="grid grid-cols-5 gap-0.5">
+        {["#e8173f", "#e8173f", "#e8173f", "", "#5ad60f", "#e8173f", "#f5c400", "#f5c400", "#5ad60f", "#5ad60f", "#e8173f", "#f5c400", "#17e0ff", "#17e0ff", "#5ad60f", "#8e24aa", "#f5c400", "#17e0ff", "#ff9a26", "#5ad60f", "#8e24aa", "#f5c400", "#17e0ff", "#ff9a26", "#ff9a26"].map((c, i) => (
+          <span key={i} className="h-7 w-7 rounded-sm sm:h-8 sm:w-8" style={{ background: c || "transparent", boxShadow: c ? "inset 0 0 0 1px rgba(0,0,0,.3)" : undefined }} />
+        ))}
+      </span>
+    );
   if (id === "tt")
     return (
       <span aria-hidden className="font-sport text-7xl font-extrabold italic leading-none sm:text-8xl">
@@ -215,7 +223,7 @@ export function ArcadeGame({ id, children }: { id: GameInfo["id"]; children?: Re
       {g.src ? (
         <iframe src={g.src} title={g.name} className="w-full flex-1 rounded-2xl border-0 bg-white" style={{ minHeight: "80dvh" }} />
       ) : (
-        <div className="mx-auto my-3 w-full max-w-xl rounded-3xl bg-surface p-5 text-ink shadow-xl sm:p-7">{children}</div>
+        <div className={`mx-auto my-3 w-full rounded-3xl bg-surface p-5 text-ink shadow-xl sm:p-7 ${g.wide ? "max-w-5xl" : "max-w-xl"}`}>{children}</div>
       )}
     </ArcadeShell>
   );

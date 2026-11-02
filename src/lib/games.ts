@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 // Every game in TutoringHub, in one list: the student room's Games tab and the games corner both use it.
 
-export type GameId = "football" | "wolf-vs-sheep" | "magic-square" | "qm" | "tt" | "sd" | "fp" | "ff" | "fc";
+export type GameId = "football" | "wolf-vs-sheep" | "magic-square" | "qm" | "tt" | "sd" | "fp" | "ff" | "fc" | "sb";
 export type GameInfo = {
   id: GameId;
   name: string;
@@ -9,6 +9,8 @@ export type GameInfo = {
   players: string;
   /** Mr Ken's own games, copied into /public/games. */
   src?: string;
+  /** Needs the whole screen (a board plus a tray), not the narrow card. */
+  wide?: boolean;
   /** Tile colours for the games corner. */
   bg: string;
   fg: string;
@@ -24,6 +26,7 @@ export const GAMES: GameInfo[] = [
   { id: "fp", name: "Pizza Fractions", blurb: "Shade slices, name fractions, make the same amount", players: "1 player · ages 6–9", bg: "#b8322a", fg: "#ffffff" },
   { id: "ff", name: "Fraction Face-off", blurb: "Which fraction is bigger? 60 seconds", players: "1 player · ages 8–12", bg: "#7d2a6b", fg: "#ffffff" },
   { id: "fc", name: "Fraction Challenge", blurb: "3/4 of 20, adding, equivalent fractions", players: "1 player · ages 9–12", bg: "#e8b23a", fg: "#2b1a08" },
+  { id: "sb", name: "Shape Builder", blurb: "Fit all 12 blocks into the animal", players: "1 player · ages 6–12", wide: true, bg: "#1f6f8b", fg: "#ffffff" },
 ];
 
 /** Games built into TutoringHub (not Mr Ken's own pages in /public/games): what a screen picture may show. */
