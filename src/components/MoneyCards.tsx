@@ -69,6 +69,17 @@ export function PackageCard({ a, today, soon }: { a: AccountMoney; today: string
           <span className="text-danger">Hours used up{a.leftHours < 0 ? ` — ${fmtHours(-a.leftHours)} taught past the package` : ""}.</span>
         )}
       </p>
+      {a.packages.some((p) => p.state === "next" && p.id !== cur.id)
+        ? a.packages
+            .filter((p) => p.state === "next" && p.id !== cur.id)
+            .map((p) => (
+              <p key={p.id} className="rounded-lg bg-surface-2 px-3 py-2 text-sm">
+                Next package ready: <strong>{p.hours} h</strong>
+                {p.price != null ? <> · {thb(p.price)}</> : null} — it starts when the{" "}
+                {fmtHours(Math.max(0, cur.hours - cur.usedHours))} left on this one are used.
+              </p>
+            ))
+        : null}
       <p className="text-xs text-muted">
         All packages: {thb(a.paid)} paid · {thb(a.earned)} earned so far
         {f.basis === "average" ? " · end date estimated from the usual weekly lessons" : ""}

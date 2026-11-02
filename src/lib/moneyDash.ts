@@ -3,6 +3,7 @@
 // Pure functions (no database), so they can be tested.
 import { computeEarnings, type AccountMoney, type EarnAccount, type EarnLesson, type EarnPackage, type EarnStudent } from "./earnings";
 import { addDays, bkkDateKey, mondayOf } from "./time";
+import { colourSlots } from "./studentColours";
 
 export type DashGroup = {
   key: string;
@@ -100,11 +101,13 @@ export function buildMoneyDashboard(input: {
     for (const k of keys) items.push({ date: l.date, group: k, value: l.value / keys.length, hours: l.hours / keys.length, future: future.has(l.id) });
   }
 
-  // Fixed order: families with packages first, then per-class students, each by name. Up to 7 get their own
-  // colour; any more share an "Other" (8th) so a colour is never reused.
-  const keys = [...new Set(items.map((i) => i.group))].sort((a, b) => (a[0] === b[0] ? groupName(a).localeCompare(groupName(b)) : a < b ? -1 : 1));
-  const own = keys.slice(0, keys.length > 8 ? 7 : 8);
-  const slotOf = (k: string) => (own.includes(k) ? own.indexOf(k) + 1 : 8);
+  // The same colour for each family/student as on Week and Students (see studentColours.ts). Colours 1–7 each
+  // belong to one group; anyone with colour 8 is shown together as "Others", so a colour is never reused.
+  const colours = colourSlots({ students, packages, accountNames: accName });
+  const rank = (k: string) => (colours.order.includes(k) ? colours.order.indexOf(k) : 999);
+  const keys = [...new Set(items.map((i) => i.group))].sort((a, b) => rank(a) - rank(b) || groupName(a).localeCompare(groupName(b)));
+  const own = keys.filter((k) => colours.slotOfGroup(k) < 8);
+  const slotOf = (k: string) => colours.slotOfGroup(k);
   const shown = (k: string) => (own.includes(k) ? k : "other");
 
   // Baht per hour of lesson time.

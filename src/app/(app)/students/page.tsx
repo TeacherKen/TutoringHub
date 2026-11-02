@@ -1,76 +1,95 @@
 import Link from "next/link";
 import { requireTutor } from "@/lib/auth";
-import { getAccountSummaries, getLessons, getSettings, getStudents } from "@/lib/data";
-import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, fmtTime, todayKey } from "@/lib/time";
+import { getLessons, getMoneyData, getSettings, type Lesson, type Student } from "@/lib/data";
+import { renewSoon } from "@/lib/earnings";
+import { FamilyCard, firstNext, type Family } from "@/components/StudentCards";
+import { loadReady } from "@/lib/readyData";
+import { colourSlots } from "@/lib/studentColours";
+import { addDays, bkkStartOfDay, todayKey } from "@/lib/time";
+
+// 👥 Students, one card per family: who they are, their package (or price per class), and the next lesson.
+// Brothers and sisters who share hours are one card. Colours match Week and Money.
+
 
 export default async function StudentsPage() {
   await requireTutor();
-  const [students, accounts, settings, coming] = await Promise.all([
-    getStudents(),
-    getAccountSummaries(),
-    getSettings(),
-    getLessons(new Date().toISOString(), bkkStartOfDay(addDays(todayKey(), 29)).toISOString()),
-  ]);
-  // Each student's next lesson in the coming four weeks.
-  const next = new Map<string, string>();
-  for (const l of coming)
-    if (l.status === "scheduled") for (const ls of l.lesson_students) if (!next.has(ls.student_id)) next.set(ls.student_id, l.start_at);
-  const byAccount = new Map(accounts.map((a) => [a.id, a]));
-  const active = students.filter((s) => s.active);
-  const paused = students.filter((s) => !s.active);
+  const today = todayKey();
+  const [money, settings, coming] = await Promise.all([getMoneyData(), getSettings(), getLessons(new Date().toISOString(), bkkStartOfDay(addDays(today, 29)).toISOString())]);
+  const students = money.students as unknown as Student[];
+  const colours = colourSlots({ students, packages: money.packages, accountNames: new Map(money.accounts.map((a) => [a.id, a.name])) });
+  const renewWeeks = Number((settings as { renew_weeks?: number }).renew_weeks ?? 2);
+  const low = Number(settings.low_hours_threshold);
 
-  const row = (s: (typeof students)[number]) => {
-    const a = s.hour_account_id ? byAccount.get(s.hour_account_id) : undefined;
-    const has = a && a.packages.length > 0;
-    const left = a?.balance.left ?? 0;
-    const low = has && left <= Number(settings.low_hours_threshold);
-    return (
-      <Link key={s.id} href={`/students/${s.id}`} className="card flex items-start justify-between gap-3 hover:border-accent">
-        <div className="min-w-0">
-          <div className="font-medium">
-            {s.first_name} {s.level ? <span className="text-sm font-normal text-muted">· {s.level}</span> : null}
-          </div>
-          <div className="mt-1 flex flex-wrap gap-1.5 text-sm text-muted">
-            <span>{s.mode === "onsite" ? "Onsite" : "Online"}</span>
-            {s.place && s.mode === "onsite" ? <span>· {s.place}</span> : null}
-            {s.source === "preply" ? <span className="chip-accent">Preply</span> : null}
-            {a && a.students.length > 1 ? <span className="chip">Shares hours</span> : null}
-          </div>
-          <div className="mt-2 text-xs text-muted">
-            {next.get(s.id) ? (
-              <>
-                Next: <span className="text-ink">{fmtDay(bkkDateKey(next.get(s.id)!))}</span> · {fmtTime(next.get(s.id)!)}
-              </>
-            ) : s.active ? (
-              "No lesson booked in the next 4 weeks"
-            ) : null}
-          </div>
-        </div>
-        {has ? (
-          <span className={left < 0 ? "chip-danger" : low ? "chip-warn" : "chip"}>{fmtHours(left)} left</span>
-        ) : null}
-      </Link>
-    );
-  };
+  // Each student's next lesson in the coming four weeks, and whether it's ready.
+  const upcoming = coming.filter((l) => l.status === "scheduled" && l.lesson_students.length);
+  const nextOf = new Map<string, Lesson>();
+  for (const l of upcoming) for (const ls of l.lesson_students) if (!nextOf.has(ls.student_id)) nextOf.set(ls.student_id, l);
+  const ready = await loadReady([...new Set(nextOf.values())], students);
+
+  // Lessons taught this month (for per-class students).
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const thisMonth = (ids: string[]) => money.lessons.filter((l) => l.date >= monthStart && l.studentIds.some((id) => ids.includes(id)));
+
+  const families: Family[] = [];
+  for (const s of students) {
+    const key = s.hour_account_id ?? `s:${s.id}`;
+    let f = families.find((x) => x.key === key);
+    if (!f) {
+      const account = money.accounts.find((a) => a.id === s.hour_account_id);
+      families.push((f = { key, name: account?.name ?? s.first_name, students: [], account, slot: colours.slotOfStudent(s.id) }));
+    }
+    f.students.push(s);
+  }
+  const active = families.filter((f) => f.students.some((s) => s.active));
+  const paused = families.filter((f) => !f.students.some((s) => s.active));
+  const soon = (f: Family) => (f.account && f.account.packages.length ? renewSoon(f.account, today, low, renewWeeks) : false);
+  active.sort((a, b) => Number(soon(b)) - Number(soon(a)) || Number(!!b.account?.packages.length) - Number(!!a.account?.packages.length) || a.name.localeCompare(b.name));
+
+  const activeStudents = students.filter((s) => s.active);
+  const withPackages = active.filter((f) => f.account?.packages.length).length;
+  const renewing = active.filter(soon).length;
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
-        <h1 className="h1">Students</h1>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="h1">Students</h1>
+          <p className="mt-1 text-sm text-muted">
+            {activeStudents.length} {activeStudents.length === 1 ? "student" : "students"} · {active.length} {active.length === 1 ? "family" : "families"} · {withPackages} on packages,{" "}
+            {active.length - withPackages} per class
+            {renewing ? (
+              <>
+                {" "}
+                · <span className="text-warn">{renewing} to renew soon</span>
+              </>
+            ) : null}
+          </p>
+        </div>
         <Link href="/students/new" className="btn-primary">
           + Add
         </Link>
       </header>
-      {students.length === 0 ? (
-        <div className="card text-muted">
-          No students yet. Add your first student — their first name is used to find their lessons in your calendar.
-        </div>
-      ) : null}
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{active.map(row)}</div>
+
+      {students.length === 0 ? <div className="card text-muted">No students yet. Add your first student — their first name is used to find their lessons in your calendar.</div> : null}
+
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        {active.map((f) => (
+          <FamilyCard key={f.key} f={f} today={today} soon={soon(f)} next={firstNext(f, nextOf)} ready={ready} taught={thisMonth(f.students.map((s) => s.id))} />
+        ))}
+      </div>
+
       {paused.length ? (
         <section className="space-y-2">
           <h2 className="text-sm font-medium text-muted">Paused</h2>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{paused.map(row)}</div>
+          <div className="flex flex-wrap gap-2">
+            {paused.flatMap((f) =>
+              f.students.map((s) => (
+                <Link key={s.id} href={`/students/${s.id}`} className="chip hover:bg-accent-soft">
+                  {s.first_name}
+                </Link>
+              )),
+            )}
+          </div>
         </section>
       ) : null}
     </div>

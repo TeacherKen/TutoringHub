@@ -14,6 +14,7 @@ export type EarnStudent = {
   hour_account_id: string | null;
   hourly_rate_thb?: number | string | null;
   class_price_thb?: number | string | null;
+  active?: boolean | null;
 };
 export type EarnPackage = {
   id: string;
