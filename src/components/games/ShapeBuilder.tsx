@@ -128,15 +128,18 @@ export function ShapeBuilder() {
     return () => window.removeEventListener("resize", on);
   }, []);
   const side = screen.w >= 1024; // tray beside the picture (computer, iPad sideways); below it otherwise
-  const availW = side ? Math.min(screen.w, 1024) - 56 - 340 - 24 : Math.min(760, screen.w - 48);
+  const inner = Math.min(screen.w, 1024) - 56; // the white card's inside width
+  const availW = side ? inner - 300 - 24 : Math.min(760, screen.w - 48);
   const availH = side ? screen.h - 236 : screen.h - 236 - 380;
   const px = Math.max(22, Math.min(56, Math.floor(availW / cols), Math.floor(availH / rows)));
   // Tray blocks a bit smaller (12 have to fit), growing to full size as they're picked up.
   // …and small enough that all 12 fit in the tray's space (each block takes about 3×3 squares plus a gap).
-  const trayW = side ? 340 - 24 : availW - 24;
-  const trayH = side ? screen.h - 230 - 90 : 260;
+  // On a computer the tray column gets whatever width the picture leaves (up to 480px).
+  const colW = side ? Math.max(300, Math.min(480, inner - cols * px - 24)) : availW;
+  const trayW = colW - 24;
+  const trayH = side ? screen.h - 236 - 100 : 260;
   const trayFit = Math.floor((Math.sqrt((0.55 * trayW * trayH) / 12) - 12) / 3);
-  const trayPx = Math.max(16, Math.min(36, Math.round(px * 0.72), trayFit));
+  const trayPx = Math.max(16, Math.min(42, Math.round(px * 0.8), trayFit));
 
   useEffect(() => {
     if (phase !== "play") return;
@@ -247,7 +250,6 @@ export function ShapeBuilder() {
     }
     update(id, { shape });
   }
-  const turnSelected = (how: (s: Cell[]) => Cell[]) => selected && turn(selected, how);
 
   // Keyboard on a computer: R turns, F flips, Delete takes it off.
   useEffect(() => {
@@ -425,6 +427,10 @@ export function ShapeBuilder() {
   const inTray = blocks.filter((b) => !b.at && drag?.id !== b.id);
   const toGo = 12 - onBoard.length;
   const sel = selected ? blocks.find((b) => b.id === selected) : null;
+  const bestStars = allStars[`${pictureId}-${level}`] ?? 0;
+  // Free space beside the picture (it sits in the middle of its space), for the round buttons.
+  const slack = side ? Math.max(0, (inner - cols * px - 24 - colW) / 2) : Math.max(0, (Math.min(760, screen.w - 48) - cols * px) / 2);
+  const room = { left: Math.min(56, slack + (side ? 16 : 8)), right: side ? 0 : Math.min(56, slack + 8) };
 
   return (
     <div className="select-none space-y-2">
@@ -437,7 +443,7 @@ export function ShapeBuilder() {
 
       <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-start lg:justify-center lg:gap-6">
         {/* The picture: the outline squares, then each placed block drawn as one piece on top */}
-        <div className="flex justify-center overflow-x-auto">
+        <div className="flex justify-center">
           <div
             ref={gridRef}
             role="grid"
@@ -506,30 +512,31 @@ export function ShapeBuilder() {
                 }}
               />
             ))}
-            {sel?.at && !drag && !given.has(sel.id) ? <TurnButtons block={sel} px={px} rows={rows} onTurn={(how) => turn(sel.id, how)} /> : null}
+            {sel?.at && !drag && !given.has(sel.id) ? (
+              <TurnButtons room={room} block={sel} px={px} rows={rows} cols={cols} want={want} placed={placedExcept(sel.id)} onTurn={(how) => turn(sel.id, how)} onOff={() => update(sel.id, { at: null })} />
+            ) : null}
           </div>
         </div>
 
-        <div className="flex w-full flex-col gap-3 lg:w-[340px] lg:shrink-0">
-          {/* Turn the selected block */}
-          <div className="flex min-h-14 flex-wrap items-center justify-center gap-2 rounded-2xl bg-surface-2 p-2">
-            {sel && !given.has(sel.id) ? (
-              <>
-                <button type="button" className="btn-secondary min-h-12" onClick={() => turnSelected(rotate)}>
-                  ↻ Rotate
-                </button>
-                <button type="button" className="btn-secondary min-h-12" onClick={() => turnSelected(flip)}>
-                  ⇋ Flip
-                </button>
-                {sel.at ? (
-                  <button type="button" className="btn-quiet min-h-12" onClick={() => update(sel.id, { at: null })}>
-                    Take off
-                  </button>
+        <div className="flex w-full flex-col gap-3 lg:shrink-0" style={side ? { width: colW } : undefined}>
+          {/* What to beat, and how to play */}
+          <div className="flex min-h-14 items-center gap-3 rounded-2xl bg-surface-2 px-4 py-2">
+            <span className="text-3xl" aria-hidden>
+              {picture.emoji}
+            </span>
+            <span className="min-w-0 flex-1 text-sm leading-snug">
+              <span className="block font-semibold">
+                {LEVELS[level].name}
+                {bestStars ? (
+                  <>
+                    {" · best "}
+                    <StarRow n={bestStars} small />
+                  </>
                 ) : null}
-              </>
-            ) : (
-              <span className="px-2 text-center text-sm text-muted">Drag a block onto the picture. Tap a block, then tap it again to turn it.</span>
-            )}
+                {best != null ? ` · fastest ${secs(best)}` : ""}
+              </span>
+              <span className="block text-muted">Drag blocks in. Tap a block twice to turn it.</span>
+            </span>
           </div>
           <p aria-live="polite" className={`min-h-6 text-center text-sm ${msg?.startsWith("Hint") ? "text-accent" : "text-danger"}`}>
             {msg}
@@ -538,20 +545,25 @@ export function ShapeBuilder() {
           {/* The tray */}
           <div className="flex min-h-28 flex-wrap items-center justify-center gap-3 rounded-2xl bg-surface-2 p-3">
             {inTray.map((b) => (
-              <Block
-                key={turning?.id === b.id ? `${b.id}-${turning.n}` : b.id}
-                spin={turning?.id === b.id}
-                id={b.id}
-                shape={b.shape}
-                px={trayPx}
-                selected={selected === b.id}
-                pulse={ghostShown?.id === b.id}
-                onPointerDown={(e) => beginDrag(b.id, e)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelected(b.id);
-                }}
-              />
+              <span key={b.id} className={`relative ${selected === b.id ? "z-20" : ""}`}>
+                <Block
+                  key={turning?.id === b.id ? `${b.id}-${turning.n}` : b.id}
+                  spin={turning?.id === b.id}
+                  id={b.id}
+                  shape={b.shape}
+                  px={trayPx}
+                  selected={selected === b.id}
+                  pulse={ghostShown?.id === b.id}
+                  onPointerDown={(e) => beginDrag(b.id, e)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelected(b.id);
+                  }}
+                />
+                {selected === b.id && !drag ? (
+                  <RoundButtons className="absolute left-1/2 -translate-x-1/2" style={{ bottom: "calc(100% + 6px)" }} onTurn={(how) => turn(b.id, how)} />
+                ) : null}
+              </span>
             ))}
             {!inTray.length && !drag ? <span className="text-sm text-muted">All blocks are on the picture.</span> : null}
           </div>
@@ -592,6 +604,7 @@ function Block({
   lifted,
   spin,
   pulse,
+  tint,
   onPointerDown,
   onClick,
 }: {
@@ -604,6 +617,8 @@ function Block({
   lifted?: boolean;
   spin?: boolean;
   pulse?: boolean;
+  /** paint the whole block this colour (the finished picture) */
+  tint?: string;
   onPointerDown?: (e: React.PointerEvent<HTMLElement>) => void;
   onClick?: (e: React.MouseEvent) => void;
 }) {
@@ -623,13 +638,13 @@ function Block({
       {shape.map(([r, c]) => (
         <span
           key={`${r},${c}`}
-          className="absolute"
+          className="absolute transition-[background-color] duration-700"
           style={{
             left: c * px,
             top: r * px,
             width: px,
             height: px,
-            background: p.color,
+            backgroundColor: tint ?? p.color,
             // a fixed (given) block wears a little pin in each square, so children see they can't move it
             backgroundImage: locked ? "radial-gradient(circle at 50% 50%, rgba(255,255,255,.55) 0 3px, transparent 3.5px)" : undefined,
             // rounded only on outside corners so the squares read as one piece
@@ -665,28 +680,119 @@ function StarRow({ n, small }: { n: number; small?: boolean }) {
   );
 }
 
-/** Round Rotate and Flip buttons sitting right next to a block on the picture. */
-function TurnButtons({ block, px, rows, onTurn }: { block: Loose; px: number; rows: number; onTurn: (how: (s: Cell[]) => Cell[]) => void }) {
-  const h = Math.max(...block.shape.map((c) => c[0])) + 1;
-  const w = Math.max(...block.shape.map((c) => c[1])) + 1;
-  const [r, c] = block.at!;
-  const above = r > 0 || r + h >= rows; // usually above the block; below it when it's on the top row
-  const btn = "grid h-11 w-11 place-items-center rounded-full bg-[#ffc629] text-xl font-bold text-[#0b1d42] shadow-lg ring-2 ring-white transition active:scale-90";
+const ROUND = "grid h-11 w-11 place-items-center rounded-full bg-[#ffc629] text-xl font-bold text-[#0b1d42] shadow-lg ring-2 ring-white transition active:scale-90";
+
+/** The round yellow Rotate / Flip (and Take off) buttons. */
+function RoundButtons({
+  onTurn,
+  onOff,
+  vertical,
+  className = "",
+  style,
+}: {
+  onTurn: (how: (s: Cell[]) => Cell[]) => void;
+  onOff?: () => void;
+  vertical?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   return (
     <div
-      className="absolute z-20 flex gap-2"
-      style={{ left: (c + w / 2) * px, top: above ? r * px - 52 : (r + h) * px + 8, transform: "translateX(-50%)" }}
+      className={`z-20 flex gap-2 ${vertical ? "flex-col" : ""} ${className}`}
+      style={style}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      <button type="button" aria-label="Rotate" className={btn} onClick={() => onTurn(rotate)}>
+      <button type="button" aria-label="Rotate" title="Rotate (R)" className={ROUND} onClick={() => onTurn(rotate)}>
         ↻
       </button>
-      <button type="button" aria-label="Flip" className={btn} onClick={() => onTurn(flip)}>
+      <button type="button" aria-label="Flip" title="Flip (F)" className={ROUND} onClick={() => onTurn(flip)}>
         ⇋
       </button>
+      {onOff ? (
+        <button type="button" aria-label="Take off" title="Back to the tray" className={`${ROUND} bg-white text-base text-muted`} onClick={onOff}>
+          ✕
+        </button>
+      ) : null}
     </div>
   );
+}
+
+/**
+ * The round buttons next to a block on the picture, on whichever side covers the least: empty space
+ * outside the picture first, never the block itself.
+ */
+export function buttonSpot(
+  block: { shape: Cell[]; at: Cell },
+  px: number,
+  rows: number,
+  cols: number,
+  want: Set<string>,
+  taken: Set<string>,
+  count: number,
+  /** free space beside the picture (left, right) the buttons may use */
+  room: { left: number; right: number } = { left: 0, right: 0 },
+): { x: number; y: number; vertical: boolean } {
+  const h = Math.max(...block.shape.map((c) => c[0])) + 1;
+  const w = Math.max(...block.shape.map((c) => c[1])) + 1;
+  const [r, c] = block.at;
+  const len = count * 44 + (count - 1) * 8;
+  const own = new Set(block.shape.map(([a, b]) => `${a + r},${b + c}`));
+  const W = cols * px;
+  const H = rows * px;
+  const midX = (c + w / 2) * px;
+  const midY = (r + h / 2) * px;
+  const spots = [
+    { x: midX - len / 2, y: r * px - 52, vertical: false }, // above
+    { x: (c + w) * px + 8, y: midY - len / 2, vertical: true }, // right
+    { x: midX - len / 2, y: (r + h) * px + 8, vertical: false }, // below
+    { x: c * px - 52, y: midY - len / 2, vertical: true }, // left
+    { x: -room.left, y: midY - len / 2, vertical: true, far: true }, // out in the space left of the picture
+    { x: W + room.right - 44, y: midY - len / 2, vertical: true, far: true }, // …or right of it
+  ].map((s) => {
+    const bw = s.vertical ? 44 : len;
+    const bh = s.vertical ? len : 44;
+    // keep it inside the picture's box, or the free space beside it
+    const x = Math.max(-room.left, Math.min(W + room.right - bw, s.x));
+    const y = Math.max(0, Math.min(H - bh, s.y));
+    let cost = 0;
+    for (let rr = Math.floor(y / px); rr <= Math.floor((y + bh - 1) / px); rr++)
+      for (let cc = Math.floor(x / px); cc <= Math.floor((x + bw - 1) / px); cc++) {
+        const k = `${rr},${cc}`;
+        cost += own.has(k) ? 100 : !want.has(k) ? 0 : taken.has(k) ? 6 : 2;
+      }
+    // a little extra for being far from the block, so a close free spot wins a tie
+    if ("far" in s) cost += 1 + Math.abs(x + bw / 2 - midX) / (4 * px);
+    return { x, y, vertical: s.vertical, cost };
+  });
+  const best = spots.reduce((a, b) => (b.cost < a.cost ? b : a));
+  return { x: best.x, y: best.y, vertical: best.vertical };
+}
+
+function TurnButtons({
+  block,
+  px,
+  rows,
+  cols,
+  want,
+  placed,
+  room,
+  onTurn,
+  onOff,
+}: {
+  room: { left: number; right: number };
+  block: Loose;
+  px: number;
+  rows: number;
+  cols: number;
+  want: Set<string>;
+  placed: Placement[];
+  onTurn: (how: (s: Cell[]) => Cell[]) => void;
+  onOff: () => void;
+}) {
+  const taken = new Set(placed.flatMap((p) => p.cells.map((c) => c.join(","))));
+  const spot = buttonSpot({ shape: block.shape, at: block.at! }, px, rows, cols, want, taken, 3, room);
+  return <RoundButtons className="absolute" style={{ left: spot.x, top: spot.y }} vertical={spot.vertical} onTurn={onTurn} onOff={onOff} />;
 }
 
 /** A short burst of falling colours for a finished picture. */
@@ -715,14 +821,31 @@ function Confetti() {
   );
 }
 
-/** The finished picture, small. */
+const TINT: Record<string, string> = {
+  bear: "#8d5a3b",
+  three: "#2f66d8",
+  hippo: "#7c6fa6",
+  duck: "#f2b705",
+  swan: "#4a90c8",
+  whale: "#2b6cb0",
+  camel: "#c8964a",
+  rooster: "#d64534",
+  giraffe: "#e0a42b",
+};
+
+/** The finished picture, small: the blocks fade into one colour so the animal shows. */
 function Board({ picture, placed, px }: { picture: Picture; placed: Placement[]; px: number }) {
   const { rows, cols } = pictureSize(picture);
+  const [tinted, setTinted] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setTinted(true), 1300);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <div className="flex justify-center">
       <div aria-hidden className="relative" style={{ width: cols * px, height: rows * px }}>
         {placed.map((p) => (
-          <Block key={p.id} id={p.id} shape={normalize(p.cells)} px={px} style={{ position: "absolute", left: top(p.cells)[1] * px, top: top(p.cells)[0] * px }} />
+          <Block key={p.id} id={p.id} shape={normalize(p.cells)} px={px} tint={tinted ? (TINT[picture.id] ?? "#2f6b62") : undefined} style={{ position: "absolute", left: top(p.cells)[1] * px, top: top(p.cells)[0] * px }} />
         ))}
       </div>
     </div>
