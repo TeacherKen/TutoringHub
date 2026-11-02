@@ -131,9 +131,11 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
       {withPackages.length ? (
         <section className="space-y-3">
           <h2 className="h2">Packages</h2>
-          {withPackages.map((a) => (
-            <PackageCard key={a.id} a={a} today={today} soon={renewSoon(a, today, Number(settings.low_hours_threshold), renewWeeks)} />
-          ))}
+          <div className="grid gap-3 lg:grid-cols-2">
+            {withPackages.map((a) => (
+              <PackageCard key={a.id} a={a} today={today} soon={renewSoon(a, today, Number(settings.low_hours_threshold), renewWeeks)} />
+            ))}
+          </div>
         </section>
       ) : null}
 

@@ -1,11 +1,20 @@
 import Link from "next/link";
 import { requireTutor } from "@/lib/auth";
-import { getAccountSummaries, getSettings, getStudents } from "@/lib/data";
-import { fmtHours } from "@/lib/time";
+import { getAccountSummaries, getLessons, getSettings, getStudents } from "@/lib/data";
+import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, fmtTime, todayKey } from "@/lib/time";
 
 export default async function StudentsPage() {
   await requireTutor();
-  const [students, accounts, settings] = await Promise.all([getStudents(), getAccountSummaries(), getSettings()]);
+  const [students, accounts, settings, coming] = await Promise.all([
+    getStudents(),
+    getAccountSummaries(),
+    getSettings(),
+    getLessons(new Date().toISOString(), bkkStartOfDay(addDays(todayKey(), 29)).toISOString()),
+  ]);
+  // Each student's next lesson in the coming four weeks.
+  const next = new Map<string, string>();
+  for (const l of coming)
+    if (l.status === "scheduled") for (const ls of l.lesson_students) if (!next.has(ls.student_id)) next.set(ls.student_id, l.start_at);
   const byAccount = new Map(accounts.map((a) => [a.id, a]));
   const active = students.filter((s) => s.active);
   const paused = students.filter((s) => !s.active);
@@ -16,7 +25,7 @@ export default async function StudentsPage() {
     const left = a?.balance.left ?? 0;
     const low = has && left <= Number(settings.low_hours_threshold);
     return (
-      <Link key={s.id} href={`/students/${s.id}`} className="card flex items-center justify-between gap-3 hover:border-accent">
+      <Link key={s.id} href={`/students/${s.id}`} className="card flex items-start justify-between gap-3 hover:border-accent">
         <div className="min-w-0">
           <div className="font-medium">
             {s.first_name} {s.level ? <span className="text-sm font-normal text-muted">· {s.level}</span> : null}
@@ -26,6 +35,15 @@ export default async function StudentsPage() {
             {s.place && s.mode === "onsite" ? <span>· {s.place}</span> : null}
             {s.source === "preply" ? <span className="chip-accent">Preply</span> : null}
             {a && a.students.length > 1 ? <span className="chip">Shares hours</span> : null}
+          </div>
+          <div className="mt-2 text-xs text-muted">
+            {next.get(s.id) ? (
+              <>
+                Next: <span className="text-ink">{fmtDay(bkkDateKey(next.get(s.id)!))}</span> · {fmtTime(next.get(s.id)!)}
+              </>
+            ) : s.active ? (
+              "No lesson booked in the next 4 weeks"
+            ) : null}
           </div>
         </div>
         {has ? (
@@ -48,11 +66,11 @@ export default async function StudentsPage() {
           No students yet. Add your first student — their first name is used to find their lessons in your calendar.
         </div>
       ) : null}
-      <div className="space-y-2">{active.map(row)}</div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{active.map(row)}</div>
       {paused.length ? (
         <section className="space-y-2">
           <h2 className="text-sm font-medium text-muted">Paused</h2>
-          {paused.map(row)}
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{paused.map(row)}</div>
         </section>
       ) : null}
     </div>

@@ -81,7 +81,7 @@ export function PlayHub({ students }: { students: Kid[] }) {
       <section id="whos-playing" className={`${PANEL} scroll-mt-4 space-y-3 px-4 py-5 sm:px-6`}>
         <h2 className="font-sport text-3xl font-extrabold italic">Who&apos;s playing?</h2>
         <p className="text-sm text-white/70">Tap a name to practise on this device. Their chart and trophies update as they play.</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {sorted.map((k) => (
             <button
               key={k.id}
@@ -226,7 +226,7 @@ function GamesCorner() {
                 <span aria-hidden>{emoji}</span> {topic}
                 <span className="h-px flex-1 bg-white/15" />
               </h3>
-              <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+              <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
                 {games.map((g) => (
                   <li key={g.id}>
                     <Link

@@ -2,7 +2,8 @@ import { CalendarCatchUp } from "@/components/CalendarCatchUp";
 import Link from "next/link";
 import { requireTutor } from "@/lib/auth";
 import { getLessons, getSettings, reminderSince } from "@/lib/data";
-import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, mondayOf, todayKey } from "@/lib/time";
+import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, mondayOf, todayKey } from "@/lib/time";
+import { WeekGrid } from "@/components/WeekGrid";
 import { LessonCard } from "@/components/LessonCard";
 import { RefreshButton } from "@/components/RefreshButton";
 
@@ -19,6 +20,8 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const today = todayKey();
   const since = reminderSince(settings.track_from, today);
+  const live = lessons.filter((l) => l.status !== "cancelled");
+  const hours = live.reduce((t, l) => t + (Date.parse(l.end_at) - Date.parse(l.start_at)) / 3_600_000, 0);
 
   return (
     <div className="space-y-6">
@@ -29,10 +32,13 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
             {fmtDay(monday)} – {fmtDay(addDays(monday, 6))}
           </p>
           <h1 className="h1">Week</h1>
+          <p className="mt-1 text-sm text-muted">
+            {live.length} {live.length === 1 ? "lesson" : "lessons"} · {fmtHours(Math.round(hours * 4) / 4)}
+          </p>
         </div>
         <RefreshButton />
       </header>
-      <div className="flex gap-2">
+      <div className="flex gap-2 lg:max-w-md">
         <Link className="btn-secondary flex-1" href={`/week?start=${addDays(monday, -7)}`}>
           ‹ Previous
         </Link>
@@ -43,10 +49,14 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
           Next ›
         </Link>
       </div>
+      {/* Laptop: the 7 days side by side */}
+      <WeekGrid days={days} lessons={lessons} today={today} since={since} />
+
+      {/* Phone and iPad: one day under another */}
       {days.map((d) => {
         const ls = lessons.filter((l) => bkkDateKey(l.start_at) === d);
         return (
-          <section key={d} className="space-y-2">
+          <section key={d} className="space-y-2 lg:hidden">
             <h2 className={`text-sm font-medium ${d === today ? "text-accent" : "text-muted"}`}>
               {fmtDay(d)} {d === today ? "· Today" : ""}
             </h2>
@@ -61,3 +71,4 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
     </div>
   );
 }
+

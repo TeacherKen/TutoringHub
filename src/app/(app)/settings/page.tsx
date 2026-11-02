@@ -35,6 +35,9 @@ export default async function SettingsPage() {
     <div className="space-y-8">
       <h1 className="h1">Settings</h1>
 
+      {/* Two columns of cards on a laptop; one column on a phone */}
+      <div className="space-y-8 lg:block lg:columns-2 lg:gap-6 lg:space-y-0 [&>section]:break-inside-avoid lg:[&>section]:mb-6">
+
       <section id="calendar" className="card space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -221,7 +224,9 @@ export default async function SettingsPage() {
         </ul>
       </section>
 
-      <div className="pb-6">
+      </div>
+
+      <div className="pb-6 lg:max-w-sm">
         <p className="mb-2 text-sm text-muted">Signed in as {me.email}</p>
         <SignOutButton className="btn-secondary w-full" />
       </div>
