@@ -105,7 +105,13 @@ export function ShapeBuilder() {
   const allStars = parse<Record<string, number>>(starsRaw, {});
   const saved = parse<Saved | null>(savedRaw, null);
   const resumable = saved && pictureById(saved.pictureId) && saved.blocks?.length === PIECES.length ? saved : null;
-  const [spin, setSpin] = useState(0); // bumps on every turn, to replay the little turn animation
+  // The little turn animation plays only just after a real turn, not every time a block is put down.
+  const [turning, setTurning] = useState<{ id: PieceId; n: number } | null>(null);
+  useEffect(() => {
+    if (!turning) return;
+    const t = setTimeout(() => setTurning(null), 250);
+    return () => clearTimeout(t);
+  }, [turning]);
   const { best, offer } = useBest(`sb-${pictureId}-${level}`, (a, b) => a < b);
   const picture = pictureById(pictureId)!;
   const { rows, cols } = pictureSize(picture);
@@ -226,7 +232,7 @@ export function ShapeBuilder() {
     const b = blocks.find((x) => x.id === id)!;
     const where = at === undefined ? b.at : at;
     const shape = how(b.shape);
-    setSpin((n) => n + 1);
+    setTurning((t) => ({ id, n: (t?.n ?? 0) + 1 }));
     if (where) {
       // Turn it around its middle, then nudge it to the nearest spot that fits.
       const oh = Math.max(...b.shape.map((q) => q[0])), ow = Math.max(...b.shape.map((q) => q[1]));
@@ -484,8 +490,8 @@ export function ShapeBuilder() {
               : null}
             {onBoard.map((b) => (
               <Block
-                key={selected === b.id ? `${b.id}-${spin}` : b.id}
-                spin={selected === b.id && spin > 0}
+                key={turning?.id === b.id ? `${b.id}-${turning.n}` : b.id}
+                spin={turning?.id === b.id}
                 id={b.id}
                 shape={b.shape}
                 px={px}
@@ -533,8 +539,8 @@ export function ShapeBuilder() {
           <div className="flex min-h-28 flex-wrap items-center justify-center gap-3 rounded-2xl bg-surface-2 p-3">
             {inTray.map((b) => (
               <Block
-                key={selected === b.id ? `${b.id}-${spin}` : b.id}
-                spin={selected === b.id && spin > 0}
+                key={turning?.id === b.id ? `${b.id}-${turning.n}` : b.id}
+                spin={turning?.id === b.id}
                 id={b.id}
                 shape={b.shape}
                 px={trayPx}
