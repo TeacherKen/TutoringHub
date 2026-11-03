@@ -280,7 +280,9 @@ textarea.input {
   /* The app's own colour names, pointed at the glass palette, so every page reads well on dark
      (each page gets its full glass treatment in phase 2). */
   --bg: var(--th-bg);
-  --surface: #0f2527; /* solid, for things that must cover what's under them */
+  /* Solid boxes (inputs, outlined buttons, tags, pop-ups): the theme's background, lifted a little and
+     touched with its accent, so they follow the colour theme. */
+  --surface: color-mix(in srgb, color-mix(in srgb, var(--th-bg), #ffffff 7%), var(--th-accent) 5%);
   --surface-2: rgba(255, 255, 255, 0.06);
   --border: rgba(255, 255, 255, 0.11);
   --text: var(--th-text);
@@ -358,10 +360,10 @@ html:has(.th-glass) body {
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass,
   .th-glass .card {
-    background: rgba(18, 40, 42, 0.92);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
   }
   .glass-hi {
-    background: rgba(24, 50, 52, 0.95);
+    background: color-mix(in srgb, color-mix(in srgb, var(--surface), #ffffff 4%) 95%, transparent);
   }
 }
 /* Light glass: iPad / games corner, and "Glass strength: Light" */
@@ -388,8 +390,8 @@ html:has(.th-glass) body {
 }
 .lift:hover {
   transform: translateY(-3px);
-  border-color: rgba(110, 231, 200, 0.4);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 26px 50px -24px rgba(45, 212, 191, 0.35);
+  border-color: var(--th-accent-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 26px 50px -24px color-mix(in srgb, var(--th-accent) 35%, transparent);
 }
 
 /* Top bar tabs */
@@ -437,8 +439,8 @@ html:has(.th-glass) body {
 
 /* Expected money (Money by month) */
 .hatch {
-  background-image: repeating-linear-gradient(135deg, rgba(110, 231, 200, 0.55) 0 2px, transparent 2px 8px);
-  border: 1.5px dashed rgba(110, 231, 200, 0.7);
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--th-accent) 55%, transparent) 0 2px, transparent 2px 8px);
+  border: 1.5px dashed color-mix(in srgb, var(--th-accent) 70%, transparent);
 }
 
 /* Background glow orbs: fixed, behind everything, never clickable */
