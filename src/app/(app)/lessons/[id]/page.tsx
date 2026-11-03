@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ViaTag } from "@/components/ViaTag";
 import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -118,9 +119,9 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
         </p>
         <h1 className="h1">{lessonNames(lesson)}</h1>
         <div className="mt-2 flex flex-wrap gap-1.5 text-sm text-muted">
-          {mode ? <span className="chip">{mode === "onsite" ? "Onsite" : "Online"}</span> : null}
+          {mode === "onsite" ? <span className="chip">Onsite</span> : null}
           {place ? <span className="chip">{place}</span> : null}
-          {lesson.is_preply ? <span className="chip-accent">Preply</span> : null}
+          {mode !== "onsite" ? <ViaTag lesson={lesson} plainOnsite={false} /> : null}
           {earned?.value != null ? <span className="chip-ok">This class: {thb(earned.value)}</span> : null}
           {lesson.title && lesson.title !== lessonNames(lesson) ? <span className="chip">“{lesson.title}”</span> : null}
         </div>

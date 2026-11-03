@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { lessonMode, lessonNames, lessonPlace, needsNote, type Lesson } from "@/lib/data";
+import { lessonMode, lessonNames, lessonPlace, lessonVia, needsNote, type Lesson } from "@/lib/data";
 import { bkkDateKey, fmtDay, fmtTime } from "@/lib/time";
 import type { PrepStudent } from "@/lib/prep";
 import { PrepCard } from "@/components/PrepCard";
@@ -30,8 +30,8 @@ export function untilText(ms: number): string {
 
 const where = (l: Lesson) => {
   const mode = lessonMode(l);
-  const place = lessonPlace(l);
-  return [mode === "onsite" ? "Onsite" : mode === "online" ? "Online" : null, place].filter(Boolean).join(", ");
+  const v = lessonVia(l);
+  return mode === "onsite" ? ["Onsite", lessonPlace(l)].filter(Boolean).join(", ") : (v.label ?? (mode === "online" ? "Online" : ""));
 };
 
 /** "✓ Slides ready", or what's still to do for a coming lesson. */

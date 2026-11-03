@@ -1,12 +1,16 @@
 import Link from "next/link";
-import { lessonMode, lessonNames, lessonPlace, needsNote, type Lesson } from "@/lib/data";
+import { lessonNames, needsNote, type Lesson } from "@/lib/data";
+import { ViaTag } from "./ViaTag";
 import type { Ready } from "@/lib/ready";
 import { bkkDateKey, fmtTime } from "@/lib/time";
 
 // 📅 The Week page on a laptop: a calendar with the hours down the side and each lesson placed at its time,
 // in its student's colour (the same colour as on Students and Money). Phones keep the simple list.
 
-const HOUR = 54; // pixels per hour
+// The whole day fits on the screen (no scrolling): the calendar is as tall as the window allows, and
+// lessons are placed by percentage of it. About this many pixels an hour, to decide how much text fits:
+const EST_HEIGHT = 470;
+const COLUMN_HEIGHT = "clamp(340px, calc(100vh - 470px), 640px)";
 const bkkHour = (iso: string) => {
   const d = new Date(iso);
   return (d.getUTCHours() + 7) % 24 + d.getUTCMinutes() / 60; // Thailand is always UTC+7
@@ -31,16 +35,18 @@ export function WeekGrid({
   ready: Record<string, Ready>;
   now: string;
 }) {
-  // Hours shown: at least 8:00–19:00, stretched to fit every lesson.
+  // Hours shown: from the earliest lesson to the latest (at least 9:00–18:00), nothing more.
   const starts = lessons.map((l) => bkkHour(l.start_at));
   const ends = lessons.map((l) => {
     const e = bkkHour(l.end_at);
     return e < bkkHour(l.start_at) ? 24 : e;
   });
-  const from = Math.max(0, Math.min(8, ...starts.map(Math.floor)));
-  const to = Math.min(24, Math.max(19, ...ends.map(Math.ceil)));
-  const hours = Array.from({ length: to - from }, (_, i) => from + i);
-  const height = (to - from) * HOUR;
+  const from = Math.max(0, Math.min(9, ...starts.map(Math.floor)));
+  const to = Math.min(24, Math.max(18, ...ends.map(Math.ceil)));
+  const span = to - from;
+  const hours = Array.from({ length: span + 1 }, (_, i) => from + i);
+  const pct = (h: number) => `${((h - from) / span) * 100}%`;
+  const hourPx = EST_HEIGHT / span;
   const nowH = bkkHour(now);
 
   return (
@@ -52,11 +58,11 @@ export function WeekGrid({
           const isToday = d === today;
           const count = lessons.filter((l) => bkkDateKey(l.start_at) === d && l.status !== "cancelled").length;
           return (
-            <div key={d} className={`border-l border-line px-2 py-2.5 text-center ${isToday ? "bg-accent-soft" : ""}`}>
+            <div key={d} className={`border-l border-line px-2 py-1.5 text-center ${isToday ? "bg-accent-soft" : ""}`}>
               <div className={`text-xs font-medium uppercase tracking-wide ${isToday ? "text-accent" : "text-muted"}`}>{weekday(d)}</div>
               <div className="mt-0.5 flex items-center justify-center gap-1.5">
                 <span
-                  className={`grid h-8 min-w-8 place-items-center rounded-full px-1 text-lg font-semibold tabular-nums ${isToday ? "bg-accent text-accent-text" : ""}`}
+                  className={`grid h-7 min-w-7 place-items-center rounded-full px-1 text-base font-semibold tabular-nums ${isToday ? "bg-accent text-accent-text" : ""}`}
                 >
                   {Number(d.slice(8))}
                 </span>
@@ -68,11 +74,11 @@ export function WeekGrid({
       </div>
 
       {/* Hours and lessons */}
-      <div className="grid max-h-[70vh] grid-cols-[52px_repeat(7,minmax(0,1fr))] overflow-y-auto">
-        <div className="relative" style={{ height }}>
+      <div className="grid grid-cols-[52px_repeat(7,minmax(0,1fr))]">
+        <div className="relative" style={{ height: COLUMN_HEIGHT }}>
           {hours.map((h) => (
-            <span key={h} className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-muted" style={{ top: (h - from) * HOUR }}>
-              {h === from ? "" : `${String(h).padStart(2, "0")}:00`}
+            <span key={h} className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-muted" style={{ top: pct(h) }}>
+              {h === from || h === to ? "" : `${String(h).padStart(2, "0")}:00`}
             </span>
           ))}
         </div>
@@ -95,12 +101,13 @@ export function WeekGrid({
               key={d}
               className={`relative border-l border-line ${isToday ? "bg-accent-soft/40" : ""}`}
               style={{
-                height,
-                backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${HOUR}px)`,
+                height: COLUMN_HEIGHT,
+                backgroundImage: "linear-gradient(to bottom, var(--border) 1px, transparent 1px)",
+                backgroundSize: `100% ${100 / span}%`,
               }}
             >
               {isToday && nowH >= from && nowH <= to ? (
-                <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: (nowH - from) * HOUR }} aria-label="Now">
+                <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: pct(nowH) }} aria-label="Now">
                   <span className="-ml-1 h-2 w-2 rounded-full bg-danger" />
                   <span className="h-px flex-1 bg-danger" />
                 </div>
@@ -112,8 +119,10 @@ export function WeekGrid({
                   since={since}
                   slot={slotOf[l.id] ?? 8}
                   ready={ready[l.id]}
-                  top={(bkkHour(l.start_at) - from) * HOUR}
-                  h={Math.max(24, ((Date.parse(l.end_at) - Date.parse(l.start_at)) / 3_600_000) * HOUR)}
+                  top={pct(bkkHour(l.start_at))}
+                  hours={(Date.parse(l.end_at) - Date.parse(l.start_at)) / 3_600_000}
+                  span={span}
+                  hourPx={hourPx}
                   left={(lane.get(l.id)! / lanes) * 100}
                   width={100 / lanes}
                 />
@@ -126,13 +135,34 @@ export function WeekGrid({
   );
 }
 
-function Block({ l, since, slot, ready, top, h, left, width }: { l: Lesson; since: string | null; slot: number; ready?: Ready; top: number; h: number; left: number; width: number }) {
-  const mode = lessonMode(l);
-  const place = lessonPlace(l);
+function Block({
+  l,
+  since,
+  slot,
+  ready,
+  top,
+  hours,
+  span,
+  hourPx,
+  left,
+  width,
+}: {
+  l: Lesson;
+  since: string | null;
+  slot: number;
+  ready?: Ready;
+  top: string;
+  hours: number;
+  span: number;
+  hourPx: number;
+  left: number;
+  width: number;
+}) {
+  const h = hours * hourPx; // about how tall it is, to decide how much text fits
   const cancelled = l.status === "cancelled";
   const done = l.status === "done";
   const note = needsNote(l, since);
-  const lines = h >= 60 ? 3 : h >= 34 ? 2 : 1;
+  const lines = h >= 62 ? 3 : h >= 32 ? 2 : 1;
   const colour = `var(--series-${slot})`;
   return (
     <Link
@@ -140,8 +170,8 @@ function Block({ l, since, slot, ready, top, h, left, width }: { l: Lesson; sinc
       title={`${lessonNames(l)} · ${fmtTime(l.start_at)}–${fmtTime(l.end_at)}`}
       className={`absolute z-10 overflow-hidden rounded-lg border-l-[3px] px-1.5 py-1 text-xs leading-tight shadow-sm transition hover:z-30 hover:shadow-md ${cancelled ? "opacity-50" : ""}`}
       style={{
-        top: top + 1,
-        height: h - 2,
+        top: `calc(${top} + 1px)`,
+        height: `max(22px, calc(${(hours / span) * 100}% - 2px))`,
         left: `calc(${left}% + 3px)`,
         width: `calc(${width}% - 6px)`,
         borderLeftColor: colour,
@@ -167,18 +197,25 @@ function Block({ l, since, slot, ready, top, h, left, width }: { l: Lesson; sinc
         ) : null}
       </div>
       {lines >= 2 ? (
-        <div className="truncate tabular-nums text-muted">
-          {fmtTime(l.start_at)}–{fmtTime(l.end_at)}
+        <div className="flex items-center gap-1 overflow-hidden whitespace-nowrap tabular-nums text-muted">
+          {lines === 2 ? (
+            <>
+              <span>{fmtTime(l.start_at)}</span>
+              <ViaTag lesson={l} size="xs" />
+            </>
+          ) : (
+            <span>
+              {fmtTime(l.start_at)}–{fmtTime(l.end_at)}
+            </span>
+          )}
         </div>
       ) : null}
       {lines === 3 ? (
-        <>
-          <div className="mt-0.5 truncate text-muted">
-            {l.is_preply ? "Preply" : mode === "onsite" ? (place ?? "Onsite") : mode === "online" ? "Online" : ""}
-            {note ? <span className="text-warn"> · note</span> : null}
-            {l.status === "cancelled_charged" || l.status === "no_show" ? <span className="text-warn"> · charged</span> : null}
-          </div>
-        </>
+        <div className="mt-1 flex flex-wrap items-center gap-1 text-muted">
+          <ViaTag lesson={l} size="xs" />
+          {note ? <span className="text-warn">note</span> : null}
+          {l.status === "cancelled_charged" || l.status === "no_show" ? <span className="text-warn">charged</span> : null}
+        </div>
       ) : null}
     </Link>
   );

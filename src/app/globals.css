@@ -119,6 +119,12 @@ body {
 @utility chip-accent {
   @apply chip bg-accent-soft text-accent;
 }
+/* Google Meet (and Zoom / Teams): Mr Ken's own online lessons */
+@utility chip-meet {
+  @apply chip;
+  background: color-mix(in srgb, var(--series-1) 14%, var(--surface));
+  color: color-mix(in srgb, var(--series-1) 80%, var(--text));
+}
 @utility chip-warn {
   @apply chip bg-warn-soft text-warn;
 }

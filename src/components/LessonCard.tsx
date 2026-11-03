@@ -2,6 +2,7 @@ import Link from "next/link";
 import { fmtTime } from "@/lib/time";
 import { lessonMode, lessonNames, lessonPlace, needsFeedback, needsNote, type Lesson } from "@/lib/data";
 import { todayKey } from "@/lib/time";
+import { ViaTag } from "./ViaTag";
 
 const STATUS: Record<Lesson["status"], { label: string; cls: string } | null> = {
   scheduled: null,
@@ -32,9 +33,14 @@ export function LessonCard({ lesson, since }: { lesson: Lesson; since?: string |
       <div className="min-w-0 flex-1">
         <div className={`truncate font-medium ${cancelled ? "line-through" : ""}`}>{lessonNames(lesson)}</div>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted">
-          {mode ? <span>{mode === "onsite" ? "Onsite" : "Online"}</span> : null}
-          {place ? <span>· {place}</span> : null}
-          {lesson.is_preply ? <span className="chip-accent">Preply</span> : null}
+          {mode === "onsite" ? (
+            <>
+              <span>Onsite</span>
+              {place ? <span>· {place}</span> : null}
+            </>
+          ) : (
+            <ViaTag lesson={lesson} />
+          )}
           {st ? <span className={st.cls}>{st.label}</span> : null}
           {missing ? <span className="chip-warn">Note missing</span> : null}
           {unsent ? <span className="chip-warn">Feedback not sent</span> : null}

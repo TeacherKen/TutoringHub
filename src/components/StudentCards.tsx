@@ -3,6 +3,7 @@ import type { Lesson, Student } from "@/lib/data";
 import { thb, type AccountMoney } from "@/lib/earnings";
 import type { Ready } from "@/lib/ready";
 import { bkkDateKey, fmtDay, fmtHours, fmtTime } from "@/lib/time";
+import { Via } from "./ViaTag";
 
 /** A family: brothers and sisters sharing hours, or one student. */
 export type Family = { key: string; name: string; students: Student[]; account?: AccountMoney; slot: number };
@@ -78,8 +79,8 @@ export function FamilyCard({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted">
             <span className="h-2 w-2 rounded-full" style={{ background: colour }} aria-hidden />
-            <span>{first.mode === "onsite" ? `Onsite${first.place ? ` · ${first.place}` : ""}` : "Online"}</span>
-            {preply ? <span className="chip-accent px-1.5 py-0 text-xs">Preply</span> : null}
+            {first.mode === "onsite" ? <span>{`Onsite${first.place ? ` · ${first.place}` : ""}`}</span> : null}
+            {preply ? <Via kind="preply" label="Preply" size="xs" /> : first.mode === "online" ? <Via kind="meet" label="Google Meet" size="xs" /> : null}
             {f.students.length > 1 ? <span>· share hours</span> : null}
           </div>
         </div>

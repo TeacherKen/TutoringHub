@@ -246,6 +246,21 @@ export function lessonPlace(l: Lesson): string | null {
   return l.lesson_students.map((ls) => ls.students?.place).find(Boolean) ?? l.location ?? null;
 }
 
+/**
+ * Where the lesson happens: "Preply", "Google Meet" (Mr Ken's own online lessons, e.g. Angela), "Zoom" or
+ * "Teams" if the calendar says so, or the place for onsite lessons.
+ */
+export function lessonVia(l: Lesson): { kind: "preply" | "meet" | "zoom" | "teams" | "onsite" | null; label: string | null } {
+  const loc = (l.location ?? "").toLowerCase();
+  if (l.is_preply || loc.includes("preply.com")) return { kind: "preply", label: "Preply" };
+  const mode = lessonMode(l);
+  if (mode === "onsite") return { kind: "onsite", label: lessonPlace(l) ?? "Onsite" };
+  if (loc.includes("zoom.us")) return { kind: "zoom", label: "Zoom" };
+  if (loc.includes("teams")) return { kind: "teams", label: "Teams" };
+  if (mode === "online") return { kind: "meet", label: "Google Meet" };
+  return { kind: null, label: null };
+}
+
 // ⏰ Reminders. Home, Week, Money and the "Mark all done" button all use these, so they always agree.
 
 /** Reminders go back to Settings' "start tracking from" date, but never more than 30 days: older is history. */

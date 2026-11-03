@@ -88,8 +88,8 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
 
       <WeekGrid days={days} lessons={lessons} today={today} since={since} slotOf={slotOf} ready={ready} now={new Date().toISOString()} />
       <p className="hidden text-xs text-muted lg:block">
-        <span className="text-ok">●</span> ready · <span className="text-warn">●</span> slides or worksheet still to do · ✓ done. Each family has its own colour, the same as on
-        Students and Money.
+        <span className="text-ok">●</span> ready · <span className="text-warn">●</span> slides or worksheet still to do · ✓ done · Preply and Google Meet tags show how
+        each online lesson happens. Each family has its own colour, the same as on Students and Money.
       </p>
 
       {/* Phone and iPad: one day under another */}

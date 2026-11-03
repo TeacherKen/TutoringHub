@@ -87,7 +87,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
       <header>
         <h1 className="h1">{student.first_name}</h1>
         <p className="mt-1 text-muted">
-          {[student.level, student.mode === "onsite" ? `Onsite${student.place ? ` · ${student.place}` : ""}` : "Online", student.source === "preply" ? "Preply" : null]
+          {[student.level, student.mode === "onsite" ? `Onsite${student.place ? ` · ${student.place}` : ""}` : student.source === "preply" ? "Online · Preply" : "Online · Google Meet"]
             .filter(Boolean)
             .join(" · ")}
         </p>
