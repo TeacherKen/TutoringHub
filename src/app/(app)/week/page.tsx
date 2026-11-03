@@ -49,7 +49,7 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
   const busiest = days.map((d) => ({ d, n: live.filter((l) => bkkDateKey(l.start_at) === d).length })).sort((a, b) => b.n - a.n)[0];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <CalendarCatchUp />
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -74,13 +74,13 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:gap-2">
         <Stat label="Lessons" value={String(live.length)} note={done ? `${done} done` : busiest?.n ? `busiest: ${fmtDay(busiest.d).split(" ")[0]}` : "none booked"} />
-        <Stat label="Teaching time" value={fmtHours(Math.round(hours * 4) / 4)} note={live.length ? `about ${fmtHours(Math.round((hours / Math.max(1, live.length)) * 4) / 4)} each` : ""} />
+        <Stat label="Teaching" value={fmtHours(Math.round(hours * 4) / 4)} note={live.length ? `about ${fmtHours(Math.round((hours / Math.max(1, live.length)) * 4) / 4)} each` : ""} />
         <Stat
           label="Ready"
           value={coming.length ? `${readyCount} of ${coming.length}` : "—"}
-          note={coming.length ? (readyCount === coming.length ? "all set" : "slides or worksheets to do") : "no lessons still to come"}
+          note={coming.length ? (readyCount === coming.length ? "all set" : "slides or worksheets to do") : "nothing still to come"}
           tone={coming.length && readyCount < coming.length ? "warn" : "ok"}
         />
         <Stat label="Notes to write" value={String(notes)} note={notes ? "after the lesson" : "all written"} tone={notes ? "warn" : "ok"} />
@@ -111,10 +111,11 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
 }
 
 function Stat({ label, value, note, tone }: { label: string; value: string; note: string; tone?: "ok" | "warn" }) {
+  // Phone: a small card. Laptop: one compact pill, so the calendar starts near the top.
   return (
-    <div className="rounded-xl border border-line bg-surface p-3">
+    <div className="rounded-xl border border-line bg-surface p-3 lg:flex lg:items-baseline lg:gap-2 lg:rounded-full lg:px-4 lg:py-1.5">
       <div className="text-xs text-muted">{label}</div>
-      <div className={`text-2xl font-semibold tabular-nums ${tone === "warn" ? "text-warn" : ""}`}>{value}</div>
+      <div className={`text-2xl font-semibold tabular-nums lg:text-base ${tone === "warn" ? "text-warn" : ""}`}>{value}</div>
       <div className="text-xs text-muted">{note}</div>
     </div>
   );

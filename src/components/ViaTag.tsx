@@ -18,7 +18,7 @@ export function Via({ kind, label, size = "sm", plainOnsite = true }: { kind: Re
           <rect x="3" y="6" width="12" height="12" rx="2" />
           <path d="m15 10 6-3v10l-6-3" />
         </svg>
-        {label}
+        {size === "xs" && kind === "meet" ? "Meet" : label}
       </span>
     );
   return <span className={`chip ${pad}`}>{label}</span>;

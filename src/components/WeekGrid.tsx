@@ -9,8 +9,9 @@ import { bkkDateKey, fmtTime } from "@/lib/time";
 
 // The whole day fits on the screen (no scrolling): the calendar is as tall as the window allows, and
 // lessons are placed by percentage of it. About this many pixels an hour, to decide how much text fits:
-const EST_HEIGHT = 470;
-const COLUMN_HEIGHT = "clamp(340px, calc(100vh - 470px), 640px)";
+const EST_HEIGHT = 680;
+// The calendar on its own fills the screen (below the menu bar and the day names).
+const COLUMN_HEIGHT = "max(520px, calc(100dvh - 210px))";
 const bkkHour = (iso: string) => {
   const d = new Date(iso);
   return (d.getUTCHours() + 7) % 24 + d.getUTCMinutes() / 60; // Thailand is always UTC+7
@@ -50,7 +51,7 @@ export function WeekGrid({
   const nowH = bkkHour(now);
 
   return (
-    <div className="card hidden overflow-hidden p-0 lg:block">
+    <div id="calendar" className="card hidden scroll-mt-24 overflow-hidden p-0 lg:block">
       {/* Day headings */}
       <div className="grid grid-cols-[52px_repeat(7,minmax(0,1fr))] border-b border-line">
         <div />
