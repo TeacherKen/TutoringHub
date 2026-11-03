@@ -1,0 +1,113 @@
+/* TutoringHub Glass — design tokens and shared classes.
+   Reference only: port into TutoringHub's own styling system (CSS / Tailwind theme / modules).
+   Values match the mockups in ./mockups exactly. */
+
+:root {
+  /* Ground */
+  --th-bg: #071719;                 /* page background (deep teal-navy) */
+
+  /* Text (all pass 4.5:1 on glass panels over --th-bg) */
+  --th-text: #E8F3F1;
+  --th-text-2: #C3D3D0;             /* nav items, secondary */
+  --th-text-3: #A3B8B4;             /* captions, helper text */
+  --th-label: #8AA19C;              /* small labels, axis text only */
+
+  /* Accent (TutoringHub teal, brightened for dark) */
+  --th-accent: #6EE7C8;
+  --th-accent-ink: #06201B;         /* text on accent buttons */
+  --th-accent-soft: rgba(110,231,200,0.16);
+  --th-accent-line: rgba(110,231,200,0.45);
+
+  /* Status */
+  --th-ready: #4ADE80;   --th-ready-text: #BBF7D0;   /* ready dot / pill */
+  --th-todo:  #FBBF24;   --th-todo-text:  #FDE68A;   /* slides or worksheet still to do */
+  --th-now:   #F87171;                                /* calendar "now" line */
+
+  /* Family colours — the same everywhere (Week, Students, Money).
+     solid = dots, bars, chart; text = initials on tint; tint = avatar/event fill */
+  --fam-angela: #60A5FA;  --fam-angela-text: #93C5FD;  --fam-angela-tint: rgba(96,165,250,0.22);
+  --fam-ipiq:   #FB923C;  --fam-ipiq-text:   #FDBA74;  --fam-ipiq-tint:   rgba(251,146,60,0.22);
+  --fam-jn:     #34D399;  --fam-jn-text:     #6EE7B7;  --fam-jn-tint:     rgba(52,211,153,0.20);
+  --fam-alice:  #FBBF24;  --fam-alice-text:  #FCD34D;  --fam-alice-tint:  rgba(251,191,36,0.20);
+  --fam-george: #F472B6;  --fam-george-text: #F9A8D4;  --fam-george-tint: rgba(244,114,182,0.20);
+  --fam-yina:   #86EFAC;  --fam-yina-text:   #86EFAC;  --fam-yina-tint:   rgba(74,222,128,0.20);
+  /* NOTE: families get their colour from the app's existing per-family colour setting;
+     map each existing colour to its dark-theme version rather than hard-coding names. */
+
+  /* Games corner */
+  --th-gold: #FDE047;               /* Open games corner button, "Who's playing" selection */
+
+  /* Shape */
+  --r-btn: 14px; --r-card: 24px; --r-hero: 30px; --tap: 44px;
+
+  /* Type */
+  --font-display: 'Outfit', system-ui, sans-serif;          /* headings, big numbers */
+  --font-body: 'Inter', system-ui, sans-serif;               /* everything else */
+  --font-games: 'Barlow Condensed', 'Outfit', sans-serif;    /* Play page titles: italic 800 */
+}
+
+body { margin: 0; background: var(--th-bg); color: var(--th-text); font-family: var(--font-body); }
+
+/* Glass panels */
+.glass {
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.11);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 24px 48px -28px rgba(0,0,0,0.7);
+}
+.glass-hi {   /* the one most important card per page */
+  background: rgba(255,255,255,0.085);
+  border: 1px solid rgba(255,255,255,0.16);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  backdrop-filter: blur(26px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 30px 60px -30px rgba(0,0,0,0.75);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: rgba(18,40,42,0.92); }
+  .glass-hi { background: rgba(24,50,52,0.95); }
+}
+/* "Light glass" for the iPad / games corner and the Glass strength setting */
+.glass-lite .glass, .glass-lite .glass-hi { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+
+/* Press / hover */
+.press { transition: transform .14s cubic-bezier(.2,.8,.2,1), background-color .2s, border-color .2s, box-shadow .2s; }
+.press:hover { background-color: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); }
+.press:active { transform: scale(0.97); }
+.lift:hover { transform: translateY(-3px); border-color: rgba(110,231,200,0.40); box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 26px 50px -24px rgba(45,212,191,0.35); }
+
+/* Top nav tab */
+.tab { display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 16px; border-radius: 999px; border: 1px solid transparent; color: var(--th-text-2); font-weight: 500; white-space: nowrap; }
+.tab.is-on { background: var(--th-accent-soft); border-color: var(--th-accent-line); color: #DFFBF3; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12); }
+
+/* Status pills */
+.pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,0.14); }
+.pill.ok   { background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.4);  color: var(--th-ready-text); }
+.pill.todo { background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.45); color: var(--th-todo-text); }
+
+/* Expected-money hatch (Money by month) */
+.hatch { background-image: repeating-linear-gradient(135deg, rgba(110,231,200,0.55) 0 2px, transparent 2px 8px); border: 1.5px dashed rgba(110,231,200,0.7); }
+
+:focus-visible { outline: 2px solid var(--th-accent); outline-offset: 2px; }
+
+/* Background glow orbs (fixed, behind everything) */
+.orbs { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.orb  { position: absolute; border-radius: 50%; filter: blur(30px); animation: th-drift 18s ease-in-out infinite; }
+
+/* Motion */
+@keyframes th-drift { 0%,100% { transform: translate(0,0); } 50% { transform: translate(30px,-24px); } }
+@keyframes th-rise  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes th-grow  { from { transform: scaleY(0); } to { transform: scaleY(1); } }   /* chart bars, transform-origin bottom */
+@keyframes th-spin  { to { transform: rotate(360deg); } }                          /* Refresh icon while loading */
+@keyframes th-pulse { 0% { box-shadow: 0 0 0 0 rgba(248,113,113,.6); } 70% { box-shadow: 0 0 0 8px rgba(248,113,113,0); } 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0); } }
+.page-enter { animation: th-rise .38s cubic-bezier(.2,.8,.2,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+.motion-off *, .motion-off *::before, .motion-off *::after { animation: none !important; }
+
+/* Responsive: the top nav scrolls sideways below 900px and the brand word hides;
+   card grids use repeat(auto-fit/auto-fill, minmax(220–340px, 1fr)); the Week grid and
+   charts sit in an overflow-x:auto box with a min-width. */
+@media (max-width: 900px) { .topnav { overflow-x: auto; } .brand-text { display: none; } }

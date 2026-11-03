@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TutoringHub — Money</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Outfit:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#071719}
+a{color:#6EE7C8}a:hover{color:#A7F3DE}
+.th *{box-sizing:border-box}
+.th button{font:inherit;color:inherit;cursor:pointer;text-align:left}
+.th h1,.th h2,.th h3,.th p{margin:0}
+.glass{background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.11);-webkit-backdrop-filter:blur(22px) saturate(150%);backdrop-filter:blur(22px) saturate(150%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.09),0 24px 48px -28px rgba(0,0,0,0.7)}
+.glass-hi{background:rgba(255,255,255,0.085);border:1px solid rgba(255,255,255,0.16);-webkit-backdrop-filter:blur(26px) saturate(160%);backdrop-filter:blur(26px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.14),0 30px 60px -30px rgba(0,0,0,0.75)}
+.press{transition:transform .14s cubic-bezier(.2,.8,.2,1),background-color .2s,border-color .2s,box-shadow .2s}
+.press:hover{background-color:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.22)}
+.press:active{transform:scale(0.97)}
+.tab{display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;border-radius:999px;border:1px solid transparent;font-weight:500;white-space:nowrap}
+.th a.tab,.th a.tab:hover{color:#C3D3D0;text-decoration:none}
+.th a.tab.on{background:rgba(110,231,200,0.16);border-color:rgba(110,231,200,0.45);color:#DFFBF3;box-shadow:inset 0 1px 0 rgba(255,255,255,0.12)}
+.th a.press,.th a.press:hover{text-decoration:none;color:#E8F3F1}
+.seg{height:40px;padding:0 14px;border-radius:12px;border:1px solid transparent;background:transparent;font-weight:500;color:#C3D3D0}
+.seg.on{background:rgba(110,231,200,0.16);border-color:rgba(110,231,200,0.45);color:#DFFBF3}
+.wk{flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:0;border:none;background:transparent;padding:0 4px;border-radius:10px;transition:background-color .2s}
+.wk:hover{background:rgba(255,255,255,0.05)}
+.wk.on{background:rgba(110,231,200,0.09)}
+.seg-bar{width:100%;max-width:46px;border-radius:4px;margin-top:2px;transition:height .5s cubic-bezier(.2,.8,.2,1)}
+.hatch{background-image:repeating-linear-gradient(135deg,rgba(110,231,200,0.55) 0,rgba(110,231,200,0.55) 2px,transparent 2px,transparent 8px);border:1.5px dashed rgba(110,231,200,0.7)}
+.th button:focus-visible,.th a:focus-visible{outline:2px solid #6EE7C8;outline-offset:2px}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.screen{animation:rise .38s cubic-bezier(.2,.8,.2,1) both}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.grow{transform-origin:bottom;animation:grow .7s cubic-bezier(.2,.8,.2,1) both}
+@keyframes drift{0%,100%{transform:translate(0,0)}50%{transform:translate(30px,-24px)}}
+.orb{animation:drift 18s ease-in-out infinite}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+.toast{animation:toastIn .25s ease both}
+@media (max-width:900px){.topnav{overflow-x:auto}.brand-text{display:none}}
+@media (prefers-reduced-motion:reduce){.th *{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="th" style="position: relative; min-height: 100vh; overflow: hidden; background: #071719; font-family: 'Inter', system-ui, sans-serif; color: #E8F3F1; font-size: 15px; line-height: 1.45">
+<div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none">
+<div class="orb" style="position: absolute; width: 700px; height: 700px; left: -180px; top: -220px; border-radius: 50%; background: radial-gradient(circle, rgba(45,212,191,0.42), rgba(45,212,191,0) 68%); filter: blur(30px)"></div>
+<div class="orb" style="position: absolute; width: 600px; height: 600px; right: -160px; top: 600px; border-radius: 50%; background: radial-gradient(circle, rgba(251,191,36,0.22), rgba(251,191,36,0) 68%); filter: blur(30px); animation-delay: -6s"></div>
+<div class="orb" style="position: absolute; width: 640px; height: 640px; left: 10%; bottom: -200px; border-radius: 50%; background: radial-gradient(circle, rgba(96,165,250,0.28), rgba(96,165,250,0) 68%); filter: blur(30px); animation-delay: -11s"></div>
+</div>
+
+<div style="position: relative; max-width: 1240px; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; gap: 24px">
+<header class="glass" style="border-radius: 26px; padding: 8px; display: flex; align-items: center; gap: 12px">
+<a href="Main.dc.html" class="press" onClick="{{navSnd}}" style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 16px; border: 1px solid transparent"><span class="glass-hi" style="width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 21px; color: #6EE7C8">T</span><span class="brand-text" style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 19px">TutoringHub</span></a>
+<nav aria-label="Main" class="topnav" style="display: flex; gap: 4px; flex: 1 1 auto; min-width: 0">
+<a href="Main.dc.html" class="tab press" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>Home</a>
+<a href="Week.dc.html" class="tab press" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M8 2v4M16 2v4M3 10h18"></path></svg>Week</a>
+<a href="Students.dc.html" class="tab press" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Students</a>
+<a href="Play.dc.html" class="tab press" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m12 7 4 3-1.5 5h-5L8 10z"></path></svg>Play</a>
+<a href="Money.dc.html" class="tab press on" aria-current="page" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>Money</a>
+<a href="Settings.dc.html" class="tab press" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Settings</a>
+</nav>
+<button class="glass press" onClick="{{toggleSound}}" aria-label="{{soundLabel}}" style="flex: none; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{soundOn}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 5a10 10 0 0 1 0 14"></path></svg></sc-if>
+<sc-if value="{{soundOff}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"></path><path d="m22 9-6 6M16 9l6 6"></path></svg></sc-if>
+</button>
+</header>
+
+<main class="screen" style="display: flex; flex-direction: column; gap: 22px">
+<div style="padding: 4px 6px 0"><h1 style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 44px; line-height: 1.1">Money</h1><p style="color: #A3B8B4; margin-top: 6px; font-size: 16px">What you earned from the classes you taught, what's booked, and what's coming in.</p></div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px">
+<div class="glass-hi" style="border-radius: 22px; padding: 20px; border-color: rgba(110,231,200,0.5); background: rgba(110,231,200,0.1)"><div style="color: #C3D3D0; font-size: 14px">Earned in November</div><div style="font-family: 'Outfit', sans-serif; font-size: 40px; font-weight: 700; line-height: 1.15; color: #DFFBF3">฿3,500</div><div style="color: #A3B8B4; font-size: 14px">so far · 2 classes · October ฿30,850</div></div>
+<div class="glass" style="border-radius: 22px; padding: 20px"><div style="color: #C3D3D0; font-size: 14px">Booked for the rest of November</div><div style="font-family: 'Outfit', sans-serif; font-size: 40px; font-weight: 700; line-height: 1.15">฿79,400</div><div style="color: #A3B8B4; font-size: 14px">on track for ฿82,900</div></div>
+<div class="glass" style="border-radius: 22px; padding: 20px"><div style="color: #C3D3D0; font-size: 14px">Money in · November</div><div style="font-family: 'Outfit', sans-serif; font-size: 40px; font-weight: 700; line-height: 1.15">฿63,500</div><div style="color: #A3B8B4; font-size: 14px">฿60,000 from packages</div></div>
+<div class="glass" style="border-radius: 22px; padding: 20px"><div style="color: #C3D3D0; font-size: 14px">Still to teach from packages</div><div style="font-family: 'Outfit', sans-serif; font-size: 40px; font-weight: 700; line-height: 1.15">฿120,150</div><div style="color: #A3B8B4; font-size: 14px">paid in advance, not taught yet</div></div>
+</div>
+
+<section class="glass" style="border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div><h2 style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 24px">Week by week</h2><p style="color: #A3B8B4; margin-top: 4px">Recent weeks and the next 8, by student. Booked weeks count the lessons already in your calendar. Tap a week.</p></div>
+<div style="display: flex; gap: 10px">
+<div aria-hidden="true" style="position: relative; width: 44px; height: 300px; flex: none; font-size: 12px; color: #8AA19C">
+<span style="position: absolute; right: 0; top: -8px">฿30k</span><span style="position: absolute; right: 0; top: 92px">฿20k</span><span style="position: absolute; right: 0; top: 192px">฿10k</span><span style="position: absolute; right: 0; top: 292px">฿0</span>
+</div>
+<div style="flex-grow: 1; min-width: 0; overflow-x: auto">
+<div style="position: relative; min-width: 620px">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 300px; background-image: repeating-linear-gradient(to bottom, rgba(255,255,255,0.08) 0, rgba(255,255,255,0.08) 1px, transparent 1px, transparent 100px); border-bottom: 1px solid rgba(255,255,255,0.2)"></div>
+<div style="position: relative; height: 300px; display: flex; gap: 2px">
+<sc-for list="{{weeks}}" as="w" hint-placeholder-count="12">
+<button class="{{w.cls}}" onClick="{{w.pick}}" onMouseEnter="{{w.hover}}" aria-label="{{w.aria}}">
+<sc-if value="{{w.isNow}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; font-weight: 700; color: #6EE7C8; margin-bottom: auto; padding-top: 4px">now</span></sc-if>
+<sc-for list="{{w.segs}}" as="sg" hint-placeholder-count="3"><span class="seg-bar grow" style="height: {{sg.h}}; background: {{sg.c}}; opacity: {{sg.o}}"></span></sc-for>
+</button>
+</sc-for>
+</div>
+<div style="display: flex; gap: 2px; margin-top: 8px">
+<sc-for list="{{weeks}}" as="w" hint-placeholder-count="12"><span style="flex: 1 1 0; text-align: center; font-size: 12px; color: {{w.labCol}}; font-weight: {{w.labW}}; white-space: nowrap">{{w.label}}</span></sc-for>
+</div>
+</div>
+</div>
+</div>
+<div class="glass-hi" style="border-radius: 18px; padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px">
+<span style="font-weight: 600">{{selWeek.title}}</span><span style="font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 700">{{selWeek.total}}</span><span style="color: #A3B8B4; font-size: 14px">{{selWeek.kind}}</span>
+<span style="flex-grow: 1"></span>
+<sc-for list="{{selWeek.parts}}" as="pt" hint-placeholder-count="4"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: #C3D3D0"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{pt.c}}"></span>{{pt.text}}</span></sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: #C3D3D0">
+<sc-for list="{{legend}}" as="lg" hint-placeholder-count="6"><span style="display: inline-flex; align-items: center; gap: 7px"><span style="width: 11px; height: 11px; border-radius: 50%; background: {{lg.c}}"></span>{{lg.name}}</span></sc-for>
+<span style="color: #A3B8B4">Lighter = booked, not taught yet</span>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+<section class="glass" style="flex: 999 1 520px; min-width: 0; border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div><h2 style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 24px">Money in by month</h2><p style="color: #A3B8B4; margin-top: 4px">Packages count when they're paid; per-class lessons when they're taught.</p></div>
+<div style="display: flex; gap: 10px">
+<div aria-hidden="true" style="position: relative; width: 44px; height: 240px; flex: none; font-size: 12px; color: #8AA19C"><span style="position: absolute; right: 0; top: -8px">฿150k</span><span style="position: absolute; right: 0; top: 72px">฿100k</span><span style="position: absolute; right: 0; top: 152px">฿50k</span><span style="position: absolute; right: 0; top: 232px">฿0</span></div>
+<div style="flex-grow: 1; min-width: 0">
+<div style="position: relative; height: 240px; display: flex; gap: 14px; align-items: flex-end; background-image: repeating-linear-gradient(to bottom, rgba(255,255,255,0.08) 0, rgba(255,255,255,0.08) 1px, transparent 1px, transparent 80px); border-bottom: 1px solid rgba(255,255,255,0.2)">
+<sc-for list="{{months}}" as="m" hint-placeholder-count="6">
+<div style="flex: 1 1 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center">
+<span style="font-size: 13px; font-weight: 700; margin-bottom: 6px; color: {{m.labCol}}">{{m.top}}</span>
+<sc-if value="{{m.hasExp}}" hint-placeholder-val="{{ false }}"><span class="hatch grow" style="width: 64%; max-width: 70px; height: {{m.expH}}; border-radius: 8px 8px 0 0"></span></sc-if>
+<sc-if value="{{m.hasRec}}" hint-placeholder-val="{{ true }}"><span class="grow" style="width: 64%; max-width: 70px; height: {{m.recH}}; border-radius: {{m.recR}}; background: linear-gradient(180deg, #6EE7C8, #2DD4BF); box-shadow: 0 0 20px rgba(110,231,200,0.3)"></span></sc-if>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; gap: 14px; margin-top: 8px"><sc-for list="{{months}}" as="m" hint-placeholder-count="6"><span style="flex: 1 1 0; text-align: center; font-size: 13px; color: {{m.nameCol}}; font-weight: {{m.nameW}}">{{m.name}}</span></sc-for></div>
+</div>
+</div>
+<div style="display: flex; gap: 18px; font-size: 14px; color: #C3D3D0"><span style="display: inline-flex; align-items: center; gap: 7px"><span style="width: 11px; height: 11px; border-radius: 50%; background: #6EE7C8"></span>Received</span><span style="display: inline-flex; align-items: center; gap: 7px"><span class="hatch" style="width: 12px; height: 12px; border-radius: 50%"></span>Expected</span></div>
+</section>
+
+<section class="glass" style="flex: 1 1 340px; min-width: 0; border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<h2 style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 24px">Next renewals</h2>
+<sc-for list="{{renewals}}" as="r" hint-placeholder-count="3">
+<div class="glass-hi" style="border-radius: 18px; padding: 14px 16px; display: flex; align-items: center; gap: 12px">
+<span style="width: 10px; height: 40px; border-radius: 6px; background: {{r.c}}; flex: none" aria-hidden="true"></span>
+<div style="flex-grow: 1; min-width: 0"><div style="font-weight: 600">{{r.name}}</div><div style="color: #A3B8B4; font-size: 14px">{{r.when}}</div></div>
+<div style="text-align: right"><div style="font-weight: 700; font-family: 'Outfit', sans-serif; font-size: 18px">{{r.amt}}</div><button class="press" onClick="{{r.draft}}" style="border: none; background: transparent; color: #6EE7C8; font-weight: 600; font-size: 13px; min-height: 30px; padding: 0">Draft message</button></div>
+</div>
+</sc-for>
+<p style="color: #A3B8B4; font-size: 14px">The amount is the last package's price, as a guide.</p>
+</section>
+</div>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<h2 style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 26px; padding: 0 6px">Packages</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px">
+<sc-for list="{{packages}}" as="p" hint-placeholder-count="3">
+<div class="glass" style="border-radius: 24px; padding: 22px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 12px; height: 12px; border-radius: 50%; background: {{p.c}}"></span><span style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 22px">{{p.name}}</span></div>
+<div style="display: flex; justify-content: space-between; gap: 10px; align-items: baseline"><span><strong style="font-size: 18px">{{p.earned}}</strong><span style="color: #A3B8B4"> of {{p.price}} earned</span></span><span style="color: #A3B8B4; font-variant-numeric: tabular-nums">{{p.hours}}</span></div>
+<div style="height: 12px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden"><div class="grow" style="width: {{p.pct}}; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #2DD4BF, #6EE7C8); transform-origin: left"></div></div>
+<div style="color: #D4E3E0">{{p.left}}</div>
+<sc-if value="{{p.hasNext}}" hint-placeholder-val="{{ false }}"><div style="border-radius: 14px; padding: 12px 14px; background: rgba(110,231,200,0.08); border: 1px solid rgba(110,231,200,0.25); color: #DFFBF3">{{p.next}}</div></sc-if>
+<div style="color: #8AA19C; font-size: 13px">{{p.foot}}</div>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 0 6px">
+<h2 style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 26px">{{classesTitle}}</h2>
+<div role="group" aria-label="Period" class="glass" style="border-radius: 15px; padding: 2px; display: flex; gap: 2px">
+<button class="{{per.week.cls}}" onClick="{{per.week.pick}}">This week</button>
+<button class="{{per.month.cls}}" onClick="{{per.month.pick}}">This month</button>
+<button class="{{per.last.cls}}" onClick="{{per.last.pick}}">Last month</button>
+</div>
+</div>
+<div class="glass" style="border-radius: 20px; padding: 20px 22px; color: #A3B8B4">{{classesText}}</div>
+</section>
+</main>
+</div>
+
+<sc-if value="{{toastShown}}" hint-placeholder-val="{{ false }}">
+<div class="glass-hi toast" role="status" style="position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); padding: 12px 20px; border-radius: 999px; font-weight: 500; z-index: 5; white-space: nowrap">{{toastText}}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2280}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.FAM = [
+      { k: 'angela', name: 'Angela', c: '#60A5FA' }, { k: 'ipiq', name: 'IP & IQ', c: '#FB923C' },
+      { k: 'jn', name: 'Jaian & Nivaan', c: '#34D399' }, { k: 'alice', name: 'Alice', c: '#FBBF24' },
+      { k: 'george', name: 'George', c: '#F472B6' }, { k: 'yina', name: 'Yina', c: '#86EFAC' }
+    ];
+    this.WEEKS = [
+      { label: '12 Oct', v: { alice: 1500 } },
+      { label: '19 Oct', v: { ipiq: 3400, jn: 5900, george: 2800, yina: 1800 } },
+      { label: '26 Oct', v: { angela: 1800, ipiq: 6800, jn: 3400, alice: 4500, yina: 1800 } },
+      { label: '2 Nov', now: true, booked: true, v: { angela: 1800, ipiq: 6800, jn: 2500, alice: 3000, yina: 2000 } },
+      { label: '9 Nov', booked: true, v: { angela: 1800, ipiq: 6800, jn: 8500, alice: 3000, yina: 2000 } },
+      { label: '16 Nov', booked: true, v: { angela: 1800, ipiq: 6800, jn: 8500, alice: 3000, yina: 2000 } },
+      { label: '23 Nov', booked: true, v: { angela: 1800, jn: 8500, alice: 3000 } },
+      { label: '30 Nov', booked: true, v: { angela: 1800, jn: 8500, alice: 3000 } },
+      { label: '7 Dec', booked: true, v: { angela: 1800, jn: 8500, alice: 1500 } },
+      { label: '14 Dec', booked: true, v: {} },
+      { label: '21 Dec', booked: true, v: {} },
+      { label: '28 Dec', booked: true, v: {} }
+    ];
+    this.state = { sound: true, sel: 3, period: 'week', toast: '' };
+  }
+  componentWillUnmount() { clearTimeout(this._tt); }
+  snd(kind) {
+    if (!this.state.sound) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!this._ac) this._ac = new AC();
+      const ac = this._ac;
+      if (ac.state === 'suspended') ac.resume();
+      const t = ac.currentTime;
+      const tone = (f, at, dur, vol, type) => {
+        const o = ac.createOscillator(); const g = ac.createGain();
+        o.type = type || 'sine'; o.frequency.setValueAtTime(f, t + at);
+        g.gain.setValueAtTime(0.0001, t + at);
+        g.gain.exponentialRampToValueAtTime(vol, t + at + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+        o.connect(g); g.connect(ac.destination);
+        o.start(t + at); o.stop(t + at + dur + 0.03);
+      };
+      if (kind === 'tap') { tone(1800, 0, 0.045, 0.05, 'triangle'); tone(3000, 0, 0.02, 0.02); }
+      else if (kind === 'nav') { tone(700, 0, 0.08, 0.045); tone(1050, 0.045, 0.1, 0.04); }
+      else if (kind === 'toggle') { tone(620, 0, 0.07, 0.05, 'triangle'); }
+      else if (kind === 'flip') { tone(520, 0, 0.05, 0.04, 'triangle'); tone(780, 0.03, 0.06, 0.035, 'triangle'); }
+      else if (kind === 'hover') { tone(1400 + (this._hp || 0) * 60, 0, 0.025, 0.018, 'sine'); }
+      else if (kind === 'coin') { tone(988, 0, 0.07, 0.045, 'triangle'); tone(1319, 0.06, 0.2, 0.04, 'triangle'); }
+    } catch (e) {}
+  }
+  toast(text) { clearTimeout(this._tt); this.setState({ toast: text }); this._tt = setTimeout(() => this.setState({ toast: '' }), 2200); }
+  baht(n) { return '฿' + Math.round(n).toLocaleString('en-US'); }
+  renderVals() {
+    const s = this.state;
+    const MAX = 30000, H = 300;
+    const weeks = this.WEEKS.map((w, i) => {
+      const segs = this.FAM.filter((f) => w.v[f.k]).map((f) => ({ h: Math.max(3, Math.round((w.v[f.k] / MAX) * H) - 2) + 'px', c: f.c, o: w.booked ? 0.45 : 1 })).reverse();
+      const total = Object.values(w.v).reduce((a, b) => a + b, 0);
+      return {
+        label: w.label, segs, isNow: !!w.now,
+        cls: 'wk' + (s.sel === i ? ' on' : ''),
+        labCol: w.now ? '#DFFBF3' : '#8AA19C', labW: w.now ? '700' : '400',
+        aria: 'Week of ' + w.label + ': ' + this.baht(total) + (w.booked ? ' booked' : ' earned'),
+        pick: () => { this.snd('tap'); this.setState({ sel: i }); },
+        hover: () => { if (this.state.sel !== i) { this._hp = i; this.snd('hover'); this.setState({ sel: i }); } }
+      };
+    });
+    const sw = this.WEEKS[s.sel];
+    const swTotal = Object.values(sw.v).reduce((a, b) => a + b, 0);
+    const selWeek = {
+      title: 'Week of ' + sw.label, total: this.baht(swTotal), kind: swTotal === 0 ? 'nothing booked yet' : (sw.booked ? 'booked' : 'earned'),
+      parts: this.FAM.filter((f) => sw.v[f.k]).map((f) => ({ c: f.c, text: f.name + ' ' + this.baht(sw.v[f.k]) }))
+    };
+    const MONTHS = [
+      { name: 'Aug', rec: 41000 }, { name: 'Sept', rec: 41000 }, { name: 'Oct', rec: 53000 },
+      { name: 'Nov', rec: 63500, exp: 58500, cur: true, top: '≈฿122k' }, { name: 'Dec', rec: 0, exp: 4500, top: '≈฿4.5k' }, { name: 'Jan', rec: 0, exp: 60000, top: '≈฿60k' }
+    ];
+    const MH = 240, MM = 150000;
+    const months = MONTHS.map((m) => ({
+      name: m.name, top: m.top || ('฿' + Math.round(m.rec / 1000) + 'k'),
+      hasRec: m.rec > 0, recH: Math.round((m.rec / MM) * MH) + 'px', recR: m.exp ? '0' : '8px 8px 0 0',
+      hasExp: !!m.exp, expH: Math.round(((m.exp || 0) / MM) * MH) + 'px',
+      labCol: m.exp ? '#A7F3DE' : '#E8F3F1', nameCol: m.cur ? '#E8F3F1' : '#8AA19C', nameW: m.cur ? '700' : '400'
+    }));
+    const renewals = [
+      { name: 'IP & IQ', when: 'runs out around Sat 21 Nov · in 3 weeks', amt: '≈฿40,800', c: '#FB923C' },
+      { name: 'Jaian & Nivaan', when: 'runs out around Sun 3 Jan · in 9 weeks', amt: '≈฿60,000', c: '#34D399' },
+      { name: 'Angela', when: 'runs out around Thu 18 Mar · in 19 weeks', amt: '≈฿43,200', c: '#60A5FA' }
+    ].map((r) => Object.assign({}, r, { draft: () => { this.snd('coin'); this.toast('Drafting a renewal message for ' + r.name); } }));
+    const packages = [
+      { name: 'Angela', c: '#60A5FA', earned: '฿7,200', price: '฿43,200', hours: '4 / 24 h', pct: '17%', left: '20 hours left (฿36,000) · about 20 more lessons · runs out around Thu 18 Mar (19 weeks)', next: '', foot: 'All packages: ฿43,200 paid · ฿7,200 earned so far · end date estimated from the usual weekly lessons' },
+      { name: 'IP & IQ', c: '#FB923C', earned: '฿20,400', price: '฿40,800', hours: '12 / 24 h', pct: '50%', left: '12 hours left (฿20,400) · about 3 more lessons · runs out around Sat 21 Nov (3 weeks)', next: '', foot: 'All packages: ฿40,800 paid · ฿20,400 earned so far' },
+      { name: 'Jaian & Nivaan', c: '#34D399', earned: '฿38,250', price: '฿40,800', hours: '22.5 / 24 h', pct: '94%', left: '25.5 hours left (฿63,750) · about 14 more lessons · runs out around Sun 3 Jan (9 weeks)', next: 'Next package ready: 24 h · ฿60,000 — it starts when the 1.5 hours left on this one are used.', foot: 'All packages: ฿100,800 paid · ฿38,250 earned so far · end date estimated from the usual weekly lessons' }
+    ].map((p) => Object.assign({}, p, { hasNext: !!p.next }));
+    const per = {};
+    ['week', 'month', 'last'].forEach((k) => { per[k] = { cls: 'seg press' + (s.period === k ? ' on' : ''), pick: () => { if (this.state.period !== k) { this.snd('flip'); this.setState({ period: k }); } } }; });
+    const ct = { week: ['Classes · this week', 'No classes marked done in this period yet.'], month: ['Classes · this month', '2 classes · ฿3,500 so far. [Each class shows here with its date, student, hours and amount.]'], last: ['Classes · last month', 'October · ฿30,850. [Each class shows here with its date, student, hours and amount.]'] }[s.period];
+    return {
+      weeks, selWeek, months, renewals, packages, per,
+      legend: this.FAM.map((f) => ({ c: f.c, name: f.name })),
+      classesTitle: ct[0], classesText: ct[1],
+      navSnd: () => this.snd('nav'),
+      soundOn: s.sound, soundOff: !s.sound, soundLabel: s.sound ? 'Turn sounds off' : 'Turn sounds on',
+      toggleSound: () => { const on = !this.state.sound; this.setState({ sound: on }, () => { if (on) this.snd('toggle'); }); },
+      toastShown: !!s.toast, toastText: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

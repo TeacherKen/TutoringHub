@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TutoringHub — Students</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Outfit:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#071719}
+a{color:#6EE7C8}a:hover{color:#A7F3DE}
+.th *{box-sizing:border-box}
+.th button{font:inherit;color:inherit;cursor:pointer;text-align:left}
+.th h1,.th h2,.th h3,.th p{margin:0}
+.glass{background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.11);-webkit-backdrop-filter:blur(22px) saturate(150%);backdrop-filter:blur(22px) saturate(150%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.09),0 24px 48px -28px rgba(0,0,0,0.7)}
+.glass-hi{background:rgba(255,255,255,0.085);border:1px solid rgba(255,255,255,0.16);-webkit-backdrop-filter:blur(26px) saturate(160%);backdrop-filter:blur(26px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,0.14),0 30px 60px -30px rgba(0,0,0,0.75)}
+.press{transition:transform .14s cubic-bezier(.2,.8,.2,1),background-color .2s,border-color .2s,box-shadow .2s}
+.press:hover{background-color:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.22)}
+.press:active{transform:scale(0.97)}
+.lift:hover{transform:translateY(-3px);border-color:rgba(110,231,200,0.4);box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 26px 50px -24px rgba(45,212,191,0.35)}
+.lift:active{transform:translateY(-1px) scale(0.99)}
+.tab{display:flex;align-items:center;gap:8px;height:46px;padding:0 16px;border-radius:999px;border:1px solid transparent;font-weight:500;white-space:nowrap}
+.th a.tab,.th a.tab:hover{color:#C3D3D0;text-decoration:none}
+.th a.tab.on{background:rgba(110,231,200,0.16);border-color:rgba(110,231,200,0.45);color:#DFFBF3;box-shadow:inset 0 1px 0 rgba(255,255,255,0.12)}
+.th a.press,.th a.press:hover{text-decoration:none;color:#E8F3F1}
+.seg{height:42px;padding:0 16px;border-radius:12px;border:1px solid transparent;background:transparent;font-weight:500;color:#C3D3D0}
+.seg.on{background:rgba(110,231,200,0.16);border-color:rgba(110,231,200,0.45);color:#DFFBF3}
+.tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:500;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#C3D3D0}
+.th button:focus-visible,.th a:focus-visible{outline:2px solid #6EE7C8;outline-offset:2px}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.screen{animation:rise .38s cubic-bezier(.2,.8,.2,1) both}
+.card-in{animation:rise .35s cubic-bezier(.2,.8,.2,1) both}
+@keyframes drift{0%,100%{transform:translate(0,0)}50%{transform:translate(30px,-24px)}}
+.orb{animation:drift 18s ease-in-out infinite}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+.toast{animation:toastIn .25s ease both}
+@media (max-width:900px){.topnav{overflow-x:auto}.brand-text{display:none}}
+@media (prefers-reduced-motion:reduce){.th *{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div class="th" style="position: relative; min-height: 100vh; overflow: hidden; background: #071719; font-family: 'Inter', system-ui, sans-serif; color: #E8F3F1; font-size: 15px; line-height: 1.45">
+<div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none">
+<div class="orb" style="position: absolute; width: 640px; height: 640px; left: -160px; top: -200px; border-radius: 50%; background: radial-gradient(circle, rgba(96,165,250,0.36), rgba(96,165,250,0) 68%); filter: blur(30px)"></div>
+<div class="orb" style="position: absolute; width: 560px; height: 560px; right: -140px; top: 60px; border-radius: 50%; background: radial-gradient(circle, rgba(45,212,191,0.36), rgba(45,212,191,0) 68%); filter: blur(30px); animation-delay: -6s"></div>
+<div class="orb" style="position: absolute; width: 600px; height: 600px; left: 35%; bottom: -300px; border-radius: 50%; background: radial-gradient(circle, rgba(244,114,182,0.24), rgba(244,114,182,0) 68%); filter: blur(30px); animation-delay: -11s"></div>
+</div>
+
+<div style="position: relative; max-width: 1240px; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; gap: 24px">
+<header class="glass" style="border-radius: 26px; padding: 8px; display: flex; align-items: center; gap: 12px">
+<a href="Main.dc.html" class="press" onClick="{{navSnd}}" style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 16px; border: 1px solid transparent"><span class="glass-hi" style="width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 21px; color: #6EE7C8">T</span><span class="brand-text" style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 19px">TutoringHub</span></a>
+<nav aria-label="Main" class="topnav" style="display: flex; gap: 4px; flex: 1 1 auto; min-width: 0">
+<a href="Main.dc.html" class="tab press" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>Home</a>
+<a href="Week.dc.html" class="tab press" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M8 2v4M16 2v4M3 10h18"></path></svg>Week</a>
+<a href="Students.dc.html" class="tab press on" aria-current="page" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Students</a>
+<a href="Play.dc.html" class="tab press" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m12 7 4 3-1.5 5h-5L8 10z"></path></svg>Play</a>
+<a href="Money.dc.html" class="tab press" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>Money</a>
+<a href="Settings.dc.html" class="tab press" onClick="{{navSnd}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Settings</a>
+</nav>
+<button class="glass press" onClick="{{toggleSound}}" aria-label="{{soundLabel}}" style="flex: none; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{soundOn}}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 5a10 10 0 0 1 0 14"></path></svg></sc-if>
+<sc-if value="{{soundOff}}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"></path><path d="m22 9-6 6M16 9l6 6"></path></svg></sc-if>
+</button>
+</header>
+
+<main class="screen" style="display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 4px 6px 0">
+<div><h1 style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 44px; line-height: 1.1">Students</h1><p style="color: #A3B8B4; margin-top: 6px; font-size: 16px">8 students · 6 families · 3 on packages, 3 per class</p></div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<div role="group" aria-label="Show" class="glass" style="border-radius: 15px; padding: 2px; display: flex; gap: 2px">
+<button class="{{f.all.cls}}" onClick="{{f.all.pick}}">All</button>
+<button class="{{f.pkg.cls}}" onClick="{{f.pkg.pick}}">Packages</button>
+<button class="{{f.per.cls}}" onClick="{{f.per.pick}}">Per class</button>
+</div>
+<button class="press" onClick="{{add}}" style="height: 48px; padding: 0 20px; border-radius: 15px; font-weight: 600; background: #6EE7C8; color: #06201B; border: 1px solid rgba(255,255,255,0.35); display: flex; align-items: center; gap: 8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add</button>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px">
+<sc-for list="{{cards}}" as="c" hint-placeholder-count="6">
+<button class="glass press lift card-in" onClick="{{c.open}}" style="border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 16px; width: 100%">
+<div style="display: flex; align-items: center; gap: 14px">
+<span style="display: flex">
+<span style="width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; background: {{c.tint}}; color: {{c.col}}; border: 2px solid #0E2426">{{c.ini1}}</span>
+<sc-if value="{{c.pair}}" hint-placeholder-val="{{ false }}"><span style="margin-left: -12px; width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; background: {{c.tint}}; color: {{c.col}}; border: 2px solid #0E2426">{{c.ini2}}</span></sc-if>
+</span>
+<span style="min-width: 0">
+<span style="display: flex; align-items: baseline; gap: 8px"><span style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 22px">{{c.name}}</span><span style="color: #A3B8B4">{{c.grade}}</span></span>
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px"><span style="width: 9px; height: 9px; border-radius: 50%; background: {{c.col}}"></span><span class="tag">{{c.mode}}</span></span>
+</span>
+</div>
+<sc-if value="{{c.isPkg}}" hint-placeholder-val="{{ true }}">
+<span style="display: flex; flex-direction: column; gap: 10px; border-radius: 18px; padding: 16px; background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.08)">
+<span style="display: flex; justify-content: space-between; gap: 10px; align-items: baseline"><span><strong style="font-size: 17px">{{c.left}}</strong><span style="color: #A3B8B4"> left of 24 h</span></span><span style="color: #C3D3D0; font-size: 14px">{{c.price}}</span></span>
+<span style="display: block; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden"><span style="display: block; width: {{c.used}}; height: 100%; border-radius: 999px; background: {{c.col}}; box-shadow: 0 0 14px {{c.glow}}"></span></span>
+<span style="color: #C3D3D0; font-size: 14px">{{c.runout}}</span>
+</span>
+</sc-if>
+<sc-if value="{{c.isPer}}" hint-placeholder-val="{{ false }}">
+<span style="display: flex; justify-content: space-between; gap: 10px; border-radius: 18px; padding: 16px; background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.08)"><span style="color: #A3B8B4">Pays per class</span><span style="font-weight: 600">{{c.month}}</span></span>
+</sc-if>
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: auto">
+<span style="color: #A3B8B4">{{c.nextLabel}}<strong style="color: #E8F3F1; font-weight: 600">{{c.next}}</strong></span>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: {{c.stCol}}"><sc-if value="{{c.hasSt}}" hint-placeholder-val="{{ true }}"><span style="width: 8px; height: 8px; border-radius: 50%; background: {{c.stDot}}"></span></sc-if>{{c.status}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</main>
+</div>
+
+<sc-if value="{{toastShown}}" hint-placeholder-val="{{ false }}">
+<div class="glass-hi toast" role="status" style="position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); padding: 12px 20px; border-radius: 999px; font-weight: 500; z-index: 5; white-space: nowrap">{{toastText}}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.CARDS = [
+      { name: 'Angela', grade: 'Grade 5', ini1: 'An', mode: 'Google Meet', fam: ['rgba(96,165,250,0.22)', '#93C5FD', 'rgba(96,165,250,0.6)'], type: 'pkg', left: '20 hours', usedH: 4, price: '฿43,200 package', runout: 'All hours run out around Thu 18 Mar (19 weeks)', next: 'Thu 5 Nov · 19:00', status: 'ready', ok: true },
+      { name: 'IP & IQ', grade: '', ini1: 'IP', ini2: 'IQ', mode: 'Onsite · share hours', fam: ['rgba(251,146,60,0.22)', '#FDBA74', 'rgba(251,146,60,0.6)'], type: 'pkg', left: '12 hours', usedH: 12, price: '฿40,800 package', runout: 'All hours run out around Sat 21 Nov (3 weeks)', next: 'Sat 7 Nov · 11:00', status: 'print worksheet', ok: false },
+      { name: 'Jaian & Nivaan', grade: '', ini1: 'Ja', ini2: 'Ni', mode: 'Onsite · Nana · share hours', fam: ['rgba(52,211,153,0.2)', '#6EE7B7', 'rgba(52,211,153,0.6)'], type: 'pkg', left: '1.5 hours', usedH: 22.5, price: '฿40,800 package', runout: 'Then the next package: 24 h · ฿60,000 · all hours run out around Sun 3 Jan (9 weeks)', next: 'Wed 4 Nov · 16:30', status: 'ready', ok: true },
+      { name: 'Alice', grade: 'Grade 5', ini1: 'Al', mode: 'Preply', fam: ['rgba(251,191,36,0.2)', '#FCD34D', 'rgba(251,191,36,0.6)'], type: 'per', month: '1 this month · ฿1,500', next: 'Thu 5 Nov · 18:00', status: 'ready', ok: true },
+      { name: 'George', grade: '', ini1: 'Ge', mode: 'Preply', fam: ['rgba(244,114,182,0.2)', '#F9A8D4', 'rgba(244,114,182,0.6)'], type: 'per', month: 'none this month yet', next: '', nextLabel: 'No lesson in the next 4 weeks', status: '', ok: null },
+      { name: 'Yina', grade: 'Grade 2', ini1: 'Yi', mode: 'Preply', fam: ['rgba(74,222,128,0.2)', '#86EFAC', 'rgba(74,222,128,0.6)'], type: 'per', month: '1 this month · ฿2,000', next: 'Sun 8 Nov · 09:00', status: 'ready', ok: true }
+    ];
+    this.state = { sound: true, filter: 'all', toast: '' };
+  }
+  componentWillUnmount() { clearTimeout(this._tt); }
+  snd(kind) {
+    if (!this.state.sound) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!this._ac) this._ac = new AC();
+      const ac = this._ac;
+      if (ac.state === 'suspended') ac.resume();
+      const t = ac.currentTime;
+      const tone = (f, at, dur, vol, type) => {
+        const o = ac.createOscillator(); const g = ac.createGain();
+        o.type = type || 'sine'; o.frequency.setValueAtTime(f, t + at);
+        g.gain.setValueAtTime(0.0001, t + at);
+        g.gain.exponentialRampToValueAtTime(vol, t + at + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+        o.connect(g); g.connect(ac.destination);
+        o.start(t + at); o.stop(t + at + dur + 0.03);
+      };
+      if (kind === 'tap') { tone(1800, 0, 0.045, 0.05, 'triangle'); tone(3000, 0, 0.02, 0.02); }
+      else if (kind === 'nav') { tone(700, 0, 0.08, 0.045); tone(1050, 0.045, 0.1, 0.04); }
+      else if (kind === 'toggle') { tone(620, 0, 0.07, 0.05, 'triangle'); }
+      else if (kind === 'flip') { tone(520, 0, 0.05, 0.04, 'triangle'); tone(780, 0.03, 0.06, 0.035, 'triangle'); }
+      else if (kind === 'open') { tone(523, 0, 0.1, 0.05); tone(784, 0.08, 0.22, 0.05); }
+    } catch (e) {}
+  }
+  toast(text) { clearTimeout(this._tt); this.setState({ toast: text }); this._tt = setTimeout(() => this.setState({ toast: '' }), 2200); }
+  renderVals() {
+    const s = this.state;
+    const cards = this.CARDS.filter((c) => s.filter === 'all' || c.type === s.filter).map((c) => ({
+      name: c.name, grade: c.grade, ini1: c.ini1, ini2: c.ini2 || '', pair: !!c.ini2, mode: c.mode,
+      tint: c.fam[0], col: c.fam[1], glow: c.fam[2],
+      isPkg: c.type === 'pkg', isPer: c.type === 'per',
+      left: c.left || '', price: c.price || '', runout: c.runout || '', month: c.month || '',
+      used: c.usedH !== undefined ? Math.round((c.usedH / 24) * 100) + '%' : '0%',
+      nextLabel: c.nextLabel !== undefined ? c.nextLabel : 'Next: ', next: c.next,
+      status: c.status, hasSt: c.ok !== null,
+      stCol: c.ok ? '#BBF7D0' : '#FDE68A', stDot: c.ok ? '#4ADE80' : '#FBBF24',
+      open: () => { this.snd('open'); this.toast('Opening ' + c.name); }
+    }));
+    const f = {};
+    [['all', 'all'], ['pkg', 'pkg'], ['per', 'per']].forEach(([k, v]) => { f[k] = { cls: 'seg press' + (s.filter === v ? ' on' : ''), pick: () => { if (this.state.filter !== v) { this.snd('flip'); this.setState({ filter: v }); } } }; });
+    return {
+      cards, f,
+      add: () => { this.snd('tap'); this.toast('Add a student — form opens here'); },
+      navSnd: () => this.snd('nav'),
+      soundOn: s.sound, soundOff: !s.sound, soundLabel: s.sound ? 'Turn sounds off' : 'Turn sounds on',
+      toggleSound: () => { const on = !this.state.sound; this.setState({ sound: on }, () => { if (on) this.snd('toggle'); }); },
+      toastShown: !!s.toast, toastText: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

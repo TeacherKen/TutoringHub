@@ -245,3 +245,289 @@ textarea.input {
 @keyframes sb-pulse { 50% { transform: scale(1.08); filter: drop-shadow(0 0 8px rgba(255,198,41,1)); } }
 .sb-pulse { animation: sb-pulse .9s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .sb-grow, .sb-ghost, .sb-pulse { animation: none; } }
+
+/* ============================================================================================
+   TutoringHub Glass (design/glass/glass.css): the tutor app's dark frosted-glass look.
+   Only inside .th-glass (the signed-in app shell), so the games corner, children's rooms,
+   family pages, worksheets and print pages keep their own look.
+   ============================================================================================ */
+.th-glass {
+  /* Glass tokens (exact values from the design pack) */
+  --th-bg: #071719;
+  --th-text: #e8f3f1;
+  --th-text-2: #c3d3d0;
+  --th-text-3: #a3b8b4;
+  --th-label: #8aa19c;
+  --th-accent: #6ee7c8;
+  --th-accent-ink: #06201b;
+  --th-accent-soft: rgba(110, 231, 200, 0.16);
+  --th-accent-line: rgba(110, 231, 200, 0.45);
+  --th-ready: #4ade80;
+  --th-ready-text: #bbf7d0;
+  --th-todo: #fbbf24;
+  --th-todo-text: #fde68a;
+  --th-now: #f87171;
+  --th-gold: #fde047;
+  --r-btn: 14px;
+  --r-card: 24px;
+  --r-hero: 30px;
+  --tap: 44px;
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-games: "Barlow Condensed", "Outfit", sans-serif;
+
+  /* The app's own colour names, pointed at the glass palette, so every page reads well on dark
+     (each page gets its full glass treatment in phase 2). */
+  --bg: var(--th-bg);
+  --surface: #0f2527; /* solid, for things that must cover what's under them */
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.11);
+  --text: var(--th-text);
+  --muted: var(--th-text-3);
+  --accent: var(--th-accent);
+  --accent-soft: var(--th-accent-soft);
+  --accent-text: var(--th-accent-ink);
+  --warn: var(--th-todo);
+  --warn-soft: rgba(251, 191, 36, 0.12);
+  --danger: var(--th-now);
+  --danger-soft: rgba(248, 113, 113, 0.14);
+  --ok: var(--th-ready);
+  --ok-soft: rgba(74, 222, 128, 0.12);
+  /* Family colours: the app's existing colour order, each mapped to its dark-theme version (--fam-*). */
+  --series-1: #60a5fa; /* blue   (fam-angela) */
+  --series-2: #fb923c; /* orange (fam-ipiq) */
+  --series-3: #34d399; /* green  (fam-jn) */
+  --series-4: #fbbf24; /* yellow (fam-alice) */
+  --series-5: #f472b6; /* pink   (fam-george) */
+  --series-6: #86efac; /* light green (fam-yina) */
+  --series-7: #a78bfa;
+  --series-8: #f87171;
+  --booked-opacity: 0.5;
+
+  position: relative;
+  min-height: 100dvh;
+  background: var(--th-bg);
+  color: var(--th-text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  color-scheme: dark;
+}
+html:has(.th-glass),
+html:has(.th-glass) body {
+  background: #071719;
+}
+.th-glass .h1,
+.th-glass .h2,
+.th-glass .font-display {
+  font-family: var(--font-display);
+}
+.th-glass .h1 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.th-glass .card {
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.11);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 24px 48px -28px rgba(0, 0, 0, 0.7);
+}
+.th-glass :focus-visible {
+  outline: 2px solid var(--th-accent);
+  outline-offset: 2px;
+}
+
+/* Glass panels */
+.glass {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 24px 48px -28px rgba(0, 0, 0, 0.7);
+}
+.glass-hi {
+  background: rgba(255, 255, 255, 0.085);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  backdrop-filter: blur(26px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 30px 60px -30px rgba(0, 0, 0, 0.75);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .th-glass .card {
+    background: rgba(18, 40, 42, 0.92);
+  }
+  .glass-hi {
+    background: rgba(24, 50, 52, 0.95);
+  }
+}
+/* Light glass: iPad / games corner, and "Glass strength: Light" */
+.glass-lite .glass,
+.glass-lite .glass-hi,
+.glass-lite .card {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* Press / hover */
+.press {
+  transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.press:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.press:active {
+  transform: scale(0.97);
+}
+.lift {
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.2s, box-shadow 0.2s;
+}
+.lift:hover {
+  transform: translateY(-3px);
+  border-color: rgba(110, 231, 200, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 26px 50px -24px rgba(45, 212, 191, 0.35);
+}
+
+/* Top bar tabs */
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  color: var(--th-text-2);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tab.is-on {
+  background: var(--th-accent-soft);
+  border-color: var(--th-accent-line);
+  color: #dffbf3;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Status pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.pill.ok {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.4);
+  color: var(--th-ready-text);
+}
+.pill.todo {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.45);
+  color: var(--th-todo-text);
+}
+
+/* Expected money (Money by month) */
+.hatch {
+  background-image: repeating-linear-gradient(135deg, rgba(110, 231, 200, 0.55) 0 2px, transparent 2px 8px);
+  border: 1.5px dashed rgba(110, 231, 200, 0.7);
+}
+
+/* Background glow orbs: fixed, behind everything, never clickable */
+.orbs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(30px);
+  animation: th-drift 18s ease-in-out infinite;
+}
+
+/* Motion */
+@keyframes th-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(30px, -24px);
+  }
+}
+@keyframes th-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes th-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes th-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes th-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(248, 113, 113, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0);
+  }
+}
+.page-enter {
+  animation: th-rise 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .th-glass *,
+  .th-glass *::before,
+  .th-glass *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+.motion-off *,
+.motion-off *::before,
+.motion-off *::after {
+  animation: none !important;
+}
+
+/* The top bar scrolls sideways below 900px, and the word TutoringHub hides */
+.topnav {
+  scrollbar-width: none;
+}
+.topnav::-webkit-scrollbar {
+  display: none;
+}
+@media (max-width: 900px) {
+  .topnav {
+    overflow-x: auto;
+  }
+  .brand-text {
+    display: none;
+  }
+}
