@@ -725,3 +725,9 @@ html:has(.th-glass) body {
   color: #1a1403;
   border-color: rgba(255, 255, 255, 0.4);
 }
+/* Chart bars grow up from the bottom */
+.bar-grow {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: th-grow 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}

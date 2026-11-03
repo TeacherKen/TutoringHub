@@ -21,9 +21,9 @@ export function PackageCard({ a, today, soon }: { a: AccountMoney; today: string
   const href = a.studentIds[0] ? `/students/${a.studentIds[0]}#hours` : "/students";
   const daysLeft = f.endDate ? Math.round((new Date(`${f.endDate}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) / 86_400_000) : null;
   return (
-    <Link href={href} className={`card block space-y-3 hover:border-accent ${soon ? "border-warn" : ""}`}>
+    <Link href={href} className="glass lift flex flex-col gap-3 rounded-[24px] p-[22px]" style={soon ? { borderColor: "rgba(251,191,36,0.45)" } : undefined}>
       <div className="flex items-center justify-between gap-2">
-        <span className="font-medium">{a.name}</span>
+        <span className="font-display text-[22px] font-semibold">{a.name}</span>
         {a.leftHours <= 0 ? <span className="chip-danger">Used up</span> : soon ? <span className="chip-warn">Renew soon</span> : null}
       </div>
       <div>
@@ -41,8 +41,14 @@ export function PackageCard({ a, today, soon }: { a: AccountMoney; today: string
             {cur.usedHours} / {cur.hours} h
           </span>
         </div>
-        <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-          <div className={`h-full rounded-full ${soon ? "bg-warn" : "bg-accent"}`} style={{ width: `${pct}%` }} />
+        <div className="mt-2 h-3 overflow-hidden rounded-full bg-white/[0.08]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${pct}%`,
+              background: soon ? "var(--th-todo)" : "linear-gradient(90deg, color-mix(in srgb, var(--th-accent), #0d9488 45%), var(--th-accent))",
+            }}
+          />
         </div>
       </div>
       <p className="text-sm">
@@ -73,14 +79,21 @@ export function PackageCard({ a, today, soon }: { a: AccountMoney; today: string
         ? a.packages
             .filter((p) => p.state === "next" && p.id !== cur.id)
             .map((p) => (
-              <p key={p.id} className="rounded-lg bg-surface-2 px-3 py-2 text-sm">
+              <p
+                key={p.id}
+                className="rounded-[14px] border px-3.5 py-3 text-sm"
+                style={{
+                  background: "color-mix(in srgb, var(--th-accent) 8%, transparent)",
+                  borderColor: "color-mix(in srgb, var(--th-accent) 25%, transparent)",
+                }}
+              >
                 Next package ready: <strong>{p.hours} h</strong>
-                {p.price != null ? <> · {thb(p.price)}</> : null} — it starts when the{" "}
-                {fmtHours(Math.max(0, cur.hours - cur.usedHours))} left on this one are used.
+                {p.price != null ? <> · {thb(p.price)}</> : null} — it starts when the {fmtHours(Math.max(0, cur.hours - cur.usedHours))} left on this one are
+                used.
               </p>
             ))
         : null}
-      <p className="text-xs text-muted">
+      <p className="text-[13px] text-[var(--th-label)]">
         All packages: {thb(a.paid)} paid · {thb(a.earned)} earned so far
         {f.basis === "average" ? " · end date estimated from the usual weekly lessons" : ""}
       </p>
