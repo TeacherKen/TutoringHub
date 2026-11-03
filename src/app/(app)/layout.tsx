@@ -9,6 +9,7 @@ import "@fontsource/barlow-condensed/800-italic.css";
 import { requireSignedIn } from "@/lib/auth";
 import { GlassNav, GlassOrbs } from "@/components/GlassNav";
 import { AppMain } from "@/components/AppMain";
+import { GlassToast } from "@/components/glass/Toast";
 import { themeBootScript } from "@/lib/glassTheme";
 
 import type { Viewport } from "next";
@@ -27,6 +28,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <GlassNav role={me.role === "tutor" ? "tutor" : "viewer"} />
         <AppMain>{children}</AppMain>
       </div>
+      <GlassToast />
     </div>
   );
 }

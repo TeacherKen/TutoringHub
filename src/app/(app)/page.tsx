@@ -13,6 +13,7 @@ import { loadPrep } from "@/lib/prepData";
 import { loadReady } from "@/lib/readyData";
 import { Hero, MonthPanel, TodayTimeline, TodoPanel, WeekList } from "@/components/home/Dashboard";
 import { tutorName } from "@/lib/env";
+import { colourSlots } from "@/lib/studentColours";
 
 export default async function Home() {
   const me = await getMe();
@@ -77,10 +78,14 @@ export default async function Home() {
   const monthStart = `${today.slice(0, 7)}-01`;
   const nextMonth = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 1)).toISOString().slice(0, 10);
   const month = sumEarned(money.lessons, monthStart, nextMonth);
+  // Family colours, the same as on Week, Students and Money.
+  const colours = colourSlots({ students, packages: money.packages, accountNames: accountName });
+  const slotOf = (l: Lesson) => (l.lesson_students[0] ? colours.slotOfStudent(l.lesson_students[0].student_id) : 8);
+  const shown = current ?? next;
   const weekCount = matched.filter((l) => bkkDateKey(l.start_at) >= mondayOf(today) && !l.status.startsWith("cancelled")).length;
 
   return (
-    <div className="space-y-6 md:space-y-8">
+    <div className="flex flex-col gap-6">
       <CalendarCatchUp />
       <Hero
         dateLine={fmtLongDay(today)}
@@ -88,10 +93,12 @@ export default async function Home() {
         now={now}
         current={current}
         next={next}
+        slot={shown ? slotOf(shown) : 8}
+        ready={shown ? ready.get(shown.id) : undefined}
         refresh={settings.calendar_connected ? <RefreshButton /> : null}
         problem={
           !settings.calendar_connected ? (
-            <div className="rounded-2xl bg-accent-soft p-4">
+            <div className="glass rounded-2xl p-4">
               <p className="font-medium">Connect your Google Calendar to see your lessons.</p>
               <p className="mt-1 text-sm text-muted">It takes about 2 minutes. Then add your students so lessons match.</p>
               <Link href="/settings#calendar" className="btn-primary mt-3">
@@ -104,37 +111,34 @@ export default async function Home() {
         }
       />
 
-      {/* Phone: today, to do, then the month. Computer: today and the month on the left, to do on the right. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-start md:gap-8">
+      {/* Three glass cards side by side on a laptop, one under another on a phone */}
+      <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
         <TodayTimeline lessons={todays} now={now} prep={prep} ready={ready} />
-        <div className="md:row-span-2">
-          <TodoPanel
-            notes={missing}
-            unmarked={unmarked}
-            feedback={unsent}
-            getReady={soon.map((l) => ({ lesson: l, r: ready.get(l.id)! }))}
-            renew={low.map((a) => ({
-              id: a.id,
-              href: a.studentIds[0] ? `/students/${a.studentIds[0]}#hours` : "/students",
-              text: `${a.name}, ${a.leftHours > 0 ? `${fmtHours(a.leftHours)} left` : "hours used up"}${a.leftHours > 0 && a.forecast.endDate ? `, until about ${fmtDay(a.forecast.endDate)}` : ""}`,
-              danger: a.leftHours <= 0,
-            }))}
-            unpaid={unpaid.map((p) => ({ id: p.id, href: "/money#unpaid", text: `${accountName.get(p.hour_account_id) ?? "Package"}, ฿${Math.round(Number(p.price_thb)).toLocaleString("en-US")}` }))}
-            link={unmatched.length ? <UnmatchedEvents events={unmatched} students={students} /> : null}
-          />
-        </div>
-        <div>
-          <MonthPanel
-            month={new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(new Date(`${monthStart}T00:00:00Z`))}
-            earned={month.value}
-            classes={month.classes}
-            hours={month.hours}
-            week={weekCount}
-          />
-        </div>
+        <MonthPanel
+          month={new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(new Date(`${monthStart}T00:00:00Z`))}
+          earned={month.value}
+          classes={month.classes}
+          hours={month.hours}
+          week={weekCount}
+        />
+        <TodoPanel
+          notes={missing}
+          unmarked={unmarked}
+          feedback={unsent}
+          getReady={soon.map((l) => ({ lesson: l, r: ready.get(l.id)! }))}
+          renew={low.map((a) => ({
+            id: a.id,
+            href: a.studentIds[0] ? `/students/${a.studentIds[0]}#hours` : "/students",
+            text: `${a.name}, ${a.leftHours > 0 ? `${fmtHours(a.leftHours)} left` : "hours used up"}${a.leftHours > 0 && a.forecast.endDate ? `, until about ${fmtDay(a.forecast.endDate)}` : ""}`,
+            danger: a.leftHours <= 0,
+          }))}
+          unpaid={unpaid.map((p) => ({ id: p.id, href: "/money#unpaid", text: `${accountName.get(p.hour_account_id) ?? "Package"}, ฿${Math.round(Number(p.price_thb)).toLocaleString("en-US")}` }))}
+          link={unmatched.length ? <UnmatchedEvents events={unmatched} students={students} /> : null}
+          linkCount={unmatched.length}
+        />
       </div>
 
-      <WeekList days={[...byDay.entries()]} ready={ready} />
+      <WeekList days={[...byDay.entries()]} ready={ready} slotOf={slotOf} />
     </div>
   );
 }
@@ -142,17 +146,13 @@ export default async function Home() {
 /** Calendar events that aren't linked to a student yet: link one, or hide it. */
 function UnmatchedEvents({ events, students }: { events: Lesson[]; students: { id: string; first_name: string }[] }) {
   return (
-    <details className="group py-3">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2">
-        <h3 className="font-medium">
-          Calendar events to link <span className="ml-1 rounded-full bg-surface-2 px-2 py-0.5 text-sm tabular-nums text-muted">{events.length}</span>
-        </h3>
-        <span className="text-sm font-medium text-accent group-open:hidden">Show</span>
-        <span className="hidden text-sm font-medium text-accent group-open:inline">Hide</span>
-      </summary>
+    <div className="py-3 first:pt-1 last:pb-1">
+      <h3 className="px-2 font-semibold">
+        Calendar events to link <span className="ml-1 rounded-full bg-white/10 px-2 py-0.5 text-sm tabular-nums text-[var(--th-text-2)]">{events.length}</span>
+      </h3>
       <div className="mt-2 space-y-2 px-2">
         {events.map((l) => (
-          <div key={l.id} className="rounded-xl bg-surface-2/70 p-3">
+          <div key={l.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
             <div className="text-sm">
               <span className="font-medium">{l.title || "Untitled event"}</span>
               <span className="text-muted">
@@ -187,7 +187,7 @@ function UnmatchedEvents({ events, students }: { events: Lesson[]; students: { i
         ))}
         <p className="text-xs text-muted">Preply names events after the account owner, often the parent (e.g. “Chloe L.” for Yina).</p>
       </div>
-    </details>
+    </div>
   );
 }
 
