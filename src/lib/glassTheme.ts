@@ -53,5 +53,42 @@ export function applyTheme(id: string) {
  */
 export function themeBootScript(): string {
   const table = Object.fromEntries(GLASS_THEMES.map((t) => [t.id, themeVars(t)]));
-  return `try{var t=localStorage.getItem(${JSON.stringify(THEME_KEY)});var v=${JSON.stringify(table)}[t];if(v){var s=document.documentElement.style;for(var k in v)s.setProperty(k,v[k]);document.documentElement.dataset.glass=t}}catch(e){}`;
+  return `try{var t=localStorage.getItem(${JSON.stringify(THEME_KEY)});var v=${JSON.stringify(table)}[t];if(v){var s=document.documentElement.style;for(var k in v)s.setProperty(k,v[k]);document.documentElement.dataset.glass=t}}catch(e){}${feelBootScript()}`;
+}
+
+// ✨ "Sound & feel" settings that change the look: glass strength and animations (per device).
+export const FEEL_KEY = "tutoringhub.feel";
+export type Feel = { glass: "full" | "light"; motion: boolean };
+export const FEEL_DEFAULTS: Feel = { glass: "full", motion: true };
+
+export function readFeel(): Feel {
+  try {
+    const raw = localStorage.getItem(FEEL_KEY);
+    return raw ? { ...FEEL_DEFAULTS, ...JSON.parse(raw) } : { ...FEEL_DEFAULTS };
+  } catch {
+    return { ...FEEL_DEFAULTS };
+  }
+}
+
+/** Light glass = less blur (quicker on older iPads); animations off = nothing moves. Classes on <html>. */
+export function applyFeel(f: Feel) {
+  const c = document.documentElement.classList;
+  c.toggle("glass-lite", f.glass === "light");
+  c.toggle("motion-off", !f.motion);
+}
+
+export function saveFeel(next: Partial<Feel>): Feel {
+  const f = { ...readFeel(), ...next };
+  try {
+    localStorage.setItem(FEEL_KEY, JSON.stringify(f));
+  } catch {
+    /* ignore */
+  }
+  applyFeel(f);
+  window.dispatchEvent(new Event("th-feel"));
+  return f;
+}
+
+function feelBootScript(): string {
+  return `try{var f=JSON.parse(localStorage.getItem(${JSON.stringify(FEEL_KEY)})||"{}");var c=document.documentElement.classList;if(f.glass==="light")c.add("glass-lite");if(f.motion===false)c.add("motion-off")}catch(e){}`;
 }

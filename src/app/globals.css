@@ -731,3 +731,85 @@ html:has(.th-glass) body {
   transform-origin: bottom;
   animation: th-grow 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
+
+/* ---- Settings ---- */
+/* On/off switch */
+.sw {
+  position: relative;
+  flex: none;
+  width: 56px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
+  transition: background-color 0.2s;
+}
+.sw .knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--th-text);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: left 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sw.on {
+  background: var(--th-accent);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.sw.on .knob {
+  left: 27px;
+  background: var(--th-accent-ink);
+}
+/* Dark inputs with a mint focus ring, dark date picker, mint ticks */
+.th-glass .input,
+.th-glass input[type="text"],
+.th-glass input[type="email"],
+.th-glass input[type="url"],
+.th-glass input[type="number"],
+.th-glass input[type="date"],
+.th-glass select,
+.th-glass textarea {
+  color-scheme: dark;
+}
+.th-glass .input {
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.22);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.th-glass .input:focus {
+  border-color: var(--th-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--th-accent) 22%, transparent);
+}
+.th-glass input[type="checkbox"],
+.th-glass input[type="radio"] {
+  accent-color: var(--th-accent);
+}
+.th-glass details > summary::-webkit-details-marker {
+  color: var(--th-accent);
+}
+/* Light glass and no animations, chosen in Settings (classes on <html>) */
+.glass-lite .glass,
+.glass-lite .glass-hi,
+.glass-lite .th-glass .card,
+.glass-lite .game {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.motion-off .orb,
+.motion-off .page-enter,
+.motion-off .bar-grow,
+.motion-off .th-toast {
+  animation: none !important;
+}
+.motion-off .press,
+.motion-off .lift,
+.motion-off .game {
+  transition: none !important;
+}
+.motion-off .lift:hover,
+.motion-off .game:hover {
+  transform: none;
+}

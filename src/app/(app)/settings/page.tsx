@@ -16,7 +16,7 @@ import { listBackups } from "@/lib/backup";
 import { aiBudget, aiKey } from "@/lib/aiCall";
 import { usd } from "@/lib/aiCost";
 import { AiPicturesSwitch } from "@/components/AiSettings";
-import { ThemePicker } from "@/components/ThemePicker";
+import { SoundFeel } from "@/components/SoundFeel";
 
 const FEATURE_NAMES: Record<string, string> = {
   lesson_summary: "Lesson summaries",
@@ -33,24 +33,20 @@ export default async function SettingsPage() {
   const { count: hidden } = await supabase.from("lessons").select("id", { count: "exact", head: true }).eq("ignored", true);
 
   return (
-    <div className="space-y-8">
-      <h1 className="h1">Settings</h1>
+    <div className="flex flex-col gap-[22px]">
+      <header className="px-1.5 pt-1">
+        <h1 className="font-display text-[36px] font-semibold leading-tight sm:text-[44px]">Settings</h1>
+      </header>
 
       {/* Two columns of cards on a laptop; one column on a phone */}
-      <div className="space-y-8 lg:block lg:columns-2 lg:gap-6 lg:space-y-0 [&>section]:break-inside-avoid lg:[&>section]:mb-6">
-      <section className="card space-y-3">
-        <div>
-          <h2 className="h2">Colour theme</h2>
-          <p className="mt-1 text-sm text-muted">The background, accent and glows of TutoringHub Glass. Saved on this device only, so the MacBook and the iPad can differ.</p>
-        </div>
-        <ThemePicker />
-      </section>
+      <div className="space-y-5 lg:block lg:columns-2 lg:gap-5 lg:space-y-0 [&>section]:break-inside-avoid lg:[&>section]:mb-5">
+      <SoundFeel />
 
 
-      <section id="calendar" className="card space-y-4">
+      <section id="calendar" className="glass rounded-[26px] p-5 sm:p-6 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="h2">Google Calendar</h2>
+            <h2 className="font-display text-[22px] font-semibold">Google Calendar</h2>
             <p className="text-sm text-muted">
               {settings.calendar_connected
                 ? settings.last_synced_at
@@ -66,7 +62,7 @@ export default async function SettingsPage() {
         {calendars.length ? (
           <ul className="space-y-2">
             {calendars.map((c) => (
-              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 p-3">
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{c.label}</span>
                   {c.is_preply ? <span className="chip-accent">All Preply</span> : null}
@@ -87,7 +83,7 @@ export default async function SettingsPage() {
           </ul>
         ) : null}
 
-        <details className="rounded-xl bg-surface-2 p-3 text-sm" open={!settings.calendar_connected}>
+        <details className="glass rounded-2xl p-4 text-sm" open={!settings.calendar_connected}>
           <summary className="cursor-pointer font-medium">How to find your calendar link (on a computer)</summary>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>
@@ -120,11 +116,11 @@ export default async function SettingsPage() {
         {hidden ? <p className="text-xs text-muted">{hidden} calendar events are hidden as “not a lesson”.</p> : null}
       </section>
 
-      <section className="card space-y-4">
-        <h2 className="h2">Who can sign in</h2>
+      <section className="glass rounded-[26px] p-5 sm:p-6 space-y-4">
+        <h2 className="font-display text-[22px] font-semibold">Who can sign in</h2>
         <ul className="space-y-2">
           {(people ?? []).map((p) => (
-            <li key={p.email} className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 p-3">
+            <li key={p.email} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
               <div className="min-w-0">
                 <div className="truncate font-medium">{p.display_name || p.email}</div>
                 <div className="truncate text-sm text-muted">
@@ -148,9 +144,9 @@ export default async function SettingsPage() {
         </Link>
       </section>
 
-      <section id="ai" className="card space-y-4">
+      <section id="ai" className="glass rounded-[26px] p-5 sm:p-6 space-y-4">
         <div>
-          <h2 className="h2">AI (Claude)</h2>
+          <h2 className="font-display text-[22px] font-semibold">AI (Claude)</h2>
           <p className="text-sm text-muted">
             Writes parent messages, lesson summaries and worksheets. Names never go to the AI: they&apos;re swapped for placeholders and put back afterwards.
           </p>
@@ -168,7 +164,7 @@ export default async function SettingsPage() {
               </p>
               <p className="text-sm text-muted">Starts again {ai.resetsOn}</p>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuemin={0} aria-valuemax={ai.limit} aria-valuenow={Math.round(ai.spent * 100) / 100}>
+            <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]" role="progressbar" aria-valuemin={0} aria-valuemax={ai.limit} aria-valuenow={Math.round(ai.spent * 100) / 100}>
               <div className={`h-full rounded-full ${ai.ok ? "bg-accent" : "bg-danger"}`} style={{ width: `${Math.min(100, (ai.spent / ai.limit) * 100)}%` }} />
             </div>
             {Object.keys(ai.byFeature).length ? (
@@ -190,8 +186,8 @@ export default async function SettingsPage() {
         <AiPicturesSwitch initial={settings.ai_pictures === true} ready={settings.ai_pictures !== undefined} />
       </section>
 
-      <section className="card space-y-4">
-        <h2 className="h2">Parent feedback and hours</h2>
+      <section className="glass rounded-[26px] p-5 sm:p-6 space-y-4">
+        <h2 className="font-display text-[22px] font-semibold">Parent feedback and hours</h2>
         <FeedbackSettingsForm
           tone={settings.tone}
           allowEmoji={settings.allow_emoji}
@@ -204,9 +200,9 @@ export default async function SettingsPage() {
         />
       </section>
 
-      <section id="prices" className="card space-y-4">
+      <section id="prices" className="glass rounded-[26px] p-5 sm:p-6 space-y-4">
         <div>
-          <h2 className="h2">Price list</h2>
+          <h2 className="font-display text-[22px] font-semibold">Price list</h2>
           <p className="text-sm text-muted">The packages you offer. Renewal messages and PromptPay QR codes use these prices.</p>
         </div>
         {settings.price_options === undefined ? (
@@ -215,13 +211,13 @@ export default async function SettingsPage() {
         <PriceListForm initial={cleanPriceOptions(settings.price_options)} />
       </section>
 
-      <section id="backup" className="card space-y-4">
-        <h2 className="h2">Backups and export</h2>
+      <section id="backup" className="glass rounded-[26px] p-5 sm:p-6 space-y-4">
+        <h2 className="font-display text-[22px] font-semibold">Backups and export</h2>
         <BackupPanel files={backups} ready={settings.last_backup_at !== undefined} />
       </section>
 
-      <section className="card space-y-2 text-sm">
-        <h2 className="h2">Privacy</h2>
+      <section className="glass rounded-[26px] p-5 sm:p-6 space-y-2 text-sm">
+        <h2 className="font-display text-[22px] font-semibold">Privacy</h2>
         <ul className="list-disc space-y-1 pl-5 text-muted">
           <li>Students are saved by first name or nickname only — no surnames.</li>
           <li>Saved: lesson times from your calendar, your lesson notes, parent names and contacts, packages and payments, and files you upload.</li>
