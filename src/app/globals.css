@@ -253,15 +253,16 @@ textarea.input {
    ============================================================================================ */
 .th-glass {
   /* Glass tokens (exact values from the design pack) */
-  --th-bg: #071719;
+  /* Theme colours (Settings → Colour theme) come from --g-* on <html>; mint is the default. */
+  --th-bg: var(--g-bg, #071719);
   --th-text: #e8f3f1;
   --th-text-2: #c3d3d0;
   --th-text-3: #a3b8b4;
   --th-label: #8aa19c;
-  --th-accent: #6ee7c8;
-  --th-accent-ink: #06201b;
-  --th-accent-soft: rgba(110, 231, 200, 0.16);
-  --th-accent-line: rgba(110, 231, 200, 0.45);
+  --th-accent: var(--g-accent, #6ee7c8);
+  --th-accent-ink: var(--g-accent-ink, #06201b);
+  --th-accent-soft: var(--g-accent-soft, rgba(110, 231, 200, 0.16));
+  --th-accent-line: var(--g-accent-line, rgba(110, 231, 200, 0.45));
   --th-ready: #4ade80;
   --th-ready-text: #bbf7d0;
   --th-todo: #fbbf24;
@@ -315,7 +316,7 @@ textarea.input {
 }
 html:has(.th-glass),
 html:has(.th-glass) body {
-  background: #071719;
+  background: var(--g-bg, #071719);
 }
 .th-glass .h1,
 .th-glass .h2,
@@ -407,7 +408,7 @@ html:has(.th-glass) body {
 .tab.is-on {
   background: var(--th-accent-soft);
   border-color: var(--th-accent-line);
-  color: #dffbf3;
+  color: color-mix(in srgb, var(--th-accent) 35%, #ffffff);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 

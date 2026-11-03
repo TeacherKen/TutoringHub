@@ -134,9 +134,9 @@ export function GlassNav({ role }: { role: "tutor" | "viewer" }) {
 export function GlassOrbs() {
   return (
     <div aria-hidden className="orbs">
-      <div className="orb" style={{ width: 680, height: 680, left: -160, top: -220, background: "radial-gradient(circle, rgba(45,212,191,0.42), rgba(45,212,191,0) 68%)" }} />
-      <div className="orb" style={{ width: 560, height: 560, right: -120, top: 120, background: "radial-gradient(circle, rgba(96,165,250,0.32), rgba(96,165,250,0) 68%)", animationDelay: "-6s" }} />
-      <div className="orb" style={{ width: 600, height: 600, left: "30%", bottom: -260, background: "radial-gradient(circle, rgba(251,146,60,0.22), rgba(251,146,60,0) 68%)", animationDelay: "-11s" }} />
+      <div className="orb" style={{ width: 680, height: 680, left: -160, top: -220, background: "radial-gradient(circle, rgba(var(--g-orb-1, 45,212,191),0.42), rgba(var(--g-orb-1, 45,212,191),0) 68%)" }} />
+      <div className="orb" style={{ width: 560, height: 560, right: -120, top: 120, background: "radial-gradient(circle, rgba(var(--g-orb-2, 96,165,250),0.32), rgba(var(--g-orb-2, 96,165,250),0) 68%)", animationDelay: "-6s" }} />
+      <div className="orb" style={{ width: 600, height: 600, left: "30%", bottom: -260, background: "radial-gradient(circle, rgba(var(--g-orb-3, 251,146,60),0.22), rgba(var(--g-orb-3, 251,146,60),0) 68%)", animationDelay: "-11s" }} />
     </div>
   );
 }

@@ -20,7 +20,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${GeistSans.variable} antialiased`}>
+    <html lang="en" className={`${GeistSans.variable} antialiased`} suppressHydrationWarning>
       <body className="min-h-dvh">{children}</body>
     </html>
   );

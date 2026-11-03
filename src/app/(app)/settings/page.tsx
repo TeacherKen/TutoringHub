@@ -16,6 +16,7 @@ import { listBackups } from "@/lib/backup";
 import { aiBudget, aiKey } from "@/lib/aiCall";
 import { usd } from "@/lib/aiCost";
 import { AiPicturesSwitch } from "@/components/AiSettings";
+import { ThemePicker } from "@/components/ThemePicker";
 
 const FEATURE_NAMES: Record<string, string> = {
   lesson_summary: "Lesson summaries",
@@ -37,6 +38,14 @@ export default async function SettingsPage() {
 
       {/* Two columns of cards on a laptop; one column on a phone */}
       <div className="space-y-8 lg:block lg:columns-2 lg:gap-6 lg:space-y-0 [&>section]:break-inside-avoid lg:[&>section]:mb-6">
+      <section className="card space-y-3">
+        <div>
+          <h2 className="h2">Colour theme</h2>
+          <p className="mt-1 text-sm text-muted">The background, accent and glows of TutoringHub Glass. Saved on this device only, so the MacBook and the iPad can differ.</p>
+        </div>
+        <ThemePicker />
+      </section>
+
 
       <section id="calendar" className="card space-y-4">
         <div className="flex items-start justify-between gap-3">
