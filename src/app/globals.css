@@ -593,3 +593,18 @@ html:has(.th-glass) body {
 .spin {
   animation: th-spin 0.9s linear infinite;
 }
+/* One part of a segmented control (Prev / Today / Next, filters) */
+.seg {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-weight: 500;
+}
+.seg.is-on {
+  background: var(--th-accent-soft);
+  border-color: var(--th-accent-line);
+  color: color-mix(in srgb, var(--th-accent) 35%, #ffffff);
+}

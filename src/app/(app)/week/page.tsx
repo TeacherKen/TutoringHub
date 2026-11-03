@@ -1,5 +1,5 @@
 import { CalendarCatchUp } from "@/components/CalendarCatchUp";
-import Link from "next/link";
+import { SoundLink } from "@/components/glass/SoundLink";
 import { requireTutor } from "@/lib/auth";
 import { getAccountSummaries, getLessons, getSettings, getStudents, needsNote, reminderSince } from "@/lib/data";
 import { loadReady } from "@/lib/readyData";
@@ -49,48 +49,44 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
   const busiest = days.map((d) => ({ d, n: live.filter((l) => bkkDateKey(l.start_at) === d).length })).sort((a, b) => b.n - a.n)[0];
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-5">
       <CalendarCatchUp />
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      <header className="flex flex-wrap items-end justify-between gap-4 px-1.5 pt-1">
         <div>
-          <p className="text-sm text-muted">
+          <p className="text-base text-[var(--th-text-3)]">
             {fmtDay(monday)} – {fmtDay(addDays(monday, 6))}
           </p>
-          <h1 className="h1">{isThisWeek ? "This week" : "Week"}</h1>
+          <h1 className="font-display text-[36px] font-semibold leading-tight sm:text-[44px]">{isThisWeek ? "This week" : "Week"}</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <nav className="flex overflow-hidden rounded-xl border border-line bg-surface text-sm" aria-label="Weeks">
-            <Link className="px-3 py-2 hover:bg-surface-2" href={`/week?start=${addDays(monday, -7)}`} aria-label="Previous week">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <nav aria-label="Weeks" className="glass flex gap-0.5 rounded-[15px] p-0.5">
+            <SoundLink sound="flip" className="seg press" href={`/week?start=${addDays(monday, -7)}`} aria-label="Previous week">
               ‹ Prev
-            </Link>
-            <Link className={`border-x border-line px-3 py-2 hover:bg-surface-2 ${isThisWeek ? "font-semibold text-accent" : ""}`} href="/week">
+            </SoundLink>
+            <SoundLink sound="flip" className={`seg press ${isThisWeek ? "font-semibold text-accent" : ""}`} href="/week" aria-current={isThisWeek ? "date" : undefined}>
               Today
-            </Link>
-            <Link className="px-3 py-2 hover:bg-surface-2" href={`/week?start=${addDays(monday, 7)}`} aria-label="Next week">
+            </SoundLink>
+            <SoundLink sound="flip" className="seg press" href={`/week?start=${addDays(monday, 7)}`} aria-label="Next week">
               Next ›
-            </Link>
+            </SoundLink>
           </nav>
           <RefreshButton />
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:gap-2">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:[grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
         <Stat label="Lessons" value={String(live.length)} note={done ? `${done} done` : busiest?.n ? `busiest: ${fmtDay(busiest.d).split(" ")[0]}` : "none booked"} />
-        <Stat label="Teaching" value={fmtHours(Math.round(hours * 4) / 4)} note={live.length ? `about ${fmtHours(Math.round((hours / Math.max(1, live.length)) * 4) / 4)} each` : ""} />
+        <Stat label="Teaching time" value={fmtHours(Math.round(hours * 4) / 4)} note={live.length ? `about ${fmtHours(Math.round((hours / Math.max(1, live.length)) * 4) / 4)} each` : ""} />
         <Stat
           label="Ready"
           value={coming.length ? `${readyCount} of ${coming.length}` : "—"}
           note={coming.length ? (readyCount === coming.length ? "all set" : "slides or worksheets to do") : "nothing still to come"}
-          tone={coming.length && readyCount < coming.length ? "warn" : "ok"}
+          tone={coming.length ? (readyCount < coming.length ? "warn" : "ok") : undefined}
         />
-        <Stat label="Notes to write" value={String(notes)} note={notes ? "after the lesson" : "all written"} tone={notes ? "warn" : "ok"} />
+        <Stat label="Notes to write" value={String(notes)} note={notes ? "after the lesson" : "all written"} tone={notes ? "warn" : undefined} />
       </section>
 
       <WeekGrid days={days} lessons={lessons} today={today} since={since} slotOf={slotOf} ready={ready} now={new Date().toISOString()} />
-      <p className="hidden text-xs text-muted lg:block">
-        <span className="text-ok">●</span> ready · <span className="text-warn">●</span> slides or worksheet still to do · ✓ done · Preply and Google Meet tags show how
-        each online lesson happens. Each family has its own colour, the same as on Students and Money.
-      </p>
 
       {/* Phone and iPad: one day under another */}
       <div className="space-y-5 lg:hidden">
@@ -111,12 +107,16 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
 }
 
 function Stat({ label, value, note, tone }: { label: string; value: string; note: string; tone?: "ok" | "warn" }) {
-  // Phone: a small card. Laptop: one compact pill, so the calendar starts near the top.
   return (
-    <div className="rounded-xl border border-line bg-surface p-3 lg:flex lg:items-baseline lg:gap-2 lg:rounded-full lg:px-4 lg:py-1.5">
-      <div className="text-xs text-muted">{label}</div>
-      <div className={`text-2xl font-semibold tabular-nums lg:text-base ${tone === "warn" ? "text-warn" : ""}`}>{value}</div>
-      <div className="text-xs text-muted">{note}</div>
+    <div className="glass rounded-[22px] px-5 py-4">
+      <div className="text-sm text-[var(--th-text-3)]">{label}</div>
+      <div
+        className="font-display text-[30px] font-bold leading-tight tabular-nums sm:text-[38px]"
+        style={{ color: tone === "warn" ? "var(--th-todo)" : tone === "ok" ? "var(--th-ready)" : undefined }}
+      >
+        {value}
+      </div>
+      <div className="text-sm text-[var(--th-text-3)]">{note}</div>
     </div>
   );
 }
