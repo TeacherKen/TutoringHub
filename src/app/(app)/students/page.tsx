@@ -3,6 +3,8 @@ import { requireTutor } from "@/lib/auth";
 import { getLessons, getMoneyData, getSettings, type Lesson, type Student } from "@/lib/data";
 import { renewSoon } from "@/lib/earnings";
 import { FamilyCard, firstNext, type Family } from "@/components/StudentCards";
+import { FilterGroup } from "@/components/glass/Segmented";
+import { SoundLink } from "@/components/glass/SoundLink";
 import { loadReady } from "@/lib/readyData";
 import { colourSlots } from "@/lib/studentColours";
 import { addDays, bkkStartOfDay, todayKey } from "@/lib/time";
@@ -50,41 +52,53 @@ export default async function StudentsPage() {
   const renewing = active.filter(soon).length;
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="h1">Students</h1>
-          <p className="mt-1 text-sm text-muted">
-            {activeStudents.length} {activeStudents.length === 1 ? "student" : "students"} · {active.length} {active.length === 1 ? "family" : "families"} · {withPackages} on packages,{" "}
-            {active.length - withPackages} per class
-            {renewing ? (
-              <>
-                {" "}
-                · <span className="text-warn">{renewing} to renew soon</span>
-              </>
-            ) : null}
-          </p>
-        </div>
-        <Link href="/students/new" className="btn-primary">
-          + Add
-        </Link>
-      </header>
-
-      {students.length === 0 ? <div className="card text-muted">No students yet. Add your first student — their first name is used to find their lessons in your calendar.</div> : null}
-
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+    <div className="flex flex-col gap-6">
+      <FilterGroup
+        label="Show"
+        options={[
+          { value: "all", label: "All" },
+          { value: "pkg", label: "Packages" },
+          { value: "per", label: "Per class" },
+        ]}
+        title={
+          <div>
+            <h1 className="font-display text-[36px] font-semibold leading-tight sm:text-[44px]">Students</h1>
+            <p className="mt-1.5 text-base text-[var(--th-text-3)]">
+              {activeStudents.length} {activeStudents.length === 1 ? "student" : "students"} · {active.length} {active.length === 1 ? "family" : "families"} · {withPackages} on packages,{" "}
+              {active.length - withPackages} per class
+              {renewing ? (
+                <>
+                  {" "}
+                  · <span className="text-[var(--th-todo-text)]">{renewing} to renew soon</span>
+                </>
+              ) : null}
+            </p>
+          </div>
+        }
+        action={
+          <SoundLink href="/students/new" sound="tap" className="btn-mint !h-12 !rounded-[15px] !px-5 !text-base">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Add
+          </SoundLink>
+        }
+        className="grid gap-[18px] [grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))]"
+      >
         {active.map((f) => (
           <FamilyCard key={f.key} f={f} today={today} soon={soon(f)} next={firstNext(f, nextOf)} ready={ready} taught={thisMonth(f.students.map((s) => s.id))} />
         ))}
-      </div>
+      </FilterGroup>
+
+      {students.length === 0 ? <div className="card text-muted">No students yet. Add your first student — their first name is used to find their lessons in your calendar.</div> : null}
 
       {paused.length ? (
         <section className="space-y-2">
-          <h2 className="text-sm font-medium text-muted">Paused</h2>
+          <h2 className="px-1.5 text-sm font-medium text-[var(--th-text-3)]">Paused</h2>
           <div className="flex flex-wrap gap-2">
             {paused.flatMap((f) =>
               f.students.map((s) => (
-                <Link key={s.id} href={`/students/${s.id}`} className="chip hover:bg-accent-soft">
+                <Link key={s.id} href={`/students/${s.id}`} className="tag press">
                   {s.first_name}
                 </Link>
               )),

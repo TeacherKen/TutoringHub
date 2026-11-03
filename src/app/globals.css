@@ -608,3 +608,21 @@ html:has(.th-glass) body {
   border-color: var(--th-accent-line);
   color: color-mix(in srgb, var(--th-accent) 35%, #ffffff);
 }
+/* A quiet label (Onsite · Nana, Preply…) */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--th-text-2);
+}
+/* Students: All / Packages / Per class */
+[data-show="pkg"] > [data-kind="per"],
+[data-show="per"] > [data-kind="pkg"] {
+  display: none;
+}
