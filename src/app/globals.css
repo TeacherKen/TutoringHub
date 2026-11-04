@@ -870,3 +870,43 @@ html:has(.th-stadium) body {
 .th-stadium [class*="#0b1d42_55%"] {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 30px 60px -30px rgba(0, 0, 0, 0.75);
 }
+
+/* ---- Inner pages (Lesson, Student…): the shared pieces in glass ---- */
+.th-glass .h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.th-glass .card {
+  padding: 22px;
+}
+.th-glass .btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.th-glass .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+.th-glass .chip,
+.th-glass .chip-accent,
+.th-glass .chip-ok,
+.th-glass .chip-warn,
+.th-glass .chip-danger,
+.th-glass .chip-meet {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.th-glass .chip-accent {
+  border-color: var(--th-accent-line);
+}
+.th-glass .chip-ok {
+  border-color: rgba(74, 222, 128, 0.4);
+}
+.th-glass .chip-warn {
+  border-color: rgba(251, 191, 36, 0.45);
+}
+.th-glass .label {
+  color: var(--th-text-2);
+}

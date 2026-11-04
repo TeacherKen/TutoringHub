@@ -1,9 +1,7 @@
-import Link from "next/link";
-import { ViaTag } from "@/components/ViaTag";
 import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getLesson, getMoneyData, getProgress, getSettings, getStudents, lessonMode, lessonNames, lessonPlace } from "@/lib/data";
+import { getLesson, getMoneyData, getProgress, getSettings, getStudents, lessonNames } from "@/lib/data";
 import { MATERIALS_BUCKET, tutorName } from "@/lib/env";
 import { bkkDateKey, fmtLongDay, fmtTime, hoursBetween, isPast } from "@/lib/time";
 import { LessonNoteForm } from "@/components/LessonNoteForm";
@@ -18,7 +16,10 @@ import { roomStudent } from "@/lib/roomStudent";
 import { addLessonStudent, removeLessonStudent, setUsesHours } from "@/app/actions/lessons";
 import { setIgnored } from "@/app/actions/calendar";
 import { loadReady } from "@/lib/readyData";
-import { ReadyButton, ReadyChip } from "@/components/home/Dashboard";
+import { Avatar, ModePill } from "@/components/home/Dashboard";
+import { ReadyPill } from "@/components/glass/ReadyPill";
+import { SoundLink } from "@/components/glass/SoundLink";
+import { colourSlots } from "@/lib/studentColours";
 
 export default async function LessonPage({ params }: PageProps<"/lessons/[id]">) {
   await requireTutor();
@@ -94,9 +95,10 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
   const inLesson = lesson.lesson_students;
   // A lesson still to come: is it ready? (Upload smart slides below, or tick it after printing the worksheet.)
   const ready = (await loadReady([lesson], students)).get(lesson.id) ?? null;
+  // The family colour, the same as on Home, Week, Students and Money.
+  const colours = colourSlots({ students, packages: money.packages, accountNames: new Map(money.accounts.map((a) => [a.id, a.name])) });
+  const slot = inLesson[0] ? colours.slotOfStudent(inLesson[0].student_id) : 8;
   const notIn = students.filter((s) => !studentIds.includes(s.id));
-  const mode = lessonMode(lesson);
-  const place = lessonPlace(lesson);
   const firstStudent = inLesson[0]?.students;
   const parentOf = students.find((s) => s.id === inLesson[0]?.student_id);
   const progressText =
@@ -109,28 +111,31 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
       .join(". ") || null;
 
   return (
-    <div className="space-y-6">
-      <Link href="/" className="text-sm text-accent">
+    <div className="flex flex-col gap-5">
+      <SoundLink href="/" sound="nav" className="inline-flex min-h-11 items-center gap-1 self-start px-1.5 font-medium text-accent">
         ‹ Home
-      </Link>
-      <header>
-        <p className="text-sm text-muted">
-          {fmtLongDay(bkkDateKey(lesson.start_at))} · {fmtTime(lesson.start_at)}–{fmtTime(lesson.end_at)}
-        </p>
-        <h1 className="h1">{lessonNames(lesson)}</h1>
-        <div className="mt-2 flex flex-wrap gap-1.5 text-sm text-muted">
-          {mode === "onsite" ? <span className="chip">Onsite</span> : null}
-          {place ? <span className="chip">{place}</span> : null}
-          {mode !== "onsite" ? <ViaTag lesson={lesson} plainOnsite={false} /> : null}
-          {earned?.value != null ? <span className="chip-ok">This class: {thb(earned.value)}</span> : null}
-          {lesson.title && lesson.title !== lessonNames(lesson) ? <span className="chip">“{lesson.title}”</span> : null}
-        </div>
-        {ready ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            <ReadyChip r={ready} />
-            <ReadyButton lessonId={lesson.id} r={ready} />
+      </SoundLink>
+      <header className="glass-hi relative -mt-3 overflow-hidden rounded-[30px] px-6 py-6 sm:px-8 sm:py-7">
+        <div aria-hidden className="glass-grid" />
+        <div className="relative flex flex-wrap items-center gap-5">
+          {inLesson.length ? <Avatar name={lessonNames(lesson)} slot={slot} size={64} /> : null}
+          <div className="min-w-0 flex-1">
+            <p className="text-base text-[var(--th-text-3)]">
+              {fmtLongDay(bkkDateKey(lesson.start_at))} ·{" "}
+              <span className="font-semibold tabular-nums text-accent">
+                {fmtTime(lesson.start_at)}–{fmtTime(lesson.end_at)}
+              </span>
+            </p>
+            <h1 className="font-display text-[34px] font-semibold leading-tight tracking-[-0.015em] sm:text-[44px]">{lessonNames(lesson)}</h1>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              {inLesson.length ? <ModePill lesson={lesson} slot={slot} /> : null}
+              {earned?.value != null ? <span className="pill ok">This class: {thb(earned.value)}</span> : null}
+              {lesson.title && lesson.title !== lessonNames(lesson) ? <span className="tag">“{lesson.title}”</span> : null}
+              {ready ? <ReadyPill lessonId={lesson.id} r={ready} who={lessonNames(lesson)} /> : null}
+            </div>
+            {ready && !ready.ready && ready.hint ? <p className="mt-2 text-sm text-[var(--th-text-3)]">{ready.hint}</p> : null}
           </div>
-        ) : null}
+        </div>
       </header>
 
       {inLesson.length ? (
@@ -141,9 +146,9 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
       ) : null}
 
       {lastPlan ? (
-        <section className="card border-accent bg-accent-soft">
-          <h2 className="text-sm font-medium text-accent">Last time you planned</h2>
-          <p className="mt-1 whitespace-pre-wrap">{lastPlan}</p>
+        <section className="glass rounded-[24px] p-5" style={{ borderColor: "var(--th-accent-line)", background: "color-mix(in srgb, var(--th-accent) 9%, transparent)" }}>
+          <h2 className="text-xs font-semibold tracking-[0.16em] text-accent">LAST TIME YOU PLANNED</h2>
+          <p className="mt-2 whitespace-pre-wrap text-[17px] leading-relaxed">{lastPlan}</p>
         </section>
       ) : null}
 
@@ -151,23 +156,24 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
         <h2 className="h2">Students in this lesson</h2>
         {inLesson.length === 0 ? <p className="text-sm text-muted">No student linked yet.</p> : null}
         {inLesson.map((ls) => (
-          <div key={ls.student_id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 p-3">
-            <Link href={`/students/${ls.student_id}`} className="font-medium">
+          <div key={ls.student_id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+            <SoundLink href={`/students/${ls.student_id}`} sound="open" className="flex items-center gap-3 font-semibold hover:text-accent">
+              <Avatar name={ls.students?.first_name ?? "?"} slot={colours.slotOfStudent(ls.student_id)} size={36} />
               {ls.students?.first_name}
-            </Link>
+            </SoundLink>
             <div className="flex items-center gap-2">
               <form action={setUsesHours}>
                 <input type="hidden" name="lesson_id" value={lesson.id} />
                 <input type="hidden" name="student_id" value={ls.student_id} />
                 <input type="hidden" name="uses_hours" value={ls.uses_hours ? "false" : "true"} />
-                <button className={ls.uses_hours ? "chip-accent" : "chip"} title="Tap to change">
+                <button className={`pill press min-h-9 ${ls.uses_hours ? "ok" : ""}`} title="Tap to change">
                   {ls.uses_hours ? "Uses package hours" : "Not using hours"}
                 </button>
               </form>
               <form action={removeLessonStudent}>
                 <input type="hidden" name="lesson_id" value={lesson.id} />
                 <input type="hidden" name="student_id" value={ls.student_id} />
-                <button className="text-xs text-muted underline">Remove</button>
+                <button className="min-h-9 px-2 text-xs text-muted underline">Remove</button>
               </form>
             </div>
           </div>

@@ -16,6 +16,10 @@ import { lessonLength } from "@/lib/hours";
 import { bkkDateKey, fmtDate, fmtDay, fmtHours, fmtTime, isPast, todayKey } from "@/lib/time";
 import { StudentForm } from "@/components/StudentForm";
 import { RoomControls } from "@/components/RoomControls";
+import { Avatar } from "@/components/home/Dashboard";
+import { SoundLink } from "@/components/glass/SoundLink";
+import { famTint } from "@/lib/glassTint";
+import { colourSlots } from "@/lib/studentColours";
 import { RenewalMessage } from "@/components/RenewalMessage";
 import { FamilyLink } from "@/components/FamilyLink";
 import { cleanPriceOptions } from "@/lib/prices";
@@ -79,32 +83,75 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
   const curPkg = acctMoney?.packages.find((p) => p.state === "current");
   const low = bal && account.packages.length > 0 && (bal.left <= Number(settings.low_hours_threshold) || (acctMoney ? renewSoon(acctMoney, money.today, Number(settings.low_hours_threshold), Number(settings.renew_weeks ?? 2)) : false));
 
+  // The family colour (the same on every page), brothers and sisters, and the hours for the header.
+  const colours = colourSlots({ students, packages: money.packages, accountNames: new Map(money.accounts.map((a) => [a.id, a.name])) });
+  const slot = colours.slotOfStudent(student.id);
+  const tint = famTint(slot);
+  const family = [student, ...sharingWith.map((s) => students.find((x) => x.id === s.id)).filter((x): x is typeof student => !!x)].slice(0, 3);
+  const heroHours = curPkg && curPkg.hours ? { left: Math.max(0, curPkg.hours - curPkg.usedHours), of: curPkg.hours, pct: Math.min(100, Math.round((curPkg.usedHours / curPkg.hours) * 100)) } : null;
+
   return (
-    <div className="space-y-6">
-      <Link href="/students" className="text-sm text-accent">
+    <div className="flex flex-col gap-5">
+      <SoundLink href="/students" sound="nav" className="inline-flex min-h-11 items-center gap-1 self-start px-1.5 font-medium text-accent">
         ‹ Students
-      </Link>
-      <header>
-        <h1 className="h1">{student.first_name}</h1>
-        <p className="mt-1 text-muted">
-          {[student.level, student.mode === "onsite" ? `Onsite${student.place ? ` · ${student.place}` : ""}` : student.source === "preply" ? "Online · Preply" : "Online · Google Meet"]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {student.parent_name || student.contact ? (
-          <p className="mt-1 text-sm text-muted">
-            Parent: {student.parent_name ?? "—"}
-            {student.contact ? ` · ${CONTACT[student.contact_app ?? "other"]}: ${student.contact}` : ""}
-          </p>
-        ) : null}
+      </SoundLink>
+      <header className="glass-hi relative -mt-3 overflow-hidden rounded-[30px] px-6 py-6 sm:px-8 sm:py-7">
+        <div aria-hidden className="glass-grid" />
+        <div className="relative flex flex-wrap items-center gap-5">
+          <span className="flex shrink-0">
+            {family.map((s, i) => (
+              <span key={s.id} className={i ? "-ml-4" : ""} style={{ borderRadius: 999, boxShadow: "0 0 0 3px color-mix(in srgb, var(--th-bg), #ffffff 8%)" }}>
+                <Avatar name={s.first_name} slot={slot} size={64} />
+              </span>
+            ))}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-display text-[34px] font-semibold leading-tight tracking-[-0.015em] sm:text-[44px]">
+              {student.first_name}
+              {student.level ? <span className="ml-3 align-middle text-lg font-normal text-[var(--th-text-3)]">{student.level}</span> : null}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="pill" style={{ background: tint.bg, borderColor: tint.line, color: tint.text }}>
+                <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: tint.colour }} />
+                {student.mode === "onsite" ? `Onsite${student.place ? ` · ${student.place}` : ""}` : student.source === "preply" ? "Preply" : "Google Meet"}
+              </span>
+              {sharingWith.length ? <span className="tag">shares hours with {sharingWith.map((s) => s.first_name).join(" & ")}</span> : null}
+              {low ? <span className="pill todo">renew soon</span> : null}
+              {!student.active ? <span className="tag">paused</span> : null}
+            </div>
+            {student.parent_name || student.contact ? (
+              <p className="mt-2 text-sm text-[var(--th-text-3)]">
+                Parent: {student.parent_name ?? "—"}
+                {student.contact ? ` · ${CONTACT[student.contact_app ?? "other"]}: ${student.contact}` : ""}
+              </p>
+            ) : null}
+          </div>
+          {heroHours ? (
+            <div className="w-full sm:w-64">
+              <div className="flex items-baseline justify-between gap-2">
+                <span>
+                  <strong className="font-display text-2xl tabular-nums">{fmtHours(heroHours.left)}</strong>{" "}
+                  <span className="text-[var(--th-text-3)]">left of {heroHours.of} h</span>
+                </span>
+              </div>
+              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/[0.08]" role="progressbar" aria-label="Hours used" aria-valuenow={heroHours.pct} aria-valuemin={0} aria-valuemax={100}>
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${heroHours.pct}%`, background: low ? "var(--th-todo)" : tint.colour, boxShadow: `0 0 14px color-mix(in srgb, ${low ? "var(--th-todo)" : tint.colour} 60%, transparent)` }}
+                />
+              </div>
+              {acctMoney?.forecast.endDate && acctMoney.leftHours > 0 ? <p className="mt-1.5 text-sm text-[var(--th-text-3)]">runs out around {fmtDay(acctMoney.forecast.endDate)}</p> : null}
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <RoomControls students={[roomStudent(student)]} showGames={false} lessonId={past[0]?.id ?? null} />
 
       {latestPlan ? (
-        <section className="card border-accent bg-accent-soft">
-          <h2 className="text-sm font-medium text-accent">Next time</h2>
-          <p className="mt-1 whitespace-pre-wrap">{latestPlan}</p>
+        <section className="glass rounded-[24px] p-5" style={{ borderColor: "var(--th-accent-line)", background: "color-mix(in srgb, var(--th-accent) 9%, transparent)" }}>
+          <h2 className="text-xs font-semibold tracking-[0.16em] text-accent">NEXT TIME</h2>
+          <p className="mt-2 whitespace-pre-wrap text-[17px] leading-relaxed">{latestPlan}</p>
         </section>
       ) : null}
 
@@ -157,7 +204,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
       ) : null}
 
       <section id="hours" className="space-y-3">
-        <h2 className="h2">Package hours</h2>
+        <h2 className="h2 px-1.5">Package hours</h2>
         {account && bal ? (
           <div className="card space-y-4">
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -305,34 +352,49 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
       </section>
 
       {upcoming.length ? (
-        <section className="space-y-2">
-          <h2 className="h2">Coming up</h2>
-          {upcoming.slice(0, 5).map((l) => (
-            <Link key={l.id} href={`/lessons/${l.id}`} className="card flex justify-between text-sm hover:border-accent">
-              <span>{fmtDay(bkkDateKey(l.start_at))}</span>
-              <span className="tabular-nums text-muted">
-                {fmtTime(l.start_at)}–{fmtTime(l.end_at)}
-              </span>
-            </Link>
-          ))}
+        <section className="flex flex-col gap-3">
+          <h2 className="h2 px-1.5">Coming up</h2>
+          <ul className="glass rounded-[24px] p-2">
+            {upcoming.slice(0, 5).map((l) => (
+              <li key={l.id}>
+                <SoundLink href={`/lessons/${l.id}`} sound="open" className="flex items-center justify-between gap-3 rounded-2xl px-3.5 py-3 transition-colors hover:bg-white/[0.05]">
+                  <span className="font-semibold">{fmtDay(bkkDateKey(l.start_at))}</span>
+                  <span className="tabular-nums text-[var(--th-text-3)]">
+                    {fmtTime(l.start_at)}–{fmtTime(l.end_at)}
+                  </span>
+                </SoundLink>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
-      <section className="space-y-2">
-        <h2 className="h2">Past lessons</h2>
-        {past.length === 0 ? <p className="card text-sm text-muted">No past lessons yet.</p> : null}
-        {past.map((l) => (
-          <Link key={l.id} href={`/lessons/${l.id}`} className="card block space-y-1 text-sm hover:border-accent">
-            <div className="flex justify-between">
-              <span className="font-medium">{fmtDay(bkkDateKey(l.start_at))}</span>
-              <span className="text-muted">
-                {l.status === "scheduled" ? "No note yet" : `${fmtHours(lessonLength(l))}${l.status !== "done" ? ` · ${l.status === "cancelled" ? "cancelled" : "charged"}` : ""}`}
-              </span>
-            </div>
-            {l.learned ? <p className="line-clamp-2">{l.learned}</p> : null}
-            {l.next_time ? <p className="line-clamp-1 text-muted">Next: {l.next_time}</p> : null}
-          </Link>
-        ))}
+      <section className="flex flex-col gap-3">
+        <h2 className="h2 px-1.5">Past lessons</h2>
+        {past.length === 0 ? <p className="glass rounded-[24px] px-5 py-5 text-[var(--th-text-3)]">No past lessons yet.</p> : null}
+        {past.length ? (
+          <ul className="glass rounded-[24px] p-2">
+            {past.map((l) => (
+              <li key={l.id}>
+                <SoundLink href={`/lessons/${l.id}`} sound="open" className="block space-y-1 rounded-2xl px-3.5 py-3 text-sm transition-colors hover:bg-white/[0.05]">
+                  <span className="flex justify-between gap-3">
+                    <span className="text-[15px] font-semibold">{fmtDay(bkkDateKey(l.start_at))}</span>
+                    {l.status === "scheduled" ? (
+                      <span className="pill todo !py-0.5">no note yet</span>
+                    ) : (
+                      <span className="text-[var(--th-text-3)]">
+                        {fmtHours(lessonLength(l))}
+                        {l.status !== "done" ? ` · ${l.status === "cancelled" ? "cancelled" : "charged"}` : ""}
+                      </span>
+                    )}
+                  </span>
+                  {l.learned ? <span className="line-clamp-2 block text-[var(--th-text-2)]">{l.learned}</span> : null}
+                  {l.next_time ? <span className="line-clamp-1 block text-[var(--th-text-3)]">Next: {l.next_time}</span> : null}
+                </SoundLink>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       <MonthlyReport
@@ -377,9 +439,9 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
 function Stat({ label, value, tone }: { label: string; value: number; tone?: "accent" | "warn" | "danger" }) {
   const cls = tone === "danger" ? "text-danger" : tone === "warn" ? "text-warn" : tone === "accent" ? "text-accent" : "";
   return (
-    <div className="rounded-xl bg-surface-2 p-3">
-      <div className={`text-2xl font-semibold tabular-nums ${cls}`}>{Math.round(value * 100) / 100}</div>
-      <div className="text-xs text-muted">{label}</div>
+    <div className="rounded-[18px] border border-white/[0.08] bg-black/20 p-3">
+      <div className={`font-display text-[30px] font-bold leading-tight tabular-nums ${cls}`}>{Math.round(value * 100) / 100}</div>
+      <div className="text-sm text-muted">{label}</div>
     </div>
   );
 }
