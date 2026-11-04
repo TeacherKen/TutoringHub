@@ -184,6 +184,8 @@ export async function addPackage(_: FormState, form: FormData): Promise<FormStat
   const paidBy = String(form.get("paid_by") ?? "");
   const paidOn = String(form.get("paid_on") ?? "");
   const paidOnOk = !unpaid && /^\d{4}-\d{2}-\d{2}$/.test(paidOn) ? paidOn : null;
+  const before = Number(form.get("hours_used_before") ?? 0);
+  if (!(before >= 0 && before <= hours)) return { error: "Hours already used can't be more than the package hours." };
   const supabase = await createClient();
   const row = {
     hour_account_id: String(form.get("hour_account_id")),
@@ -200,8 +202,7 @@ export async function addPackage(_: FormState, form: FormData): Promise<FormStat
     ({ data, error } = await supabase.from("packages").insert({ ...row, paid_by: "bank_transfer" }).select("id").single());
   }
   if (error || !data) return { error: "Couldn't save the package." };
-  const before = Number(form.get("hours_used_before") ?? 0);
-  if (before > 0 && before <= hours) await supabase.from("packages").update({ hours_used_before: before }).eq("id", data.id);
+  if (before > 0) await supabase.from("packages").update({ hours_used_before: before }).eq("id", data.id);
   if (paidOnOk) await assignReceipt(supabase, data.id as string, paidOnOk);
   revalidatePath("/", "layout");
   return { ok: unpaid ? "Package added — waiting for payment." : "Package added." };
@@ -232,7 +233,7 @@ export async function addAdjustment(_: FormState, form: FormData): Promise<FormS
   await assertTutor();
   const hours = Number(form.get("hours"));
   const reason = s(form, "reason", 200);
-  if (!hours || !Number.isFinite(hours)) return { error: "Enter hours, e.g. 1 or -0.5" };
+  if (!hours || !Number.isFinite(hours) || Math.abs(hours) > 500) return { error: "Enter hours, e.g. 1 or -0.5" };
   if (!reason) return { error: "Please give a reason." };
   const supabase = await createClient();
   const { error } = await supabase

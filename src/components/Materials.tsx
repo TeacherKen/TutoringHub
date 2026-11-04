@@ -1,4 +1,5 @@
 "use client";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -70,7 +71,7 @@ export function Materials({ lessonId, items, bare = false }: { lessonId: string;
               )}
               <form action={removeMaterial}>
                 <input type="hidden" name="id" value={m.id} />
-                <button className="text-xs text-muted underline">Remove</button>
+                <ConfirmButton message="Remove this file? It will be deleted for good." className="text-xs text-muted underline">Remove</ConfirmButton>
               </form>
             </li>
           ))}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -307,7 +308,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
                     </div>
                     <form action={deletePackage}>
                       <input type="hidden" name="id" value={p.id} />
-                      <button className="text-xs text-muted underline">Remove</button>
+                      <ConfirmButton message="Remove this package? Its hours will disappear from the balance." className="text-xs text-muted underline">Remove</ConfirmButton>
                     </form>
                   </div>
                 ))}
@@ -324,7 +325,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
                     </div>
                     <form action={deleteAdjustment}>
                       <input type="hidden" name="id" value={a.id} />
-                      <button className="text-xs text-muted underline">Remove</button>
+                      <ConfirmButton message="Remove this adjustment?" className="text-xs text-muted underline">Remove</ConfirmButton>
                     </form>
                   </div>
                 ))}
