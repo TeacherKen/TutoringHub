@@ -13,6 +13,8 @@ type Family = {
   add: boolean;
   busy: boolean;
   setAdd: (v: boolean) => Promise<void>;
+  /** The link's token, making it first if needed. */
+  getToken: () => Promise<string | null>;
 };
 const Ctx = createContext<Family | null>(null);
 
@@ -47,7 +49,13 @@ export function FamilyLinkProvider({ accountId, names, initialToken, children }:
     }
     setAddState(next);
   }
-  return <Ctx.Provider value={{ names, token, add, busy, setAdd }}>{children}</Ctx.Provider>;
+  async function getToken() {
+    if (token) return token;
+    const r = await ensureFamilyToken(accountId);
+    if (r.token) setToken(r.token);
+    return r.token ?? null;
+  }
+  return <Ctx.Provider value={{ names, token, add, busy, setAdd, getToken }}>{children}</Ctx.Provider>;
 }
 
 /** The message as it will be copied or sent: with the family link at the end when ticked. */
@@ -67,3 +75,5 @@ export function FamilyLinkTick() {
     </label>
   );
 }
+
+export const useFamily = () => useContext(Ctx);

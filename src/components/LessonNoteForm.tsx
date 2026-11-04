@@ -4,7 +4,8 @@ import { saveFinalMessage, saveLessonNote, setSent, type NoteInput } from "@/app
 import { postJson } from "@/lib/postJson";
 import { buildFeedbackPrompt, type PromptInput } from "@/lib/feedbackPrompt";
 import { SendButton } from "./SendButton";
-import { FamilyLinkTick, useWithFamily } from "./FamilyLinkContext";
+import { FamilyLinkTick, useFamily, useWithFamily } from "./FamilyLinkContext";
+import { chatLink } from "@/lib/chat";
 import type { ChatApp } from "@/lib/chat";
 
 type Initial = NoteInput & { final_message: string; sent_at: string | null; updated_at: string | null };
@@ -74,6 +75,7 @@ async function copy(text: string): Promise<boolean> {
 export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEnabled, topicSuggestions, promptContext, contact }: Props) {
   const draftKey = `th-note-${lessonId}`;
   const withFamily = useWithFamily();
+  const family = useFamily();
   const [note, setNote] = useState<NoteInput>(() => ({
     learned: initial.learned,
     next_time: initial.next_time,
@@ -252,6 +254,28 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
     setFinalState(r.ok ? "saved" : "idle");
   }
 
+  // 📮 Send as a lesson update: save the message, tick it as sent (so it shows on the family page with this
+  // lesson's topics, homework and work photos), then a short note with the link goes to the parent.
+  const [updating, setUpdating] = useState(false);
+  async function sendUpdate() {
+    if (!family || !finalMsg.trim()) return;
+    setUpdating(true);
+    if (finalState !== "saved") await saveFinal();
+    const [r, token] = await Promise.all([setSent(lessonId, true), family.getToken()]);
+    setUpdating(false);
+    if (r.ok) setSentAt(r.sent_at);
+    if (!token) return setFlash("Couldn't make the family link. Try again.");
+    const hello = promptContext.parentName?.trim() ? `Hi ${promptContext.parentName.trim()}` : "Hi";
+    const msg = `${hello}, ${family.names}'s lesson update${promptContext.date ? ` for ${promptContext.date}` : ""} is ready — my feedback, what we worked on, homework and pictures of their work: ${window.location.origin}/family/${token}`;
+    const link = contact ? chatLink(contact.app, contact.value, msg) : null;
+    if (link) window.open(link.href, "_blank", "noopener");
+    else {
+      const ok = await copy(msg);
+      setFlash(ok ? "Update link copied — paste it into the parent's chat." : "Couldn't copy.");
+      setTimeout(() => setFlash(null), 5000);
+    }
+  }
+
   const charged = ["done", "cancelled_charged", "no_show"].includes(note.status);
   const notesEmpty = !note.learned.trim() && !note.next_time.trim();
   const suggestions = topicSuggestions.filter((t) => !note.topics.includes(t) && (!topicInput || t.includes(topicInput.toLowerCase()))).slice(0, 8);
@@ -411,6 +435,19 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
             placeholder={aiEnabled ? "Tap “Write parent message”, or type your own." : "Paste the polished message from ChatGPT here, then check and edit it."}
           />
         </label>
+        {family && finalMsg.trim() ? (
+          <div className="space-y-2 rounded-2xl border border-[var(--th-accent-line,var(--accent))] bg-accent-soft p-4">
+            <p className="font-semibold">📮 Send as a lesson update</p>
+            <p className="text-sm text-muted">
+              Puts this message on {family.names}&apos;s family page with today&apos;s topics, homework and work photos, then{" "}
+              {contact && chatLink(contact.app, contact.value, "x") ? "opens the chat with" : "copies"} a short note with the link for the parent.
+            </p>
+            <button type="button" className="btn-primary w-full" onClick={sendUpdate} disabled={updating}>
+              {updating ? "Getting it ready…" : sentAt ? "Send the update link again" : "Send lesson update"}
+            </button>
+          </div>
+        ) : null}
+        {family && finalMsg.trim() ? <p className="text-xs text-muted">Or send the whole message yourself:</p> : null}
         {finalMsg.trim() ? <FamilyLinkTick /> : null}
         <div className="flex flex-col gap-2 sm:flex-row">
           <button type="button" className="btn-primary flex-1" onClick={saveFinal} disabled={finalState !== "idle"}>

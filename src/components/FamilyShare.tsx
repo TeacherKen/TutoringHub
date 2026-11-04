@@ -40,7 +40,10 @@ export function FamilyShare({
     }
     setBusy(false);
     if (!t) return toast("Couldn't make the link. Try again.");
-    const msg = `Hi ${parentName?.trim() || "there"}, here is ${names}'s private maths page — lesson times, progress, my messages and pictures of their work: ${window.location.origin}/family/${t}`;
+    // Weekly (or any time): the family page always has the latest lesson update, progress, hours and next lessons.
+    const msg = opened || token
+      ? `Hi ${parentName?.trim() || "there"}, here's ${names}'s maths update — my latest feedback, what we worked on, progress and the next lessons: ${window.location.origin}/family/${t}`
+      : `Hi ${parentName?.trim() || "there"}, here is ${names}'s private maths page — lesson updates after each lesson, progress, hours left and the next lessons: ${window.location.origin}/family/${t}`;
     const link = chatLink(contactApp, contact, msg);
     if (link) window.open(link.href, "_blank", "noopener");
     else {
@@ -55,11 +58,9 @@ export function FamilyShare({
         Family page
         <span className={`pill !py-0.5 !text-xs ${status.cls}`}>{status.text}</span>
       </span>
-      {opened ? null : (
-        <button type="button" onClick={send} disabled={busy} className="press min-h-9 rounded-full px-3 font-semibold text-accent hover:bg-white/5">
-          {busy ? "Making…" : chatLink(contactApp, contact, "x") ? (token ? "Send again" : "Send link") : token ? "Copy again" : "Copy link"}
-        </button>
-      )}
+      <button type="button" onClick={send} disabled={busy} className="press min-h-9 rounded-full px-3 font-semibold text-accent hover:bg-white/5">
+        {busy ? "Making…" : `${chatLink(contactApp, contact, "x") ? "Send" : "Copy"} ${token ? "update" : "link"}`}
+      </button>
     </div>
   );
 }

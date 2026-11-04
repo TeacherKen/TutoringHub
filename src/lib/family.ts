@@ -10,8 +10,9 @@ import { loadRounds } from "@/lib/practice";
 import { statsFrom, trophies, type Trophy } from "@/lib/trophies";
 
 // A family's private page (opened with a link, no sign-in). It shows only:
-// first names, upcoming lesson times, messages Mr Ken marked as sent, saved work pictures,
-// topic progress, and hours left. No prices per class, private notes or other families.
+// first names, upcoming lesson times, lesson updates Mr Ken marked as sent (his message, the lesson's
+// topics, homework and work pictures), topic progress, and hours left. No prices per class, private notes
+// ("learned" / "next time" stay Mr Ken's) or other families.
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{24,64}$/;
 export const isFamilyToken = (t: string) => TOKEN_RE.test(t);
@@ -22,7 +23,8 @@ export type FamilyPage = {
   consented: boolean;
   children: { id: string; name: string; progress: TopicRow[]; facts: FactState[]; trophies: Trophy[]; stars: number }[];
   upcoming: { start_at: string; end_at: string; names: string[] }[];
-  messages: { date: string; names: string[]; text: string }[];
+  /** Lesson updates Mr Ken sent, newest first: his message, the topics, homework and that lesson's work pictures. */
+  messages: { date: string; names: string[]; text: string; topics: string[]; homework: string | null; photos: { label: string; url: string }[] }[];
   work: { label: string; url: string; date: string }[];
   hours: { left: number; bought: number; lessonsLeft: number; endDate: string | null } | null;
   unpaid: { hours: number; price: number }[];
@@ -37,6 +39,7 @@ type LessonRow = {
   length_hours: number | null;
   final_message: string | null;
   sent_at: string | null;
+  homework: string | null;
   topics: string[] | null;
   ignored: boolean;
   in_calendar: boolean;
@@ -68,7 +71,7 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   const [{ data: links }, { data: adj }, { data: saved }, { data: settings }, { data: factRows }] = await Promise.all([
     admin
       .from("lesson_students")
-      .select("lessons!inner(id, start_at, end_at, status, length_hours, final_message, sent_at, topics, ignored, in_calendar, lesson_students(student_id, uses_hours))")
+      .select("lessons!inner(id, start_at, end_at, status, length_hours, final_message, sent_at, homework, topics, ignored, in_calendar, lesson_students(student_id, uses_hours))")
       .in("student_id", accountIds)
       .gte("lessons.start_at", since),
     admin.from("hour_adjustments").select("hours").eq("hour_account_id", acct.id),
@@ -94,11 +97,12 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
     .map((l) => ({ start_at: l.start_at, end_at: l.end_at, names: namesIn(l) }));
 
   const sent = all.filter((l) => ownLesson(l) && l.sent_at && l.final_message?.trim()).reverse();
-  const messages = sent.slice(0, 8).map((l) => ({ date: bkkDateKey(l.start_at), names: namesIn(l), text: l.final_message!.trim() }));
+  const recentSent = sent.slice(0, 8);
 
   // Saved work pictures from the last 6 weeks.
-  const recentIds = all.filter((l) => ownLesson(l) && new Date(l.start_at).getTime() > now - 42 * 86_400_000).map((l) => l.id);
+  const recentIds = [...new Set([...all.filter((l) => ownLesson(l) && new Date(l.start_at).getTime() > now - 42 * 86_400_000).map((l) => l.id), ...recentSent.map((l) => l.id)])];
   let work: FamilyPage["work"] = [];
+  const photosOf = new Map<string, { label: string; url: string }[]>();
   if (recentIds.length) {
     const { data: mats } = await admin
       .from("lesson_materials")
@@ -106,15 +110,28 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
       .in("lesson_id", recentIds)
       .eq("kind", "photo")
       .order("created_at", { ascending: false })
-      .limit(12);
+      .limit(24);
     const rows = (mats ?? []).filter((m) => m.storage_path) as { lesson_id: string; storage_path: string; label: string | null; created_at: string }[];
     if (rows.length) {
       const { data: urls } = await admin.storage.from(MATERIALS_BUCKET).createSignedUrls(rows.map((m) => m.storage_path), 2 * 3600);
-      work = rows
-        .map((m, i) => ({ label: (m.label ?? "Work").replace(/ · .*$/, ""), url: urls?.[i]?.signedUrl ?? "", date: bkkDateKey(lessons.get(m.lesson_id)?.start_at ?? m.created_at) }))
+      const pics = rows
+        .map((m, i) => ({ lesson: m.lesson_id, label: (m.label ?? "Work").replace(/ · .*$/, ""), url: urls?.[i]?.signedUrl ?? "", date: bkkDateKey(lessons.get(m.lesson_id)?.start_at ?? m.created_at) }))
         .filter((w) => w.url);
+      for (const p of pics) photosOf.set(p.lesson, [...(photosOf.get(p.lesson) ?? []), { label: p.label, url: p.url }]);
+      // "Work from lessons" shows pictures not already shown with a lesson update.
+      const inUpdates = new Set(recentSent.map((l) => l.id));
+      work = pics.filter((p) => !inUpdates.has(p.lesson)).slice(0, 12).map(({ label, url, date }) => ({ label, url, date }));
     }
   }
+
+  const messages = recentSent.map((l) => ({
+    date: bkkDateKey(l.start_at),
+    names: namesIn(l),
+    text: l.final_message!.trim(),
+    topics: l.topics ?? [],
+    homework: l.homework?.trim() || null,
+    photos: photosOf.get(l.id) ?? [],
+  }));
 
   // Topic progress per child.
   const savedRows = (saved ?? []) as { student_id: string; name: string; status: "next" | "learning" | "got_it"; updated_at: string }[];

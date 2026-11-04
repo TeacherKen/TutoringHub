@@ -17,6 +17,19 @@ export function FamilyView({ f, tutor }: { f: FamilyPage; tutor: string }) {
         <h1 className="h1">{f.familyName}</h1>
       </header>
 
+      {f.messages[0] ? (
+        <section className="card space-y-3 border-accent" aria-labelledby="latest-h">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Latest lesson update</p>
+            <h2 id="latest-h" className="h2 mt-1">
+              {fmtDay(f.messages[0].date)}
+              {f.children.length > 1 ? <span className="font-normal text-muted"> · {f.messages[0].names.join(" & ")}</span> : null}
+            </h2>
+          </div>
+          <UpdateBody m={f.messages[0]} />
+        </section>
+      ) : null}
+
       {f.hours ? (
         <section className="card space-y-2">
           <h2 className="h2">Lesson package</h2>
@@ -120,17 +133,23 @@ export function FamilyView({ f, tutor }: { f: FamilyPage; tutor: string }) {
         </section>
       ) : null}
 
-      {f.messages.length ? (
+      {f.messages.length > 1 ? (
         <section className="space-y-3">
-          <h2 className="h2">Messages from {tutor}</h2>
-          {f.messages.map((m, i) => (
-            <article key={i} className="card space-y-2">
-              <p className="text-xs text-muted">
-                {fmtDay(m.date)}
-                {f.children.length > 1 ? ` · ${m.names.join(" & ")}` : ""}
-              </p>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.text}</p>
-            </article>
+          <h2 className="h2">Earlier updates</h2>
+          {f.messages.slice(1).map((m, i) => (
+            <details key={i} className="card group">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                <span className="font-medium">
+                  {fmtDay(m.date)}
+                  {f.children.length > 1 ? <span className="font-normal text-muted"> · {m.names.join(" & ")}</span> : null}
+                </span>
+                <span className="text-sm text-accent group-open:hidden">Read</span>
+                <span className="hidden text-sm text-accent group-open:inline">Close</span>
+              </summary>
+              <div className="mt-3">
+                <UpdateBody m={m} />
+              </div>
+            </details>
           ))}
         </section>
       ) : null}
@@ -152,6 +171,43 @@ export function FamilyView({ f, tutor }: { f: FamilyPage; tutor: string }) {
 
       <p className="text-center text-xs text-muted">This page is private to your family. Please don&apos;t share the link.</p>
     </main>
+  );
+}
+
+/** One lesson update: Mr Ken's message, then what was covered, homework and pictures of the work. */
+function UpdateBody({ m }: { m: FamilyPage["messages"][number] }) {
+  return (
+    <div className="space-y-3">
+      <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+      {m.topics.length ? (
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium">What we worked on</p>
+          <div className="flex flex-wrap gap-1.5">
+            {m.topics.map((t) => (
+              <span key={t} className="chip-accent">
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {m.homework ? (
+        <div className="rounded-xl bg-warn-soft p-3 text-sm">
+          <span className="font-medium text-warn">Homework: </span>
+          {m.homework}
+        </div>
+      ) : null}
+      {m.photos.length ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {m.photos.map((p) => (
+            <a key={p.url} href={p.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-line bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt={p.label} className="aspect-video w-full object-cover" loading="lazy" />
+            </a>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
