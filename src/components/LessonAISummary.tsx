@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { addMaterialFile } from "@/app/actions/lessons";
+import { setAiPictures } from "@/app/actions/settings";
 import { postJson } from "@/lib/postJson";
 import { MATERIALS_BUCKET } from "@/lib/constants";
 import { randomId } from "@/lib/randomId";
@@ -49,6 +50,40 @@ export function LessonAISummary({
   const [used, setUsed] = useState<string | null>(null);
   const [sheetStep, setSheetStep] = useState<string | null>(null);
   const [sheetError, setSheetError] = useState<string | null>(null);
+  const [photos, setPhotos] = useState(photoCount);
+  const [readPics, setReadPics] = useState(pictures);
+
+  /** 📷 Worksheet photos straight from the iPhone/iPad camera or photo library. Made smaller (and JPG) first. */
+  async function addPhotos(files: FileList | null) {
+    if (!files?.length) return;
+    setError(null);
+    const sb = createClient();
+    let added = 0;
+    for (const [i, file] of [...files].slice(0, 6).entries()) {
+      if (!file.type.startsWith("image/")) continue;
+      setStep(`Adding photo ${i + 1} of ${Math.min(files.length, 6)}…`);
+      const blob = await toJpeg(file).catch(() => null);
+      if (!blob) continue;
+      const path = `${lessonId}/${randomId()}.jpg`;
+      const { error: upErr } = await sb.storage.from(MATERIALS_BUCKET).upload(path, blob, { contentType: "image/jpeg" });
+      if (upErr) continue;
+      const r = await addMaterialFile(lessonId, path, "photo", "Worksheet photo");
+      if (!r.error) added++;
+    }
+    setStep(null);
+    if (!added) return setError("The photo didn't upload. Try again.");
+    setPhotos((n) => n + added);
+    router.refresh();
+  }
+
+  async function allowPictures(on: boolean) {
+    setReadPics(on);
+    const r = await setAiPictures(on);
+    if (r.error) {
+      setReadPics(!on);
+      setError(r.error);
+    } else router.refresh();
+  }
 
   /** Pictures of the pages written on in this lesson, added to the lesson (skips ones already saved). */
   async function savePages(): Promise<number> {
@@ -86,16 +121,18 @@ export function LessonAISummary({
     setError(null);
     setUsed(null);
     try {
-      if (pictures) {
+      if (readPics) {
         setStep("Looking at the smart slides from this lesson…");
         await savePages();
       }
-      setStep(pictures ? "Reading the lesson… this takes about 20–40 seconds." : "Reading your notes… this takes about 15–30 seconds.");
+      setStep(readPics ? "Reading the lesson… this takes about 20–40 seconds." : "Reading your notes… this takes about 15–30 seconds.");
       // Its own web address (not a Server Action), so other buttons don't wait behind the AI.
       const r = await postJson<{ summary?: LessonSummary }>("/api/ai/summary", { lessonId });
       if (r.summary) {
         setSummary(r.summary);
         setMessage(r.summary.parent_message);
+        // Straight into the note boxes (only the empty ones) and the parent message box, ready to check and send.
+        fill(r.summary, r.summary.parent_message);
       } else setError(r.error ?? "Something went wrong. Try again.");
       router.refresh();
     } catch {
@@ -129,6 +166,14 @@ export function LessonAISummary({
     });
   }
 
+  function fill(s: LessonSummary, msg: string) {
+    window.dispatchEvent(
+      new CustomEvent("tutoringhub:use-notes", { detail: { learned: s.what_we_did, next_time: s.next_time, homework: s.homework, how_it_went: s.how_it_went, topics: s.topics } }),
+    );
+    window.dispatchEvent(new CustomEvent("tutoringhub:use-message", { detail: msg }));
+    setUsed("both");
+  }
+
   function useMessage() {
     window.dispatchEvent(new CustomEvent("tutoringhub:use-message", { detail: message }));
     setUsed("message");
@@ -144,38 +189,50 @@ export function LessonAISummary({
     setUsed("notes");
   }
 
-  const sources = pictures
-    ? [boards.length ? `the smart slides (${boards.map((b) => b.name).join(", ")})` : null, photoCount ? `${photoCount} work ${photoCount === 1 ? "photo" : "photos"}` : null].filter(Boolean)
+  const sources = readPics
+    ? [boards.length ? `the smart slides (${boards.map((b) => b.name).join(", ")})` : null, photos ? `${photos} work ${photos === 1 ? "photo" : "photos"}` : null].filter(Boolean)
     : [];
 
   return (
     <section className="card space-y-4 border-accent/40">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="h2">✨ AI lesson summary</h2>
+          <h2 className="h2">✨ Write my note and parent message</h2>
           <p className="mt-1 text-sm text-muted">
-            {!pictures ? (
-              <>
-                Reads your lesson notes and any times tables played. Names are never sent. (Pictures of work are off —{" "}
-                <a href="/settings#ai" className="underline">
-                  switch on in Settings
-                </a>
-                .)
-              </>
-            ) : sources.length ? (
-              `Reads ${sources.join(" and ")} from this lesson, plus your notes and any times tables played. Names are never sent.`
-            ) : (
-              "Write on the smart slides during the lesson or add worksheet photos, then press the button."
-            )}
+            {readPics
+              ? sources.length
+                ? `Reads ${sources.join(" and ")} from this lesson, plus your notes and any times tables played. Names are never sent.`
+                : "Add a photo of the worksheet (or write on the smart slides in the lesson), then press the button."
+              : "Reads your lesson notes and any times tables played. Names are never sent."}
           </p>
         </div>
-        {aiEnabled ? (
-          <button type="button" className="btn-primary" onClick={run} disabled={!!step}>
-            {step ? "Working…" : summary ? "Summarise again" : "✨ Summarise this lesson"}
-          </button>
-        ) : null}
       </div>
 
+      {aiEnabled ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <label className={`btn-secondary cursor-pointer ${step ? "pointer-events-none opacity-50" : ""}`}>
+              📷 {photos ? "Add another worksheet photo" : "Add worksheet photo"}
+              <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => void addPhotos(e.target.files).finally(() => (e.target.value = ""))} />
+            </label>
+            <button type="button" className="btn-primary flex-1" onClick={run} disabled={!!step}>
+              {step ? "Working…" : summary ? "✨ Write again" : "✨ Write note & parent message"}
+            </button>
+          </div>
+          {photos ? <p className="text-sm text-muted">{photos} {photos === 1 ? "photo" : "photos"} of work with this lesson.</p> : null}
+          {!readPics ? (
+            <label className="flex items-start gap-3 rounded-xl border border-[var(--th-todo,var(--warn))]/40 bg-warn-soft p-3 text-sm">
+              <input type="checkbox" className="mt-0.5 h-5 w-5" checked={readPics} onChange={(e) => void allowPictures(e.target.checked)} />
+              <span>
+                <span className="font-medium">Let the AI read worksheet photos</span>
+                <span className="block text-muted">
+                  Needed to write from a photo. Names are never sent, but cover a name if a child wrote it on the page. (Same switch as in Settings.)
+                </span>
+              </span>
+            </label>
+          ) : null}
+        </div>
+      ) : null}
       {!aiEnabled ? (
         <p className="rounded-xl bg-[var(--warn-soft)] p-3 text-sm text-warn">
           To turn this on, add your Anthropic key in Vercel: Project → Settings → Environment Variables → name <b>ANTHROPIC_API_KEY</b>. Then redeploy.
@@ -222,7 +279,7 @@ export function LessonAISummary({
                 : "Written from your notes. Check before sending."}
             </p>
             <button type="button" className="btn-secondary" onClick={useNotes}>
-              {used === "notes" ? "✓ Added to the empty note boxes" : "Fill in the lesson notes"}
+              {used === "notes" || used === "both" ? "✓ In the empty note boxes below" : "Fill in the lesson notes"}
             </button>
           </div>
 
@@ -231,7 +288,7 @@ export function LessonAISummary({
             <textarea className="input min-h-48" value={message} onChange={(e) => setMessage(e.target.value)} />
             <div className="flex flex-wrap gap-2">
               <button type="button" className="btn-primary" onClick={useMessage}>
-                {used === "message" ? "✓ In the parent message box" : "Put in the parent message box"}
+                {used === "message" || used === "both" ? "✓ In the parent message box below" : "Put in the parent message box"}
               </button>
               <button type="button" className="btn-secondary" onClick={() => copy(message, "message")}>
                 {copied === "message" ? "Copied ✓" : "Copy"}
@@ -282,4 +339,16 @@ export function LessonAISummary({
       ) : null}
     </section>
   );
+}
+
+/** A phone photo made smaller and turned into a JPG (quicker to upload; every format the AI can read). */
+async function toJpeg(file: File, max = 2000): Promise<Blob> {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  bmp.close();
+  return new Promise((ok, no) => canvas.toBlob((b) => (b ? ok(b) : no(new Error("jpeg"))), "image/jpeg", 0.85));
 }

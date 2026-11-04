@@ -23,6 +23,7 @@ import { colourSlots } from "@/lib/studentColours";
 import { RenewalMessage } from "@/components/RenewalMessage";
 import { FamilyLink } from "@/components/FamilyLink";
 import { FamilyLinkProvider } from "@/components/FamilyLinkContext";
+import { Fold } from "@/components/glass/Fold";
 import { cleanPriceOptions } from "@/lib/prices";
 import { tutorName } from "@/lib/env";
 import { roomStudent } from "@/lib/roomStudent";
@@ -204,10 +205,24 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         />
       ) : null}
 
-      <section id="hours" className="space-y-3">
-        <h2 className="h2 px-1.5">Package hours</h2>
+      <Fold
+        id="hours"
+        open={Boolean(bal && (bal.left <= 0 || low))}
+        summary={
+          <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="h2">Package hours</span>
+            {account && bal ? (
+              <span className={`text-sm ${bal.left < 0 ? "text-danger" : low ? "text-warn" : "text-[var(--th-text-3)]"}`}>
+                {fmtHours(Math.max(0, bal.left))} left of {bal.bought + bal.adjusted} h
+                {acctMoney?.forecast.endDate && acctMoney.leftHours > 0 ? ` · runs out around ${fmtDay(acctMoney.forecast.endDate)}` : ""}
+                {low ? " · time to renew" : ""}
+              </span>
+            ) : null}
+          </span>
+        }
+      >
         {account && bal ? (
-          <div className="card space-y-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-3 gap-2 text-center">
               <Stat label="Bought" value={bal.bought + bal.adjusted} />
               <Stat label="Used" value={bal.used} />
@@ -350,7 +365,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         ) : (
           <p className="card text-sm text-muted">No hours account found.</p>
         )}
-      </section>
+      </Fold>
 
       {upcoming.length ? (
         <section className="flex flex-col gap-3">
