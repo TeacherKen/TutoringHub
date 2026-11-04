@@ -1,11 +1,12 @@
 import { level, TABLES, UP_TO, factKey, type FactState } from "@/lib/facts";
 
 const COLOR: Record<ReturnType<typeof level>, string> = {
-  new: "bg-surface-2 text-muted",
-  weak: "bg-red-200 text-red-900",
-  learning: "bg-amber-200 text-amber-900",
-  good: "bg-lime-200 text-lime-900",
-  mastered: "bg-green-600 text-white",
+  // mg-* lets the glass pages show darker versions of the same colours (globals.css)
+  new: "mg-new bg-surface-2 text-muted",
+  weak: "mg-weak bg-red-200 text-red-900",
+  learning: "mg-learning bg-amber-200 text-amber-900",
+  good: "mg-good bg-lime-200 text-lime-900",
+  mastered: "mg-mastered bg-green-600 text-white",
 };
 const LABEL: Record<ReturnType<typeof level>, string> = {
   new: "Not tried yet",

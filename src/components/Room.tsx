@@ -230,10 +230,10 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   const current = onBoard ? undefined : slides[Math.min(Math.max(0, slide), Math.max(0, slides.length - 1))];
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 pb-8 pt-4">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div className="page-enter mx-auto flex min-h-dvh max-w-6xl flex-col px-4 pb-8 pt-5">
+      <header className="glass mb-5 flex rounded-[26px] px-5 py-4 flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Hi {room.firstName}!</h1>
+          <h1 className="font-display text-[32px] font-semibold leading-tight tracking-tight sm:text-[40px]">Hi {room.firstName}!</h1>
           {room.lesson ? (
             <p className="text-sm text-muted">
               {room.lesson.when === "now" ? "Lesson now" : room.lesson.when === "next" ? "Next lesson" : "Last lesson"} ·{" "}
@@ -249,12 +249,12 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
             </p>
           ) : null}
         </div>
-        <div role="tablist" aria-label="Room" className="flex rounded-xl border border-line bg-surface p-1">
+        <div role="tablist" aria-label="Room" className="glass flex gap-1 rounded-[22px] p-1.5">
           <button
             role="tab"
             aria-selected={tab === "lesson"}
             onClick={() => setTab("lesson")}
-            className={`min-h-11 rounded-lg px-4 text-sm font-medium ${tab === "lesson" ? "bg-accent text-accent-text" : "text-muted"}`}
+            className={`tab press ${tab === "lesson" ? "is-on" : ""}`}
           >
             Lesson
           </button>
@@ -262,7 +262,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
             role="tab"
             aria-selected={tab === "practice"}
             onClick={() => setTab("practice")}
-            className={`min-h-11 rounded-lg px-4 text-sm font-medium ${tab === "practice" ? "bg-accent text-accent-text" : "text-muted"}`}
+            className={`tab press ${tab === "practice" ? "is-on" : ""}`}
           >
             ⚽ Practice
           </button>
@@ -270,7 +270,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
             role="tab"
             aria-selected={tab === "games"}
             onClick={() => setTab("games")}
-            className={`min-h-11 rounded-lg px-4 text-sm font-medium ${tab === "games" ? "bg-accent text-accent-text" : "text-muted"}`}
+            className={`tab press ${tab === "games" ? "is-on" : ""}`}
           >
             Games {room.gamesOpen ? "" : "🔒"}
           </button>

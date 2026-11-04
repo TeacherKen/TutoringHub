@@ -835,3 +835,25 @@ html:has(.th-glass) body {
     border: 1px solid CanvasText;
   }
 }
+
+/* Times-table chart on the glass pages: the same colours, glowing on dark */
+.th-glass .mg-new {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--th-text-3);
+}
+.th-glass .mg-weak {
+  background: rgba(248, 113, 113, 0.34);
+  color: #fecaca;
+}
+.th-glass .mg-learning {
+  background: rgba(251, 191, 36, 0.34);
+  color: #fde68a;
+}
+.th-glass .mg-good {
+  background: rgba(163, 230, 53, 0.32);
+  color: #d9f99d;
+}
+.th-glass .mg-mastered {
+  background: #22c55e;
+  color: #052e16;
+}

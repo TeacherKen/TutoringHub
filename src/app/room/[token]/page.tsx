@@ -2,6 +2,24 @@ import type { Metadata } from "next";
 import { getRoom } from "@/lib/room";
 import { studentForToken } from "@/lib/practice";
 import { Room } from "@/components/Room";
+import { GlassOrbs } from "@/components/GlassNav";
+import { themeBootScript } from "@/lib/glassTheme";
+import "@fontsource/outfit/600.css";
+import "@fontsource/outfit/700.css";
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
+
+/** The child's room in TutoringHub Glass (the games inside keep their own look). */
+function Glass({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="th-glass">
+      <script dangerouslySetInnerHTML={{ __html: themeBootScript() }} />
+      <GlassOrbs />
+      <div className="relative z-10">{children}</div>
+    </div>
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -24,11 +42,17 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/roo
   const room = await getRoom(token);
   if (!room) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 text-center">
-        <h1 className="h1">This link doesn&apos;t work</h1>
-        <p className="mt-2 text-muted">Ask Mr Ken for a new link.</p>
-      </main>
+      <Glass>
+        <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 text-center">
+          <h1 className="h1">This link doesn&apos;t work</h1>
+          <p className="mt-2 text-muted">Ask Mr Ken for a new link.</p>
+        </main>
+      </Glass>
     );
   }
-  return <Room token={token} initial={room} initialTab={tab === "practice" ? "practice" : undefined} />;
+  return (
+    <Glass>
+      <Room token={token} initial={room} initialTab={tab === "practice" ? "practice" : undefined} />
+    </Glass>
+  );
 }
