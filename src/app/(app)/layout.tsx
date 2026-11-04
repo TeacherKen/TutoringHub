@@ -20,7 +20,7 @@ export const viewport: Viewport = { themeColor: "#071719" };
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const me = await requireSignedIn();
   return (
-    <div className="th-glass pb-12">
+    <div className="th-glass pb-12 max-sm:pb-[calc(96px+env(safe-area-inset-bottom))]">
       {/* The colour theme saved on this device, applied before the page draws */}
       <script dangerouslySetInnerHTML={{ __html: themeBootScript() }} />
       <GlassOrbs />

@@ -2,14 +2,31 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { onSoundSettings, play, reloadSoundSettings, setSoundSettings } from "@/lib/sounds";
+import {
+  onSoundSettings,
+  play,
+  reloadSoundSettings,
+  setSoundSettings,
+} from "@/lib/sounds";
 import { SignOutButton } from "./SignOutButton";
 
 // 🧊 The top bar (TutoringHub Glass): a frosted pill with the "T" tile, rounded tabs (the open one in mint),
 // and a round sound on/off button. Below 900px the tabs scroll sideways and the word TutoringHub hides.
+// On a phone the tabs move to a bar along the bottom (like other iPhone apps), and the top bar keeps
+// just the name and the sound button.
 // Icons are the ones from the design mockups.
 
-const svg = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
+const svg = {
+  width: 18,
+  height: 18,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.8,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  "aria-hidden": true,
+} as const;
 
 const ICONS: Record<string, React.ReactNode> = {
   home: (
@@ -64,7 +81,8 @@ const VIEWER = [{ href: "/schedule", label: "Schedule", icon: "week" }];
 export function GlassNav({ role }: { role: "tutor" | "viewer" }) {
   const path = usePathname();
   const items = role === "tutor" ? TUTOR : VIEWER;
-  const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
+  const active = (href: string) =>
+    href === "/" ? path === "/" : path.startsWith(href);
 
   // Sound on/off, saved on this device. Read after the page loads (the server can't see it).
   const [soundOn, setSoundOn] = useState(true);
@@ -79,54 +97,95 @@ export function GlassNav({ role }: { role: "tutor" | "viewer" }) {
   }
 
   return (
-    <header className="glass sticky top-3 z-40 mx-auto flex w-full max-w-[1240px] items-center gap-3 rounded-[26px] p-2">
-      <Link
-        href={role === "tutor" ? "/" : "/schedule"}
-        onClick={() => play("nav")}
-        className="press flex shrink-0 items-center gap-2.5 rounded-2xl border border-transparent py-1 pl-1 pr-2.5"
-      >
-        <span className="glass-hi grid h-[42px] w-[42px] place-items-center rounded-[13px] text-[21px] font-bold text-[var(--th-accent)]" style={{ fontFamily: "var(--font-display)" }}>
-          T
-        </span>
-        <span className="brand-text text-[19px] font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-          TutoringHub
-        </span>
-      </Link>
+    <>
+      <header className="glass sticky top-3 z-40 mx-auto flex w-full max-w-[1240px] items-center gap-3 rounded-[26px] p-2 max-sm:top-[max(8px,env(safe-area-inset-top))] max-sm:rounded-[22px] max-sm:p-1.5">
+        <Link
+          href={role === "tutor" ? "/" : "/schedule"}
+          onClick={() => play("nav")}
+          className="press flex shrink-0 items-center gap-2.5 rounded-2xl border border-transparent py-1 pl-1 pr-2.5"
+        >
+          <span
+            className="glass-hi grid h-[42px] w-[42px] place-items-center rounded-[13px] text-[21px] font-bold text-[var(--th-accent)]"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            T
+          </span>
+          <span
+            className="brand-text text-[19px] font-semibold max-sm:text-[17px]"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            TutoringHub
+          </span>
+        </Link>
 
-      <nav aria-label="Main" className="topnav flex min-w-0 flex-1 gap-1">
+        <nav
+          aria-label="Main"
+          className="topnav flex min-w-0 flex-1 gap-1 max-sm:hidden"
+        >
+          {items.map((it) => {
+            const on = active(it.href);
+            return (
+              <Link
+                key={it.href}
+                href={it.href}
+                aria-current={on ? "page" : undefined}
+                onClick={() => play("nav")}
+                className={`tab press ${on ? "is-on" : ""}`}
+              >
+                {ICONS[it.icon]}
+                {it.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {role === "viewer" ? (
+          <SignOutButton className="tab press shrink-0" />
+        ) : null}
+        <button
+          type="button"
+          onClick={toggleSound}
+          aria-label={
+            soundOn
+              ? "Sounds on. Turn sounds off"
+              : "Sounds off. Turn sounds on"
+          }
+          aria-pressed={soundOn}
+          className="glass press ml-auto grid h-[46px] w-[46px] shrink-0 place-items-center rounded-full max-sm:h-10 max-sm:w-10"
+        >
+          {soundOn ? (
+            <svg {...svg}>
+              <path d="M11 5 6 9H2v6h4l5 4z" />
+              <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+              <path d="M19 5a10 10 0 0 1 0 14" />
+            </svg>
+          ) : (
+            <svg {...svg}>
+              <path d="M11 5 6 9H2v6h4l5 4z" />
+              <path d="m22 9-6 6M16 9l6 6" />
+            </svg>
+          )}
+        </button>
+      </header>
+      {/* Phone: the same tabs as a bar along the bottom of the screen */}
+      <nav aria-label="Main" className="tabbar sm:hidden">
         {items.map((it) => {
           const on = active(it.href);
           return (
-            <Link key={it.href} href={it.href} aria-current={on ? "page" : undefined} onClick={() => play("nav")} className={`tab press ${on ? "is-on" : ""}`}>
+            <Link
+              key={it.href}
+              href={it.href}
+              aria-current={on ? "page" : undefined}
+              onClick={() => play("nav")}
+              className={`tabbar-item press ${on ? "is-on" : ""}`}
+            >
               {ICONS[it.icon]}
-              {it.label}
+              <span>{it.label}</span>
             </Link>
           );
         })}
       </nav>
-
-      {role === "viewer" ? <SignOutButton className="tab press shrink-0" /> : null}
-      <button
-        type="button"
-        onClick={toggleSound}
-        aria-label={soundOn ? "Sounds on. Turn sounds off" : "Sounds off. Turn sounds on"}
-        aria-pressed={soundOn}
-        className="glass press grid h-[46px] w-[46px] shrink-0 place-items-center rounded-full"
-      >
-        {soundOn ? (
-          <svg {...svg}>
-            <path d="M11 5 6 9H2v6h4l5 4z" />
-            <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-            <path d="M19 5a10 10 0 0 1 0 14" />
-          </svg>
-        ) : (
-          <svg {...svg}>
-            <path d="M11 5 6 9H2v6h4l5 4z" />
-            <path d="m22 9-6 6M16 9l6 6" />
-          </svg>
-        )}
-      </button>
-    </header>
+    </>
   );
 }
 
@@ -134,9 +193,41 @@ export function GlassNav({ role }: { role: "tutor" | "viewer" }) {
 export function GlassOrbs() {
   return (
     <div aria-hidden className="orbs">
-      <div className="orb" style={{ width: 680, height: 680, left: -160, top: -220, background: "radial-gradient(circle, rgba(var(--g-orb-1, 45,212,191),0.42), rgba(var(--g-orb-1, 45,212,191),0) 68%)" }} />
-      <div className="orb" style={{ width: 560, height: 560, right: -120, top: 120, background: "radial-gradient(circle, rgba(var(--g-orb-2, 96,165,250),0.32), rgba(var(--g-orb-2, 96,165,250),0) 68%)", animationDelay: "-6s" }} />
-      <div className="orb" style={{ width: 600, height: 600, left: "30%", bottom: -260, background: "radial-gradient(circle, rgba(var(--g-orb-3, 251,146,60),0.22), rgba(var(--g-orb-3, 251,146,60),0) 68%)", animationDelay: "-11s" }} />
+      <div
+        className="orb"
+        style={{
+          width: 680,
+          height: 680,
+          left: -160,
+          top: -220,
+          background:
+            "radial-gradient(circle, rgba(var(--g-orb-1, 45,212,191),0.42), rgba(var(--g-orb-1, 45,212,191),0) 68%)",
+        }}
+      />
+      <div
+        className="orb"
+        style={{
+          width: 560,
+          height: 560,
+          right: -120,
+          top: 120,
+          background:
+            "radial-gradient(circle, rgba(var(--g-orb-2, 96,165,250),0.32), rgba(var(--g-orb-2, 96,165,250),0) 68%)",
+          animationDelay: "-6s",
+        }}
+      />
+      <div
+        className="orb"
+        style={{
+          width: 600,
+          height: 600,
+          left: "30%",
+          bottom: -260,
+          background:
+            "radial-gradient(circle, rgba(var(--g-orb-3, 251,146,60),0.22), rgba(var(--g-orb-3, 251,146,60),0) 68%)",
+          animationDelay: "-11s",
+        }}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { CalendarCatchUp } from "@/components/CalendarCatchUp";
 import { SoundLink } from "@/components/glass/SoundLink";
 import { requireTutor } from "@/lib/auth";
-import { getAccountSummaries, getLessons, getSettings, getStudents, needsNote, reminderSince } from "@/lib/data";
+import { getAccountSummaries, getLessons, getSettings, getStudents, needsFeedback, reminderSince } from "@/lib/data";
 import { loadReady } from "@/lib/readyData";
 import { colourSlots } from "@/lib/studentColours";
 import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, mondayOf, todayKey } from "@/lib/time";
@@ -45,7 +45,8 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
   const done = live.filter((l) => l.status === "done").length;
   const coming = [...readyMap.values()];
   const readyCount = coming.filter((r) => r.ready).length;
-  const notes = live.filter((l) => needsNote(l, since)).length;
+  // Notes are optional, so this card counts parent messages still to send instead.
+  const toSend = live.filter((l) => needsFeedback(l, today, bkkDateKey, since)).length;
   const busiest = days.map((d) => ({ d, n: live.filter((l) => bkkDateKey(l.start_at) === d).length })).sort((a, b) => b.n - a.n)[0];
 
   return (
@@ -83,7 +84,7 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
           note={coming.length ? (readyCount === coming.length ? "all set" : "slides or worksheets to do") : "nothing still to come"}
           tone={coming.length ? (readyCount < coming.length ? "warn" : "ok") : undefined}
         />
-        <Stat label="Notes to write" value={String(notes)} note={notes ? "after the lesson" : "all written"} tone={notes ? "warn" : undefined} />
+        <Stat label="Feedback to send" value={String(toSend)} note={toSend ? "lesson updates for parents" : "all sent"} tone={toSend ? "warn" : undefined} />
       </section>
 
       <WeekGrid days={days} lessons={lessons} today={today} since={since} slotOf={slotOf} ready={ready} now={new Date().toISOString()} />

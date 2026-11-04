@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover", // so the phone's bottom bar can sit above the home line
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f6f6f3" },
     { media: "(prefers-color-scheme: dark)", color: "#121413" },
