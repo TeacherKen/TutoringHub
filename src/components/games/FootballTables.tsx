@@ -112,7 +112,7 @@ export function FootballTables({ api, onLive }: { api: string; onLive?: (s: Prac
     (done: Answer[], scored: boolean[], bestStreak: number, powers: number) => {
       if (!data) return;
       const score = scored.filter(Boolean).length;
-      const body = { answers: done, tables, score, total: scored.length, bestStreak, powers, mode };
+      const body = { answers: done, tables, score, total: scored.length, bestStreak, powers, mode, roundId: newRoundId() };
       const map = new Map(data.progress.map((p) => [p.fact, p]));
       for (const a of done) map.set(a.fact, updateFact(map.get(a.fact), a, new Date()));
       const progress = [...map.values()];
@@ -512,5 +512,14 @@ function writePending(api: string, v: unknown[]) {
     else localStorage.removeItem(`${PENDING_KEY}:${api}`);
   } catch {
     /* storage blocked — fine */
+  }
+}
+
+/** An id for one round, so the server saves it once even if it is sent again. */
+function newRoundId(): string | undefined {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return undefined; // older browsers: saved as before
   }
 }

@@ -97,7 +97,8 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // What the server already has. Autosave only runs when the note differs from this.
   // (Built from the server's status, so a past lesson defaulting to "Done" is saved.)
-  const lastSaved = useRef(JSON.stringify({ ...note, status: initial.status }));
+  // Just opening a past lesson saves nothing: "Done" is only suggested, and is saved with the first thing you type or tap.
+  const lastSaved = useRef(JSON.stringify(note));
   const latest = useRef(note);
 
   // Restore an unsaved draft from this device (e.g. phone lost signal),

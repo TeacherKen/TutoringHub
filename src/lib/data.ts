@@ -280,8 +280,11 @@ export function isUnmarked(l: Lesson, now = Date.now(), since?: string | null): 
 }
 
 /** A finished class with no note yet (and not cleared with "Clear all" / "Skip"). */
-export function needsNote(l: Lesson, since?: string | null): boolean {
+/** Notes are optional (Mr Ken rarely writes them), so nothing asks for one. Set to true to bring the reminders back. */
+export const ASK_FOR_NOTES = false;
+export function needsNote(l: Lesson, since?: string | null, ask: boolean = ASK_FOR_NOTES): boolean {
   return (
+    ask &&
     !l.note_skipped &&
     (!since || dateKeyOf(l.start_at) >= since) &&
     l.lesson_students.length > 0 &&

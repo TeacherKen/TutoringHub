@@ -69,8 +69,8 @@ describe("reminders agree everywhere (Home, Week, Money)", () => {
   });
   it("a lesson before the tracking date never shows 'Note missing' or 'Feedback not sent'", () => {
     const since = addDays(new Date().toISOString().slice(0, 10), -3);
-    expect(needsNote(lesson(10), since)).toBe(false);
-    expect(needsNote(lesson(1), since)).toBe(true);
+    expect(needsNote(lesson(10), since, true)).toBe(false);
+    expect(needsNote(lesson(1), since, true)).toBe(true);
     const done = lesson(10, { status: "done", learned: "fractions" });
     expect(needsFeedback(done, "2999-01-01", undefined, since)).toBe(false);
     expect(needsFeedback({ ...done, start_at: ago(1).toISOString() }, "2999-01-01", undefined, since)).toBe(true);

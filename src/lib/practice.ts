@@ -126,8 +126,35 @@ export async function tooManyRounds(studentId: string): Promise<boolean> {
 }
 
 /** Save a finished practice round: every answer updates that fact's box; the round goes in the history. */
-export async function savePractice(studentId: string, answers: Answer[], tables: number[], score: number, total: number, extra: RoundExtras & { mode?: unknown } = {}): Promise<boolean> {
-  if (!(await saveFacts(studentId, answers))) return false;
+export async function savePractice(studentId: string, answers: Answer[], tables: number[], score: number, total: number, extra: RoundExtras & { mode?: unknown; roundId?: string } = {}): Promise<boolean> {
   const mode = cleanMode(extra.mode);
-  return saveRound(studentId, tables, score, total, { bestStreak: extra.bestStreak, powers: extra.powers, game: mode === "times" ? "tt" : `tt-${mode}` });
+  const game = mode === "times" ? "tt" : `tt-${mode}`;
+  if (extra.roundId && Number(total) > 0) {
+    // The round first, with the device's id: if it's already there, this is a repeat — nothing to add.
+    const admin = createAdminClient();
+    const t = Math.round(Number(total));
+    const { data, error } = await admin
+      .from("practice_sessions")
+      .insert({
+        student_id: studentId,
+        game,
+        tables,
+        score: Math.max(0, Math.min(Math.round(Number(score) || 0), t)),
+        total: t,
+        best_streak: Math.max(0, Math.min(99, Math.round(extra.bestStreak ?? 0))),
+        powers: Math.max(0, Math.min(99, Math.round(extra.powers ?? 0))),
+        round_id: extra.roundId,
+      })
+      .select("id")
+      .single();
+    if (error?.code === "23505") return true; // saved before
+    if (!error && data) {
+      if (await saveFacts(studentId, answers)) return true;
+      await admin.from("practice_sessions").delete().eq("id", data.id); // try both again next time
+      return false;
+    }
+    // Before database update 0025: save the old way below.
+  }
+  if (!(await saveFacts(studentId, answers))) return false;
+  return saveRound(studentId, tables, score, total, { bestStreak: extra.bestStreak, powers: extra.powers, game });
 }

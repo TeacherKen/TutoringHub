@@ -13,9 +13,11 @@ const today = new Date().toISOString().slice(0, 10);
 
 describe("🧹 Clear all on Home", () => {
   it("a lesson with no note is flagged, unless it was cleared", () => {
-    expect(needsNote(lesson())).toBe(true);
-    expect(needsNote(lesson({ note_skipped: true }))).toBe(false);
-    expect(needsNote(lesson({ learned: "fractions" }))).toBe(false);
+    expect(needsNote(lesson(), null, true)).toBe(true);
+    expect(needsNote(lesson({ note_skipped: true }), null, true)).toBe(false);
+    expect(needsNote(lesson({ learned: "fractions" }), null, true)).toBe(false);
+    // Notes are optional for now, so nothing asks for one.
+    expect(needsNote(lesson())).toBe(false);
   });
   it("feedback is flagged until sent, or cleared (clearing the note clears feedback too)", () => {
     expect(needsFeedback(lesson(), today, key)).toBe(true);

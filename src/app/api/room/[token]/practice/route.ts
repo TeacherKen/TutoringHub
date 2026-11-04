@@ -19,7 +19,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/room/[token]/pr
   if (!s) return NextResponse.json({ error: "not found" }, { status: 404 });
   const text = await req.text();
   if (text.length > 20_000) return NextResponse.json({ ok: false }, { status: 413 });
-  let body: { answers?: unknown; tables?: unknown; score?: unknown; total?: unknown; bestStreak?: unknown; powers?: unknown; mode?: unknown };
+  let body: { roundId?: unknown; answers?: unknown; tables?: unknown; score?: unknown; total?: unknown; bestStreak?: unknown; powers?: unknown; mode?: unknown };
   try {
     body = JSON.parse(text);
   } catch {
@@ -35,6 +35,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/room/[token]/pr
     bestStreak: Number(body.bestStreak) || 0,
     powers: Number(body.powers) || 0,
     mode: body.mode,
+    roundId: typeof body.roundId === "string" && /^[0-9a-f-]{36}$/i.test(body.roundId) ? body.roundId : undefined,
   });
   return NextResponse.json({ ok }, { status: ok ? 200 : 503, headers: noStore });
 }
