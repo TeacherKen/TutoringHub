@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { parseOccurrences, upgradeKey } from "./parse";
-import { isPreplyTitle, matchStudents } from "./match";
+import { eventName, isPreplyTitle, matchStudents } from "./match";
 import { bkkDateKey } from "@/lib/time";
 
 const PAST_DAYS = 14;
@@ -184,6 +184,15 @@ export async function syncCalendar(): Promise<SyncResult> {
     await admin
       .from("lesson_students")
       .upsert(links.slice(i, i + 500), { onConflict: "lesson_id,student_id", ignoreDuplicates: true });
+  }
+
+  // 4. Events named like ones Mr Ken hid ("Not a lesson") stay hidden, e.g. a new week of his own classes.
+  const { data: hiddenRows } = await admin.from("lessons").select("title").eq("ignored", true).order("start_at", { ascending: false }).limit(500);
+  const hiddenNames = new Set(((hiddenRows ?? []) as { title: string | null }[]).map((r) => eventName(r.title)).filter(Boolean));
+  if (hiddenNames.size) {
+    const linked = new Set(links.map((l) => l.lesson_id));
+    const toHide = unlocked.filter((s) => !linked.has(s.id) && hiddenNames.has(eventName(s.title))).map((s) => s.id);
+    if (toHide.length) await admin.from("lessons").update({ ignored: true }).in("id", toHide).eq("ignored", false);
   }
 
   await admin

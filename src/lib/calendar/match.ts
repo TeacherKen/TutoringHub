@@ -20,3 +20,10 @@ export function matchStudents(title: string, students: Matchable[]): string[] {
 export function isPreplyTitle(title: string): boolean {
   return containsWord(title, "preply");
 }
+
+/** "Chloe L. - Preply lesson" → "Chloe L." — the name part of an event title, used to remember the link. */
+export function eventName(title: string | null): string {
+  const t = (title ?? "").trim();
+  const name = t.split(/\s+[-–—|]\s+/)[0]?.trim() ?? "";
+  return name.length >= 2 && name.length <= 40 ? name : "";
+}

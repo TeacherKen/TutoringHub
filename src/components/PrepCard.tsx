@@ -26,14 +26,7 @@ export function PrepCard({ lessonId, students, inline = false }: { lessonId: str
                   </>
                 ) : null}
               </Row>
-            ) : (
-              <Row icon="📝" warn>
-                No plan written last time ({fmtDay(bkkDateKey(s.last.date))}).{" "}
-                <Link href={`/lessons/${s.last.lessonId}`} className="text-accent underline">
-                  Open that lesson
-                </Link>
-              </Row>
-            )
+            ) : null /* no plan written: fine, notes are optional */
           ) : (
             <Row icon="📝">First lesson with {s.name} in TutoringHub.</Row>
           )}

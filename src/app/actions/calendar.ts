@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { assertTutor, getMe } from "@/lib/auth";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { refreshedJustNow, syncCalendar, validateCalendarUrl } from "@/lib/calendar/sync";
+import { eventName } from "@/lib/calendar/match";
 
 export type ActionState = { ok?: boolean; message?: string } | null;
 
@@ -81,9 +82,20 @@ export async function linkEventToStudent(form: FormData): Promise<void> {
 export async function setIgnored(form: FormData): Promise<void> {
   await assertTutor();
   const supabase = await createClient();
-  await supabase
-    .from("lessons")
-    .update({ ignored: form.get("ignored") === "true" })
-    .eq("id", String(form.get("lesson_id")));
+  const id = String(form.get("lesson_id"));
+  const ignored = form.get("ignored") === "true";
+  await supabase.from("lessons").update({ ignored }).eq("id", id);
+  if (ignored) {
+    // Hide the other events with the same name too (e.g. every "[M.Ed. S2/2026] TT6036" class),
+    // but only ones with no student linked, so a real lesson is never hidden by mistake.
+    // New ones from the calendar are hidden by the sync in the same way.
+    const { data: me } = await supabase.from("lessons").select("title").eq("id", id).maybeSingle();
+    const name = eventName((me?.title as string | null) ?? null);
+    if (name) {
+      const { data: same } = await supabase.from("lessons").select("id, title, lesson_students(student_id)").eq("ignored", false).like("title", `${name.replace(/[%_\\]/g, "\\$&")}%`).limit(500);
+      const ids = (same ?? []).filter((l) => eventName(l.title as string | null) === name && !((l.lesson_students as unknown[]) ?? []).length).map((l) => l.id as string);
+      if (ids.length) await supabase.from("lessons").update({ ignored: true }).in("id", ids);
+    }
+  }
   revalidatePath("/", "layout");
 }
