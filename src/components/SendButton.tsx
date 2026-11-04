@@ -1,9 +1,11 @@
 "use client";
 import { chatLink, type ChatApp } from "@/lib/chat";
+import { useWithFamily } from "./FamilyLinkContext";
 
 /** Opens WhatsApp or LINE with the message already typed (the parent's chat, when we know their number). */
 export function SendButton({ app, contact, text, className = "btn-primary" }: { app: ChatApp; contact: string | null | undefined; text: string; className?: string }) {
-  const link = chatLink(app, contact, text);
+  const withFamily = useWithFamily();
+  const link = chatLink(app, contact, withFamily(text));
   if (!link || !text.trim()) return null;
   return (
     <a href={link.href} target="_blank" rel="noopener noreferrer" className={className}>

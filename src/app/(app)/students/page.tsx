@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireTutor } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { getLessons, getMoneyData, getSettings, type Lesson, type Student } from "@/lib/data";
 import { renewSoon } from "@/lib/earnings";
 import { FamilyCard, firstNext, type Family } from "@/components/StudentCards";
@@ -32,13 +33,28 @@ export default async function StudentsPage() {
   const monthStart = `${today.slice(0, 7)}-01`;
   const thisMonth = (ids: string[]) => money.lessons.filter((l) => l.date >= monthStart && l.studentIds.some((id) => ids.includes(id)));
 
+  // Each family's private page: made yet, and opened by the parent? (database update 0015)
+  const supabase = await createClient();
+  const { data: pages } = await supabase.from("hour_accounts").select("id, family_token, family_consent_at");
+  const pageOf = new Map(((pages ?? []) as { id: string; family_token: string | null; family_consent_at: string | null }[]).map((p) => [p.id, p]));
+
   const families: Family[] = [];
   for (const s of students) {
     const key = s.hour_account_id ?? `s:${s.id}`;
     let f = families.find((x) => x.key === key);
     if (!f) {
       const account = money.accounts.find((a) => a.id === s.hour_account_id);
-      families.push((f = { key, name: account?.name ?? s.first_name, students: [], account, slot: colours.slotOfStudent(s.id) }));
+      const pg = s.hour_account_id ? pageOf.get(s.hour_account_id) : undefined;
+      families.push(
+        (f = {
+          key,
+          name: account?.name ?? s.first_name,
+          students: [],
+          account,
+          slot: colours.slotOfStudent(s.id),
+          page: s.hour_account_id ? { accountId: s.hour_account_id, token: pg?.family_token ?? null, opened: Boolean(pg?.family_consent_at) } : undefined,
+        }),
+      );
     }
     f.students.push(s);
   }

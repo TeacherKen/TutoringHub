@@ -3,6 +3,7 @@ import { useState } from "react";
 import { postJson } from "@/lib/postJson";
 import { buildMonthlyPrompt, type MonthlyInput, type ReportMonth } from "@/lib/monthlyReport";
 import { SendButton } from "./SendButton";
+import { FamilyLinkTick, useWithFamily } from "./FamilyLinkContext";
 import type { ChatApp } from "@/lib/chat";
 
 /** One tap writes a monthly progress report for the parent from the month's lesson notes. */
@@ -17,6 +18,7 @@ export function MonthlyReport({
   aiEnabled: boolean;
   contact?: { app: ChatApp; value: string | null };
 }) {
+  const withFamily = useWithFamily();
   const [key, setKey] = useState(months[0]?.key ?? "");
   const [text, setText] = useState("");
   const [state, setState] = useState<string | null>(null);
@@ -77,8 +79,9 @@ export function MonthlyReport({
           </button>
         </div>
         <textarea className="input min-h-56" value={text} onChange={(e) => setText(e.target.value)} placeholder="The report appears here. You can edit it before sending." />
+        {text.trim() ? <FamilyLinkTick /> : null}
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className="btn-secondary" disabled={!text.trim()} onClick={() => copy(text, "Report copied ✓ — paste it into your chat with the parent.")}>
+          <button type="button" className="btn-secondary" disabled={!text.trim()} onClick={() => copy(withFamily(text), "Report copied ✓ — paste it into your chat with the parent.")}>
             {state?.startsWith("Report copied") ? "✓ Copied" : "Copy report"}
           </button>
           {contact ? <SendButton app={contact.app} contact={contact.value} text={text} /> : null}

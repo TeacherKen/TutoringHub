@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { PromptPayQR } from "./PromptPayQR";
 import { SendButton } from "./SendButton";
+import { FamilyLinkTick, useWithFamily } from "./FamilyLinkContext";
 import { addUnpaidPackage } from "@/app/actions/students";
 import type { ChatApp } from "@/lib/chat";
 import type { PriceOption } from "@/lib/prices";
@@ -57,6 +58,7 @@ ${p.tutorName}`;
 export function RenewalMessage(
   props: Props & { priceList?: PriceOption[]; accountId?: string; contactApp?: ChatApp; contact?: string | null },
 ) {
+  const withFamily = useWithFamily();
   const choices = useMemo(() => {
     const list: (Offer & { key: string })[] = (props.priceList ?? []).map((o) => ({ key: o.id, hours: o.hours, price: o.price, label: o.label }));
     if (props.lastHours && !list.some((o) => o.hours === props.lastHours && o.price === props.lastPrice)) {
@@ -123,6 +125,7 @@ export function RenewalMessage(
             ))}
         </div>
       ) : null}
+      <FamilyLinkTick />
       <div className="flex flex-wrap gap-2">
         <SendButton app={props.contactApp} contact={props.contact} text={text} className="btn-primary flex-1" />
         <button
@@ -130,7 +133,7 @@ export function RenewalMessage(
           className={`${copied ? "btn-primary" : "btn-secondary"} flex-1`}
           onClick={async () => {
             try {
-              await navigator.clipboard.writeText(text);
+              await navigator.clipboard.writeText(withFamily(text));
               setCopied(true);
               setTimeout(() => setCopied(false), 2500);
             } catch {

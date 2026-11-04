@@ -4,9 +4,18 @@ import type { Ready } from "@/lib/ready";
 import { bkkDateKey, fmtDay, fmtHours, fmtTime } from "@/lib/time";
 import { famTint, initials } from "@/lib/glassTint";
 import { SoundLink } from "./glass/SoundLink";
+import { FamilyShare } from "./FamilyShare";
 
 /** A family: brothers and sisters sharing hours, or one student. */
-export type Family = { key: string; name: string; students: Student[]; account?: AccountMoney; slot: number };
+export type Family = {
+  key: string;
+  name: string;
+  students: Student[];
+  account?: AccountMoney;
+  slot: number;
+  /** The family page: its link (if made) and whether the parent has opened it. */
+  page?: { accountId: string; token: string | null; opened: boolean };
+};
 
 export function firstNext(f: Family, nextOf: Map<string, Lesson>): Lesson | undefined {
   return f.students
@@ -153,6 +162,18 @@ export function FamilyCard({
           </span>
         ) : null}
       </div>
+
+      {f.page ? (
+        <FamilyShare
+          accountId={f.page.accountId}
+          names={f.students.map((s) => s.first_name).join(" & ")}
+          parentName={first.parent_name}
+          contactApp={first.contact_app}
+          contact={first.contact}
+          initialToken={f.page.token}
+          opened={f.page.opened}
+        />
+      ) : null}
     </article>
   );
 }

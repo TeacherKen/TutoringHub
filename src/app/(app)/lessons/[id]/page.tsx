@@ -20,6 +20,7 @@ import { Avatar, ModePill } from "@/components/home/Dashboard";
 import { ReadyPill } from "@/components/glass/ReadyPill";
 import { SoundLink } from "@/components/glass/SoundLink";
 import { colourSlots } from "@/lib/studentColours";
+import { FamilyLinkProvider } from "@/components/FamilyLinkContext";
 
 export default async function LessonPage({ params }: PageProps<"/lessons/[id]">) {
   await requireTutor();
@@ -110,7 +111,14 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
       .filter(Boolean)
       .join(". ") || null;
 
-  return (
+  // The family page link for this lesson's family (for the tick box on "Send on WhatsApp / LINE").
+  const accountId = parentOf?.hour_account_id ?? null;
+  const famToken = accountId
+    ? (((await supabase.from("hour_accounts").select("family_token").eq("id", accountId).maybeSingle()).data as { family_token?: string | null } | null)?.family_token ?? null)
+    : null;
+  const famNames = students.filter((s) => accountId && s.hour_account_id === accountId).map((s) => s.first_name).join(" & ");
+
+  const page = (
     <div className="flex flex-col gap-5">
       <SoundLink href="/" sound="nav" className="inline-flex min-h-11 items-center gap-1 self-start px-1.5 font-medium text-accent">
         ‹ Home
@@ -252,5 +260,12 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
         </button>
       </form>
     </div>
+  );
+  return accountId ? (
+    <FamilyLinkProvider accountId={accountId} names={famNames || lessonNames(lesson)} initialToken={famToken}>
+      {page}
+    </FamilyLinkProvider>
+  ) : (
+    page
   );
 }

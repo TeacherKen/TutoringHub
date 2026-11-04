@@ -4,6 +4,7 @@ import { saveFinalMessage, saveLessonNote, setSent, type NoteInput } from "@/app
 import { postJson } from "@/lib/postJson";
 import { buildFeedbackPrompt, type PromptInput } from "@/lib/feedbackPrompt";
 import { SendButton } from "./SendButton";
+import { FamilyLinkTick, useWithFamily } from "./FamilyLinkContext";
 import type { ChatApp } from "@/lib/chat";
 
 type Initial = NoteInput & { final_message: string; sent_at: string | null; updated_at: string | null };
@@ -72,6 +73,7 @@ async function copy(text: string): Promise<boolean> {
 
 export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEnabled, topicSuggestions, promptContext, contact }: Props) {
   const draftKey = `th-note-${lessonId}`;
+  const withFamily = useWithFamily();
   const [note, setNote] = useState<NoteInput>(() => ({
     learned: initial.learned,
     next_time: initial.next_time,
@@ -409,6 +411,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
             placeholder={aiEnabled ? "Tap “Write parent message”, or type your own." : "Paste the polished message from ChatGPT here, then check and edit it."}
           />
         </label>
+        {finalMsg.trim() ? <FamilyLinkTick /> : null}
         <div className="flex flex-col gap-2 sm:flex-row">
           <button type="button" className="btn-primary flex-1" onClick={saveFinal} disabled={finalState !== "idle"}>
             {finalState === "saving" ? "Saving…" : finalState === "saved" ? "Saved ✓" : "Save message"}
@@ -418,7 +421,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
             className={`${flash?.startsWith("Message copied") ? "btn-primary" : "btn-secondary"} flex-1`}
             disabled={!finalMsg.trim()}
             onClick={async () => {
-              const ok = await copy(finalMsg);
+              const ok = await copy(withFamily(finalMsg));
               setFlash(ok ? "Message copied — paste it into the parent's chat." : "Couldn't copy.");
               setTimeout(() => setFlash(null), 4000);
             }}

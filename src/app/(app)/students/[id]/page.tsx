@@ -22,6 +22,7 @@ import { famTint } from "@/lib/glassTint";
 import { colourSlots } from "@/lib/studentColours";
 import { RenewalMessage } from "@/components/RenewalMessage";
 import { FamilyLink } from "@/components/FamilyLink";
+import { FamilyLinkProvider } from "@/components/FamilyLinkContext";
 import { cleanPriceOptions } from "@/lib/prices";
 import { tutorName } from "@/lib/env";
 import { roomStudent } from "@/lib/roomStudent";
@@ -90,7 +91,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
   const family = [student, ...sharingWith.map((s) => students.find((x) => x.id === s.id)).filter((x): x is typeof student => !!x)].slice(0, 3);
   const heroHours = curPkg && curPkg.hours ? { left: Math.max(0, curPkg.hours - curPkg.usedHours), of: curPkg.hours, pct: Math.min(100, Math.round((curPkg.usedHours / curPkg.hours) * 100)) } : null;
 
-  return (
+  const page = (
     <div className="flex flex-col gap-5">
       <SoundLink href="/students" sound="nav" className="inline-flex min-h-11 items-center gap-1 self-start px-1.5 font-medium text-accent">
         ‹ Students
@@ -433,6 +434,13 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         </form>
       </details>
     </div>
+  );
+  return account ? (
+    <FamilyLinkProvider accountId={account.id} names={account.students.map((x) => x.first_name).join(" & ")} initialToken={familyToken}>
+      {page}
+    </FamilyLinkProvider>
+  ) : (
+    page
   );
 }
 
