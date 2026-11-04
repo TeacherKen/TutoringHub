@@ -9,6 +9,7 @@ import { LessonAISummary } from "@/components/LessonAISummary";
 import { cleanSummary, lessonWindow } from "@/lib/lessonSummary";
 import { Materials, type MaterialView } from "@/components/Materials";
 import { Fold } from "@/components/glass/Fold";
+import { ChildTopics } from "@/components/ChildTopics";
 import { RoomControls } from "@/components/RoomControls";
 import { aiAvailable } from "@/lib/ai";
 import { progressLine } from "@/lib/progress";
@@ -213,6 +214,11 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
               allowEmoji: settings.allow_emoji,
               template: settings.prompt_template,
             }}
+          />
+          <ChildTopics
+            lessonId={lesson.id}
+            lessonTopics={lesson.topics ?? []}
+            kids={inLesson.map((ls) => ({ id: ls.student_id, name: ls.students?.first_name ?? "Student", topics: ls.topics ?? null }))}
           />
 
           {inLesson.length ? (

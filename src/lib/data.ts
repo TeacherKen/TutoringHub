@@ -28,6 +28,8 @@ export type Student = {
 export type LessonStudent = {
   student_id: string;
   uses_hours: boolean;
+  /** This child's own topics in a shared lesson (update 0024); empty = the lesson's topics. */
+  topics?: string[] | null;
   match_source: "auto" | "manual";
   students: Pick<Student, "first_name" | "mode" | "place" | "source" | "parent_name" | "level"> | null;
 };
@@ -79,7 +81,7 @@ export type Settings = {
 };
 
 const LESSON_SELECT =
-  "*, lesson_students(student_id, uses_hours, match_source, students(first_name, mode, place, source, parent_name, level))";
+  "*, lesson_students(student_id, uses_hours, match_source, topics, students(first_name, mode, place, source, parent_name, level))";
 
 export async function getLessons(fromIso: string, toIso: string, opts: { includeIgnored?: boolean } = {}) {
   const supabase = await createClient();
@@ -301,14 +303,19 @@ export async function getProgress(studentIds: string[]) {
   const supabase = await createClient();
   const [saved, links] = await Promise.all([
     supabase.from("student_topics").select("student_id, name, status, updated_at").in("student_id", studentIds),
-    supabase.from("lesson_students").select("student_id, lessons!inner(start_at, topics, ignored, status)").in("student_id", studentIds),
+    supabase.from("lesson_students").select("student_id, topics, lessons!inner(start_at, topics, ignored, status)").in("student_id", studentIds),
   ]);
-  const rows = (links.data ?? []) as unknown as { student_id: string; lessons: { start_at: string; topics: string[] | null; ignored: boolean; status: string } }[];
+  const rows = (links.data ?? []) as unknown as {
+    student_id: string;
+    /** This child's own topics in a shared lesson (update 0024); empty = the lesson's topics. */
+    topics?: string[] | null;
+    lessons: { start_at: string; topics: string[] | null; ignored: boolean; status: string };
+  }[];
   for (const id of studentIds) {
     const mine = ((saved.data ?? []) as Saved[]).filter((s) => s.student_id === id);
     const lessons = rows
       .filter((r) => r.student_id === id && !r.lessons.ignored && r.lessons.status !== "cancelled" && r.lessons.status !== "scheduled")
-      .map((r) => r.lessons);
+      .map((r) => ({ ...r.lessons, topics: r.topics?.length ? r.topics : r.lessons.topics }));
     out.set(id, mergeProgress(mine, lessons));
   }
   return { byStudent: out, ready: !saved.error };

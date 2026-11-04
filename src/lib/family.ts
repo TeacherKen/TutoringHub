@@ -43,7 +43,7 @@ type LessonRow = {
   topics: string[] | null;
   ignored: boolean;
   in_calendar: boolean;
-  lesson_students: { student_id: string; uses_hours: boolean }[];
+  lesson_students: { student_id: string; uses_hours: boolean; topics?: string[] | null }[];
 };
 
 export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
@@ -71,7 +71,7 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   const [{ data: links }, { data: adj }, { data: saved }, { data: settings }, { data: factRows }] = await Promise.all([
     admin
       .from("lesson_students")
-      .select("lessons!inner(id, start_at, end_at, status, length_hours, final_message, sent_at, homework, topics, ignored, in_calendar, lesson_students(student_id, uses_hours))")
+      .select("lessons!inner(id, start_at, end_at, status, length_hours, final_message, sent_at, homework, topics, ignored, in_calendar, lesson_students(student_id, uses_hours, topics))")
       .in("student_id", accountIds)
       .gte("lessons.start_at", since),
     admin.from("hour_adjustments").select("hours").eq("hour_account_id", acct.id),
@@ -154,7 +154,13 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
     stars: stats.stars,
     progress: mergeProgress(
       savedRows.filter((s) => s.student_id === c.id),
-      all.filter((l) => l.status !== "cancelled" && l.status !== "scheduled" && l.lesson_students.some((x) => x.student_id === c.id)),
+      all
+        .filter((l) => l.status !== "cancelled" && l.status !== "scheduled" && l.lesson_students.some((x) => x.student_id === c.id))
+        // A child's own topics in a shared lesson (update 0024), otherwise the lesson's.
+        .map((l) => {
+          const own = l.lesson_students.find((x) => x.student_id === c.id)?.topics;
+          return own?.length ? { ...l, topics: own } : l;
+        }),
     ),
   }));
 

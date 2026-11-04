@@ -210,3 +210,14 @@ export async function setLessonReady(form: FormData): Promise<void> {
   revalidatePath("/", "layout");
 }
 
+
+/** Brothers and sisters in one lesson: which of the lesson's topics this child worked on (update 0024). */
+export async function setChildTopics(lessonId: string, studentId: string, topics: string[]): Promise<{ ok: boolean }> {
+  await assertTutor();
+  if (!/^[0-9a-f-]{36}$/i.test(lessonId) || !/^[0-9a-f-]{36}$/i.test(studentId)) return { ok: false };
+  const clean = [...new Set(topics.map((t) => String(t).trim().toLowerCase().slice(0, 80)).filter(Boolean))].slice(0, 12);
+  const supabase = await createClient();
+  const { error } = await supabase.from("lesson_students").update({ topics: clean.length ? clean : null }).eq("lesson_id", lessonId).eq("student_id", studentId);
+  revalidatePath("/", "layout");
+  return { ok: !error };
+}

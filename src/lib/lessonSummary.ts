@@ -26,6 +26,8 @@ export type LessonSummary = {
   went_well: string[];
   mistakes: { question: string; what_happened: string; why: string }[];
   topics: string[];
+  /** With brothers and sisters in one lesson: each child's own topics (by first name). */
+  topics_by_child?: { child: string; topics: string[] }[];
   how_it_went: "great" | "good" | "needs_practice";
   homework: string;
   next_time: string;
@@ -61,13 +63,24 @@ const SUMMARY_SCHEMA = {
         },
       },
       topics: { type: "array", items: { type: "string" }, description: "1-4 short topic names in lower case, e.g. 'fractions of a set', 'bar models'." },
+      topics_by_child: {
+        type: "array",
+        description:
+          "One entry per child in the lesson with the topics THAT child worked on (look at whose work each picture is, e.g. \"{child1}'s worksheet\"). Children in the same lesson often work on different topics; never give a child a topic only another child did.",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: { child: { type: "string", description: "The child's placeholder, e.g. {child1}." }, topics: { type: "array", items: { type: "string" } } },
+          required: ["child", "topics"],
+        },
+      },
       how_it_went: { type: "string", enum: ["great", "good", "needs_practice"] },
       homework: { type: "string", description: "Homework if the tutor's notes give any; otherwise a short suggestion or empty string." },
       next_time: { type: "string", description: "What to teach or practise next lesson, specific (1-2 sentences)." },
       parent_message: { type: "string", description: "The message to the parent, following the parent message instructions exactly." },
       worksheet_prompt: { type: "string", description: "A complete prompt the tutor can paste into ChatGPT, Claude or Gemini to create the next worksheet as a PDF, following the worksheet prompt instructions." },
     },
-    required: ["what_we_did", "went_well", "mistakes", "topics", "how_it_went", "homework", "next_time", "parent_message", "worksheet_prompt"],
+    required: ["what_we_did", "went_well", "mistakes", "topics", "topics_by_child", "how_it_went", "homework", "next_time", "parent_message", "worksheet_prompt"],
 } as const;
 
 const SYSTEM = `You are the teaching assistant of a private maths tutor (Singapore Maths, primary level) in Bangkok.
@@ -255,6 +268,13 @@ export function cleanSummary(raw: unknown): LessonSummary | null {
           .filter((m) => m.question || m.what_happened)
       : [],
     topics: list(r.topics, 4).map((t) => t.toLowerCase()),
+    topics_by_child: Array.isArray(r.topics_by_child)
+      ? r.topics_by_child
+          .slice(0, 6)
+          .map((x) => (x ?? {}) as Record<string, unknown>)
+          .map((x) => ({ child: str(x.child, 60), topics: list(x.topics, 4).map((t) => t.toLowerCase()) }))
+          .filter((x) => x.child && x.topics.length)
+      : [],
     how_it_went: r.how_it_went === "great" || r.how_it_went === "needs_practice" ? r.how_it_went : "good",
     homework: str(r.homework, 500),
     next_time: str(r.next_time, 500),
