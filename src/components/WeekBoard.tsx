@@ -54,7 +54,7 @@ export function WeekBoard({
 
   return (
     <div className="hidden flex-wrap items-start gap-5 lg:flex">
-      <div id="calendar" className="glass-hi min-w-0 flex-[999_1_640px] scroll-mt-24 overflow-x-auto rounded-[26px] p-2.5">
+      <div id="calendar" className="glass-hi min-w-0 flex-[999_1_780px] scroll-mt-24 overflow-x-auto rounded-[26px] p-2.5">
         <div className="min-w-[760px]">
           {/* Day headings */}
           <div className="grid grid-cols-[56px_repeat(7,minmax(0,1fr))]">
@@ -120,7 +120,7 @@ export function WeekBoard({
         </div>
       </div>
 
-      <aside className="glass flex min-w-0 flex-[1_1_280px] flex-col gap-3.5 rounded-[26px] p-[22px] lg:sticky lg:top-28">
+      <aside className="glass flex min-w-0 flex-[1_1_280px] flex-col gap-3.5 rounded-[26px] p-[22px] xl:sticky xl:top-28">
         {sel ? <Panel key={sel.id} e={sel} /> : <p className="text-[var(--th-text-3)]">Tap a lesson to see it here.</p>}
         <div className="my-1.5 h-px bg-white/10" />
         <div className="flex flex-col gap-2 text-[13px] text-[var(--th-text-3)]">

@@ -61,12 +61,23 @@ export const FEEL_KEY = "tutoringhub.feel";
 export type Feel = { glass: "full" | "light"; motion: boolean };
 export const FEEL_DEFAULTS: Feel = { glass: "full", motion: true };
 
+/** Touch screens (the iPad) start on light glass: less blur keeps them quick. The Mac starts on full. */
+function deviceDefaults(): Feel {
+  let touch = false;
+  try {
+    touch = window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    /* ignore */
+  }
+  return { ...FEEL_DEFAULTS, glass: touch ? "light" : "full" };
+}
+
 export function readFeel(): Feel {
   try {
     const raw = localStorage.getItem(FEEL_KEY);
-    return raw ? { ...FEEL_DEFAULTS, ...JSON.parse(raw) } : { ...FEEL_DEFAULTS };
+    return raw ? { ...deviceDefaults(), ...JSON.parse(raw) } : deviceDefaults();
   } catch {
-    return { ...FEEL_DEFAULTS };
+    return deviceDefaults();
   }
 }
 
@@ -90,5 +101,5 @@ export function saveFeel(next: Partial<Feel>): Feel {
 }
 
 function feelBootScript(): string {
-  return `try{var f=JSON.parse(localStorage.getItem(${JSON.stringify(FEEL_KEY)})||"{}");var c=document.documentElement.classList;if(f.glass==="light")c.add("glass-lite");if(f.motion===false)c.add("motion-off")}catch(e){}`;
+  return `try{var f=JSON.parse(localStorage.getItem(${JSON.stringify(FEEL_KEY)})||"{}");var c=document.documentElement.classList;var lite=f.glass?f.glass==="light":matchMedia("(pointer: coarse)").matches;if(lite)c.add("glass-lite");if(f.motion===false)c.add("motion-off")}catch(e){}`;
 }

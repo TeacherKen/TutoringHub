@@ -365,7 +365,7 @@ export function MonthPanel({ month, earned, classes, hours, week }: { month: str
         <h2 id="month-h" className="font-display text-[22px] font-semibold">
           {month} so far
         </h2>
-        <SoundLink href="/money" sound="nav" className="font-semibold text-accent">
+        <SoundLink href="/money" sound="nav" className="-my-2 inline-flex min-h-11 items-center font-semibold text-accent">
           Money
         </SoundLink>
       </div>
@@ -396,7 +396,7 @@ export function WeekList({ days, ready, slotOf }: { days: [string, Lesson[]][]; 
           </span>
         ) : null}
         <span className="flex-1" />
-        <SoundLink href="/week" sound="nav" className="font-semibold text-accent">
+        <SoundLink href="/week" sound="nav" className="inline-flex min-h-11 items-center font-semibold text-accent">
           Full week
         </SoundLink>
       </div>

@@ -444,7 +444,7 @@ function IPadSetup({ students }: { students: Kid[] }) {
         </ol>
       </div>
       {shown ? (
-        <button type="button" className="text-sm text-accent underline" onClick={() => void navigator.clipboard?.writeText(shown.url)}>
+        <button type="button" className="min-h-11 self-start text-sm text-accent underline" onClick={() => void navigator.clipboard?.writeText(shown.url)}>
           Copy link instead (to AirDrop or send it)
         </button>
       ) : null}

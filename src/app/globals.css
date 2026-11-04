@@ -358,6 +358,9 @@ html:has(.th-glass) body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 30px 60px -30px rgba(0, 0, 0, 0.75);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .orb {
+    display: none;
+  }
   .glass,
   .th-glass .card {
     background: color-mix(in srgb, var(--surface) 92%, transparent);
@@ -812,4 +815,23 @@ html:has(.th-glass) body {
 .motion-off .lift:hover,
 .motion-off .game:hover {
   transform: none;
+}
+
+/* Very old browsers without color-mix(): plain dark boxes instead of see-through ones */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  .th-glass {
+    --surface: #0f2527;
+  }
+}
+/* Windows High Contrast / forced colours: keep borders so boxes and buttons are still visible */
+@media (forced-colors: active) {
+  .glass,
+  .glass-hi,
+  .pill,
+  .tab,
+  .seg,
+  .sw,
+  .game {
+    border: 1px solid CanvasText;
+  }
 }
