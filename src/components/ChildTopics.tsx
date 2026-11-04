@@ -22,7 +22,11 @@ export function ChildTopics({ lessonId, kids, lessonTopics }: { lessonId: string
     play("toggle");
     setMine((m) => ({ ...m, [kid]: next }));
     start(async () => {
-      await setChildTopics(lessonId, kid, next);
+      const r = await setChildTopics(lessonId, kid, next).catch(() => ({ ok: false }));
+      if (!r?.ok) {
+        setMine((m) => ({ ...m, [kid]: now }));
+        alert("Couldn't save that — check the internet and try again.");
+      }
     });
   }
 

@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { RoomData } from "@/lib/room";
 import { createClient } from "@/lib/supabase/client";
@@ -21,8 +21,10 @@ const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("en-GB", { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, ...opts }).format(new Date(iso));
 
 type Tab = "lesson" | "practice" | "games";
+const noSubscribe = () => () => {};
 
 export function Room({ token, initial, initialTab }: { token: string; initial: RoomData; initialTab?: Tab }) {
+  const onDevice = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [room, setRoom] = useState(initial);
   const [tab, setTab] = useState<Tab>(initialTab ?? (initial.gamesOpen ? "games" : "lesson"));
   const [game, setGame] = useState<GameId | null>(null);
@@ -237,8 +239,8 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
           {room.lesson ? (
             <p className="text-sm text-muted">
               {room.lesson.when === "now" ? "Lesson now" : room.lesson.when === "next" ? "Next lesson" : "Last lesson"} ·{" "}
-              {fmt(room.lesson.start_at, { weekday: "long", day: "numeric", month: "short" })} ·{" "}
-              {fmt(room.lesson.start_at, { hour: "2-digit", minute: "2-digit", hour12: false })}
+              {/* The child's own time zone, so it's only written once the page is on their device. */}
+              {onDevice ? `${fmt(room.lesson.start_at, { weekday: "long", day: "numeric", month: "short" })} · ${fmt(room.lesson.start_at, { hour: "2-digit", minute: "2-digit", hour12: false })}` : "…"}
             </p>
           ) : (
             <p className="text-sm text-muted">Maths with Mr Ken</p>

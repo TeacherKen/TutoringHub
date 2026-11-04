@@ -2,7 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { answerFor, cleanMode, cleanTables, FAST_MS, isKind, kindsFor, parseFact, type FactState, type GameMode, type QuestionKind } from "@/lib/facts";
-import { saveFacts, saveRound } from "@/lib/practice";
+import { saveFacts, saveRound, tooManyRounds } from "@/lib/practice";
 
 // Head-to-head matches: two to four children race to score `target` goals, each on their own
 // device, each with their own times tables. The server checks every answer and decides who won.
@@ -188,6 +188,9 @@ export async function answerMatch(token: string, device: string, fact: string, k
   if (m.status !== "playing") return { ok: false, done: m.status === "done", winner: m.winner };
   if (m.starts_at && Date.parse(m.starts_at) - 1500 > Date.now()) return { ok: false };
   const admin = createAdminClient();
+  const mine = (await playerRows(m.id)).find((r) => r.device === device);
+  // The same daily limit as practice, so a copied match link can't pile up fake stars.
+  if (!mine || (await tooManyRounds(mine.student_id))) return { ok: false };
   // Read, add the goal, write back — but only if nobody changed this player's score in between
   // (two answers arriving at once); if they did, read again and try again.
   let saved: { me: PlayerRow; scored: NonNullable<ReturnType<typeof scoreAnswer>> } | null = null;
@@ -236,6 +239,7 @@ export async function rematch(token: string): Promise<{ token?: string }> {
   if (m.next_token) return { token: m.next_token };
   const admin = createAdminClient();
   const rows = await playerRows(m.id);
+  for (const r of rows) if (await tooManyRounds(r.student_id)) return {};
   const fresh = randomBytes(24).toString("base64url");
   const allJoined = rows.every((r) => r.device);
   const { data: n, error } = await admin

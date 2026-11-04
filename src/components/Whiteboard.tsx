@@ -628,7 +628,10 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       if (busy) return;
       busy = true;
       try {
-        const res = await fetch(`${api}?after=${rev.current}${needUrls ? "&urls=1" : ""}`, { cache: "no-store" });
+        // Ask from a little earlier: saves don't always finish in number order, so a line numbered
+        // just below the newest one can arrive late. Lines already here are skipped below.
+        const seen = rev.current;
+        const res = await fetch(`${api}?after=${Math.max(0, seen - 50)}${needUrls ? "&urls=1" : ""}`, { cache: "no-store" });
         if (!res.ok || !alive) return;
         const data = (await res.json()) as BoardPoll;
         if (!data.board) {
@@ -683,7 +686,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         for (const m of data.marks) {
           if (m.deleted) {
             changed = marks.current.delete(m.id) || changed;
-          } else if (!removed.current.has(m.id)) {
+          } else if (!removed.current.has(m.id) && !((m.rev ?? 0) <= seen && marks.current.has(m.id))) {
             marks.current.set(m.id, m);
             changed = true;
           }

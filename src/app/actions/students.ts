@@ -127,7 +127,8 @@ export async function setHourSharing(form: FormData): Promise<void> {
     let target = other?.hour_account_id as string | null;
     if (!target) {
       const { data: a } = await supabase.from("hour_accounts").insert({ name: "Shared" }).select("id").single();
-      target = a!.id;
+      if (!a) throw new Error("Couldn't share the hours. Please try again.");
+      target = a.id;
       await supabase.from("students").update({ hour_account_id: target }).eq("id", withId);
     }
     const old = me.hour_account_id as string | null;
@@ -159,7 +160,8 @@ export async function setHourSharing(form: FormData): Promise<void> {
       if (!count) return; // already has their own hours
     }
     const { data: a } = await supabase.from("hour_accounts").insert({ name: me.first_name }).select("id").single();
-    await supabase.from("students").update({ hour_account_id: a!.id }).eq("id", id);
+    if (!a) throw new Error("Couldn't split the hours. Please try again.");
+    await supabase.from("students").update({ hour_account_id: a.id }).eq("id", id);
     if (old) await renameAccount(old);
   }
   revalidatePath("/", "layout");

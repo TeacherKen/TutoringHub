@@ -185,14 +185,16 @@ export async function getAccountSummaries(): Promise<AccountSummary[]> {
     // Page through in blocks of 1,000 (the database's maximum per request).
     const data: { id: string; start_at: string; end_at: string; status: string; length_hours: number | null; lesson_students: unknown }[] = [];
     for (let fromRow = 0; ; fromRow += 1000) {
-      const { data: page } = await supabase
+      const { data: page, error: pageErr } = await supabase
         .from("lessons")
         .select("id, start_at, end_at, status, length_hours, lesson_students(student_id, uses_hours)")
         .gte("start_at", fromIso)
         .in("status", [...CHARGED_STATUSES])
         .eq("ignored", false)
         .order("start_at")
+        .order("id")
         .range(fromRow, fromRow + 999);
+      if (pageErr) throw new Error("Couldn't load the hours. Please refresh.");
       data.push(...(page ?? []));
       if (!page || page.length < 1000) break;
     }
@@ -349,14 +351,16 @@ export async function getMoneyData() {
   });
   const past: Row[] = [];
   for (let fromRow = 0; ; fromRow += 1000) {
-    const { data: page } = await supabase
+    const { data: page, error: pastErr } = await supabase
       .from("lessons")
       .select("id, start_at, end_at, status, length_hours, lesson_students(student_id, uses_hours)")
       .gte("start_at", bkkStartOfDay(from).toISOString())
       .in("status", [...CHARGED_STATUSES])
       .eq("ignored", false)
       .order("start_at")
+      .order("id")
       .range(fromRow, fromRow + 999);
+    if (pastErr) throw new Error("Couldn't load the money numbers. Please refresh.");
     past.push(...((page ?? []) as Row[]));
     if (!page || page.length < 1000) break;
   }

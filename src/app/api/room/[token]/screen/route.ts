@@ -19,6 +19,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/room/[token]/sc
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
+  if (!body || typeof body !== "object") return NextResponse.json({ ok: false }, { status: 400 });
   const game = typeof body.game === "string" && GAMES.has(body.game) ? body.game : null;
   const html = typeof body.html === "string" ? body.html : null;
   if (!game || !html || html.length > MAX_CHARS) return NextResponse.json({ ok: false }, { status: 400 });

@@ -52,7 +52,7 @@ export async function setStudentSlides(studentId: string, url: string, label: st
   if (clean) {
     try {
       const u = new URL(clean);
-      if (u.protocol === "https:" || u.protocol === "http:") safe = u.toString();
+      if (u.protocol === "https:") safe = u.toString();
     } catch {
       /* not a link */
     }

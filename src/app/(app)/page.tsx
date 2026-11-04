@@ -82,7 +82,7 @@ export default async function Home() {
   const colours = colourSlots({ students, packages: money.packages, accountNames: accountName });
   const slotOf = (l: Lesson) => (l.lesson_students[0] ? colours.slotOfStudent(l.lesson_students[0].student_id) : 8);
   const shown = current ?? next;
-  const weekCount = matched.filter((l) => bkkDateKey(l.start_at) >= mondayOf(today) && !l.status.startsWith("cancelled")).length;
+  const weekCount = matched.filter((l) => bkkDateKey(l.start_at) >= mondayOf(today) && bkkDateKey(l.start_at) < addDays(mondayOf(today), 7) && !l.status.startsWith("cancelled")).length;
 
   return (
     <div className="flex flex-col gap-6">

@@ -252,8 +252,15 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
 
   async function saveFinal() {
     setFinalState("saving");
-    const r = await saveFinalMessage(lessonId, finalMsg);
-    setFinalState(r.ok ? "saved" : "idle");
+    try {
+      const r = await saveFinalMessage(lessonId, finalMsg);
+      setFinalState(r.ok ? "saved" : "idle");
+      return Boolean(r.ok);
+    } catch {
+      setFinalState("idle");
+      setFlash("Couldn't save — check the internet and try again.");
+      return false;
+    }
   }
 
   // 📮 Send as a lesson update: save the message, tick it as sent (so it shows on the family page with this
@@ -262,8 +269,14 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
   async function sendUpdate() {
     if (!family || !finalMsg.trim()) return;
     setUpdating(true);
-    if (finalState !== "saved") await saveFinal();
-    const [r, token] = await Promise.all([setSent(lessonId, true), family.getToken()]);
+    if (finalState !== "saved" && !(await saveFinal())) return setUpdating(false);
+    let r: Awaited<ReturnType<typeof setSent>>, token: string | null;
+    try {
+      [r, token] = await Promise.all([setSent(lessonId, true), family.getToken()]);
+    } catch {
+      setUpdating(false);
+      return setFlash("Couldn't send — check the internet and try again.");
+    }
     setUpdating(false);
     if (r.ok) setSentAt(r.sent_at);
     if (!token) return setFlash("Couldn't make the family link. Try again.");

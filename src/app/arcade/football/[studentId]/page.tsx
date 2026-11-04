@@ -1,3 +1,4 @@
+import { requireTutor } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ArcadeShell } from "@/components/games/Arcade";
@@ -6,6 +7,7 @@ import { MakeRoomLink } from "@/components/games/MakeRoomLink";
 
 /** ⚽ Football Times Tables for one child on Mr Ken's iPad. Their chart and trophies update as they play. */
 export default async function ArcadeFootballPage({ params }: PageProps<"/arcade/football/[studentId]">) {
+  await requireTutor();
   const { studentId } = await params;
   if (!/^[0-9a-f-]{36}$/.test(studentId)) notFound();
   const supabase = await createClient();

@@ -2,7 +2,7 @@
 // who the income comes from, and what each pays per hour of Mr Ken's time.
 // Pure functions (no database), so they can be tested.
 import { computeEarnings, type AccountMoney, type EarnAccount, type EarnLesson, type EarnPackage, type EarnStudent } from "./earnings";
-import { addDays, bkkDateKey, mondayOf } from "./time";
+import { addDays, mondayOf } from "./time";
 import { colourSlots } from "./studentColours";
 
 export type DashGroup = {

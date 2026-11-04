@@ -104,7 +104,7 @@ export async function setUsesHours(form: FormData): Promise<void> {
 function safeLink(raw: string): string | null {
   try {
     const u = new URL(raw.trim());
-    return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : null;
+    return u.protocol === "https:" ? u.toString() : null;
   } catch {
     return null;
   }
