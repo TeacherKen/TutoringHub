@@ -149,3 +149,27 @@ describe("moving several things at once", () => {
     expect(markBatches(Array.from({ length: 120 }, (_, i) => ({ id: String(i), data: a })))).toHaveLength(3);
   });
 });
+
+describe("scaleGroup (grow or shrink several things together)", () => {
+  it("grows from the top-left corner and keeps the shape", async () => {
+    const { scaleGroup, groupBounds } = await import("@/lib/boardShared");
+    const list = [
+      { t: "pen" as const, c: "#1f2937", w: 0.003, p: [0.1, 0.1, 0.2, 0.2] },
+      { t: "img" as const, k: "img-x.jpg", x: 0.2, y: 0.1, w: 0.1, h: 0.1 },
+    ];
+    const out = scaleGroup(list, 2, 0.75);
+    const b = groupBounds(out, 0.75);
+    expect(b.x1).toBeCloseTo(0.1, 2);
+    expect(b.y1).toBeCloseTo(0.1, 2);
+    expect(b.x2).toBeCloseTo(0.5, 2);
+    expect(b.y2).toBeCloseTo(0.3, 1); // pen bounds include the line's thickness
+    expect((out[0] as { w: number }).w).toBeCloseTo(0.006, 4);
+  });
+  it("never leaves the page", async () => {
+    const { scaleGroup, groupBounds } = await import("@/lib/boardShared");
+    const out = scaleGroup([{ t: "rect" as const, c: "#1f2937", w: 0.003, p: [0.5, 0.5, 0.8, 0.8] }], 5, 0.75);
+    const b = groupBounds(out, 0.75);
+    expect(b.x2).toBeLessThanOrEqual(1.01);
+    expect(b.y2).toBeLessThanOrEqual(1.01);
+  });
+});

@@ -33,6 +33,7 @@ import {
   type MarkData,
   type StrokeData,
   type Tool,
+  scaleGroup,
 } from "@/lib/boardShared";
 
 // Smart slides: page pictures with a drawing layer on top. The student and Mr Ken
@@ -63,7 +64,20 @@ type Props = {
 type Drag =
   | { mode: "handle"; id: string; handle: number; x: number; y: number; preview: MarkData | null }
   | { mode: "move"; ids: string[]; x: number; y: number; previews: Map<string, MarkData> | null }
+  /** The corner dot of the selection: make everything selected bigger or smaller together. */
+  | { mode: "scale"; ids: string[]; x1: number; y1: number; x2: number; y2: number; previews: Map<string, MarkData> | null }
   | { mode: "box"; x: number; y: number; x2: number; y2: number; base: string[]; tap: string | null };
+
+/**
+ * Where the "grow / shrink" dot goes (screen pixels): the bottom-right corner of what's selected.
+ * Shown for several things, or for one thing without its own resize dots (handwriting, typing).
+ */
+function scaleCorner(list: MarkData[], W: number, H: number): [number, number] | null {
+  if (!list.length || (list.length === 1 && handlesOf(list[0]).length)) return null;
+  const g = groupBounds(list, H / W);
+  const pad = list.length > 1 ? 8 : 4;
+  return [g.x2 * W + pad, g.y2 * H + pad];
+}
 
 const GRID_CELLS = 32; // squares across a squared-paper page
 const GRID_LINE = "#d6def0";
@@ -303,7 +317,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     const d = drag.current;
     // While dragging, things being moved or resized are drawn where they're going.
     const shown = (m: Mark): MarkData =>
-      d?.mode === "handle" && d.id === m.id && d.preview ? d.preview : d?.mode === "move" ? (d.previews?.get(m.id) ?? m.data) : m.data;
+      d?.mode === "handle" && d.id === m.id && d.preview ? d.preview : d?.mode === "move" || d?.mode === "scale" ? (d.previews?.get(m.id) ?? m.data) : m.data;
     for (const m of marks.current.values()) {
       if (m.page !== pg) continue;
       drawMark(ctx, shown(m), W, H, 1, picture);
@@ -345,6 +359,20 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         ctx.fillRect(g.x1 * W - 8, g.y1 * H - 8, (g.x2 - g.x1) * W + 16, (g.y2 - g.y1) * H + 16);
         ctx.setLineDash([6, 4]);
         ctx.strokeRect(g.x1 * W - 8, g.y1 * H - 8, (g.x2 - g.x1) * W + 16, (g.y2 - g.y1) * H + 16);
+      }
+      // The corner dot: drag it to make what's selected bigger or smaller.
+      const corner = scaleCorner(sel.map(shown), W, H);
+      if (corner) {
+        ctx.setLineDash([]);
+        ctx.fillStyle = "#0f766e";
+        ctx.beginPath();
+        ctx.arc(corner[0], corner[1], 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.strokeStyle = "#0f766e";
+        ctx.lineWidth = 1.5;
       }
       // The box being dragged to select things.
       if (d?.mode === "box") {
@@ -935,6 +963,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   /** ✋ Move, finger or mouse down: resize, move what's selected, pick one thing, or start a box. */
   function moveToolDown(x: number, y: number, shift: boolean) {
     const sel = selectedHere();
+    // The corner dot of the selection: grow or shrink everything selected together.
+    const W0 = sizeRef.current.W || 1;
+    const H0 = sizeRef.current.H || 1;
+    const corner = !shift && board ? scaleCorner(sel.map((m) => m.data), W0, H0) : null;
+    if (corner && board && Math.hypot(corner[0] - x * W0, corner[1] - y * H0) < 18) {
+      const g = groupBounds(sel.map((m) => m.data), board.aspect);
+      drag.current = { mode: "scale", ids: sel.map((m) => m.id), x1: g.x1, y1: g.y1, x2: g.x2, y2: g.y2, previews: null };
+      return;
+    }
     // A resize dot of the one selected line, box or picture?
     if (sel.length === 1 && !shift) {
       const W = sizeRef.current.W || 1;
@@ -972,6 +1009,13 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       const m = marks.current.get(d.id);
       if (!m) return;
       d.preview = moveHandle(m.data, d.handle, x, y, board.aspect);
+    } else if (d.mode === "scale") {
+      const list = d.ids.map((id) => marks.current.get(id)).filter((m): m is Mark => !!m);
+      if (!list.length) return;
+      // How far the corner was pulled, compared with the group's size (the bigger of across / down).
+      const k = Math.max((x - d.x1) / Math.max(1e-4, d.x2 - d.x1), (y - d.y1) / Math.max(1e-4, d.y2 - d.y1));
+      const scaled = scaleGroup(list.map((m) => m.data), k, board.aspect);
+      d.previews = new Map(list.map((m, i) => [m.id, scaled[i]]));
     } else {
       const list = d.ids.map((id) => marks.current.get(id)).filter((m): m is Mark => !!m);
       if (!list.length) return;
@@ -989,7 +1033,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     if (d.mode === "handle") {
       const m = marks.current.get(d.id);
       if (changed(m, d.preview)) select(replaceMarks([[m, d.preview!]]).map((n) => n.id));
-    } else if (d.mode === "move") {
+    } else if (d.mode === "move" || d.mode === "scale") {
       const pairs: [Mark, MarkData][] = [];
       for (const [id, data] of d.previews ?? []) {
         const m = marks.current.get(id);
@@ -1101,8 +1145,12 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       if (!drag.current) {
         // Mouse hovering: a move arrow over things, a crosshair over empty space (drag a box there).
         if (e.pointerType === "mouse" && canvas.current) {
+          const W1 = sizeRef.current.W || 1;
+          const H1 = sizeRef.current.H || 1;
+          const corner = scaleCorner(selectedHere().map((m) => m.data), W1, H1);
+          const onCorner = !!corner && Math.hypot(corner[0] - x * W1, corner[1] - y * H1) < 18;
           const over = !!pickAt(x, y) || inGroupBox(selectedHere(), x, y);
-          canvas.current.style.cursor = over ? "move" : "crosshair";
+          canvas.current.style.cursor = onCorner ? "nwse-resize" : over ? "move" : "crosshair";
         }
         return;
       }

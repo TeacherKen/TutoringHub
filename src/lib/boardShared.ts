@@ -226,6 +226,26 @@ export function translateGroup(list: MarkData[], dx: number, dy: number, aspect:
   return list.map((m) => shiftMark(m, ddx, ddy));
 }
 
+/**
+ * Several marks made bigger or smaller together (✋ Move, the corner dot): everything grows from the
+ * group's top-left corner by `k`, keeping the group's shape. Pen and text sizes grow too (within what
+ * the server accepts), and the group never leaves the page.
+ */
+export function scaleGroup(list: MarkData[], k: number, aspect: number): MarkData[] {
+  if (!list.length) return [];
+  const b = groupBounds(list, aspect);
+  const bw = Math.max(1e-4, b.x2 - b.x1);
+  const bh = Math.max(1e-4, b.y2 - b.y1);
+  const kk = Math.max(0.2, Math.min(k, 6, (1 - b.x1) / bw, (1 - b.y1) / bh));
+  const X = (v: number) => r4b(clamp01(b.x1 + (v - b.x1) * kk));
+  const Y = (v: number) => r4b(clamp01(b.y1 + (v - b.y1) * kk));
+  return list.map((m) => {
+    if (m.t === "img") return { ...m, x: X(m.x), y: Y(m.y), w: r4b(Math.max(0.03, Math.min(1, m.w * kk))), h: r4b(Math.max(0.03, Math.min(1, m.h * kk))) };
+    if (m.t === "text") return { ...m, x: X(m.x), y: Y(m.y), s: r4b(Math.max(0.01, Math.min(0.1, m.s * kk))) };
+    return { ...m, w: r4b(Math.max(0.0005, Math.min(0.05, m.w * kk))), p: m.p.map((v, i) => (i % 2 ? Y(v) : X(v))) };
+  });
+}
+
 /** The same mark moved by (dx, dy), kept on the page. */
 export function translateMark(m: MarkData, dx: number, dy: number, aspect: number): MarkData {
   return translateGroup([m], dx, dy, aspect)[0];
