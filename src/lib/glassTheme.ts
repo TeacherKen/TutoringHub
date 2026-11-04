@@ -15,6 +15,9 @@ export const GLASS_THEMES: GlassTheme[] = [
   { id: "graphite", name: "Graphite", bg: "#0C0F13", accent: "#E2E8F0", ink: "#0F172A", orbs: ["100,116,139", "71,85,105", "148,163,184"] },
 ];
 
+/** The children's room: always the football game's colours (navy stadium, gold, pitch green), never the tutor's theme. */
+export const STADIUM: GlassTheme = { id: "stadium", name: "Stadium", bg: "#06122E", accent: "#FFC629", ink: "#0B1D42", orbs: ["37,99,235", "34,197,94", "255,198,41"] };
+
 export const THEME_KEY = "tutoringhub.theme";
 export const themeById = (id: string | null | undefined) => GLASS_THEMES.find((t) => t.id === id) ?? GLASS_THEMES[0];
 
@@ -100,6 +103,6 @@ export function saveFeel(next: Partial<Feel>): Feel {
   return f;
 }
 
-function feelBootScript(): string {
+export function feelBootScript(): string {
   return `try{var f=JSON.parse(localStorage.getItem(${JSON.stringify(FEEL_KEY)})||"{}");var c=document.documentElement.classList;var lite=f.glass?f.glass==="light":matchMedia("(pointer: coarse)").matches;if(lite)c.add("glass-lite");if(f.motion===false)c.add("motion-off")}catch(e){}`;
 }

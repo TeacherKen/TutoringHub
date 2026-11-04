@@ -857,3 +857,16 @@ html:has(.th-glass) body {
   background: #22c55e;
   color: #052e16;
 }
+
+/* The children's room: the stadium colours, whatever theme is chosen on this device */
+html:has(.th-stadium),
+html:has(.th-stadium) body {
+  background: #06122e;
+}
+.th-stadium .orb {
+  opacity: 0.85;
+}
+/* The football game's panel sits in the room like a glass screen: a thin light edge and a soft shadow */
+.th-stadium [class*="#0b1d42_55%"] {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 30px 60px -30px rgba(0, 0, 0, 0.75);
+}
