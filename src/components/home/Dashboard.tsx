@@ -317,7 +317,7 @@ export function TodoPanel({
   ];
   const waiting = groups.filter(([, n]) => n > 0);
   const total = waiting.reduce((t, [, n]) => t + n, 0);
-  const summary = waiting.length === 1 ? waiting[0][0] : waiting.length === 2 ? `${waiting[0][0]} and ${waiting[1][0].toLowerCase()}` : `${waiting[0][0]} and ${waiting.length - 1} more`;
+  const summary = waiting.length === 0 ? "" : waiting.length === 1 ? waiting[0][0] : waiting.length === 2 ? `${waiting[0][0]} and ${waiting[1][0].toLowerCase()}` : `${waiting[0][0]} and ${waiting.length - 1} more`;
   return (
     <section aria-labelledby="todo-h" className="glass flex flex-col gap-3.5 rounded-[24px] p-[22px]">
       <h2 id="todo-h" className="font-display text-[22px] font-semibold">
