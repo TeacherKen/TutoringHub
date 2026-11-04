@@ -213,7 +213,7 @@ export async function summariseLesson(lessonId: string): Promise<{ summary?: Les
   content.push({
     type: "text",
     text: hider.hide(
-      `Parent message instructions (for the parent_message field). Use what you can see in today's pictures as facts about today's lesson, together with the notes:\n\n${parentPrompt}\n\n${worksheetInstructions(names[0] ?? "the student", first?.level ?? null)}`,
+      `Parent message instructions (for the parent_message field). Use today's pictures only to understand what each child worked on and how it went; in the message itself, summarise the skills and progress in the tutor's warm big-picture style (no question-by-question details, no numbers copied from the worksheet, never mention pictures). Your detailed findings belong in the other fields (what_we_did, went_well, mistakes), not in the parent message:\n\n${parentPrompt}\n\n${worksheetInstructions(names[0] ?? "the student", first?.level ?? null)}`,
     ),
   });
 

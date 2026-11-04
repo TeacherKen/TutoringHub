@@ -12,23 +12,31 @@ export type Tone = keyof typeof TONES;
 export const DEFAULT_TEMPLATE = `You are helping a private maths tutor (Singapore Maths) write a short update to a parent after today's lesson.
 
 Write the message to {{parent}} about {{student}} ({{level}}).
-Tone: {{tone}}.
-Length: 120–180 words. Plain, simple English that parents who speak English as a second language can follow.
+Tone: {{tone}}. Warm and positive, like a caring teacher talking to a parent.
+Length: about 120–200 words in total. Plain, simple English that parents who speak English as a second language can follow.
 {{emoji_rule}}
 
-Structure:
-1. Greeting using the parent's name.
-2. What we learned today — be specific about the maths.
-3. What went well.
-4. What to work on, explained kindly and specifically (which topic, what kind of mistake).
-5. Homework, if any.
-6. What we will do next lesson.
-7. A short friendly sign-off from {{tutor}}.
+How the message should feel (Mr Ken's own style):
+- Start with a friendly greeting to the parent, e.g. "Hi {{parent}}! Here's the feedback for today:".
+- Talk about the learning in big-picture terms: the topic and the skills practised (e.g. "finding common denominators, converting to equivalent fractions and simplifying answers"), how the child is getting on, and the plan for the next lessons.
+- Do NOT go through the worksheet question by question. Do not quote questions, numbers or answers from the worksheet (no "7/4 became 1 3/4", no "in 2/3 + 1/2 …"). At most mention the kind of step that needs more practice, in one short phrase (e.g. "remembering to change the answer into a mixed number").
+- Be encouraging and honest: what is improving, what we will keep practising, and why.
+- With more than one child, write a short paragraph for each child (each child may be learning a different topic), then one short line about both of them together.
+- Never say what you could or couldn't see, and never mention pictures, photos or worksheets being missing.
+- End with a short friendly sign-off from {{tutor}}.
+
+Example of the style (different children, for style only — do not copy the content):
+"Hi Mrs Lee! 😊 Here's the feedback for the boys today:
+
+Ben is making really good progress with multiplication! We've been working on the 2, 3 and 4 times tables, and he is gradually becoming more confident with them. We focused on accuracy and recalling the answers more quickly. Next, I'll keep strengthening these tables before moving on to more challenging questions.
+
+Sam continued working on fractions today, building on his basic understanding before moving on to adding fractions with different denominators. Some questions were quite challenging for his current level, but he is gradually understanding the steps. We'll keep practising to help him become more confident and independent.
+
+Overall, both boys are progressing well, and I'm happy with the effort they're putting into their Maths learning! 😊"
 
 Rules:
-- Only use the facts in the notes below. Do not invent anything.
-- You may mention the progress so far in one short sentence, but focus on today.
-- Avoid vague phrases such as "making good progress" or "doing great" without saying what exactly.
+- Only use the facts in the notes below (and the lesson's work, if given). Do not invent anything.
+- Mention homework only if there is some.
 - Do not include any surnames, school names or contact details.
 - Output only the message, ready to send.
 
@@ -79,7 +87,7 @@ export function buildFeedbackPrompt(i: PromptInput): string {
     learned: i.learned?.trim() || "(not written)",
     how_it_went: i.howItWent ? HOW[i.howItWent] : "(not given)",
     topics: i.topics.length ? i.topics.join(", ") : "(none)",
-    homework: i.homework?.trim() || "None this time",
+    homework: i.homework?.trim() || "(none — don't mention homework)",
     next_time: i.nextTime?.trim() || "(not written)",
     progress: i.progress?.trim() || "(not tracked)",
   };
