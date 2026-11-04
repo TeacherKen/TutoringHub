@@ -16,6 +16,8 @@ type Props = {
   defaultLength: number;
   isPast: boolean;
   aiEnabled: boolean;
+  /** The ✨ card above writes the note and message (after the lesson): no second AI button here. */
+  aiAbove?: boolean;
   /** The parent's chat app and number, for "Send on WhatsApp / LINE". */
   contact?: { app: ChatApp; value: string | null };
   topicSuggestions: string[];
@@ -72,7 +74,7 @@ async function copy(text: string): Promise<boolean> {
   }
 }
 
-export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEnabled, topicSuggestions, promptContext, contact }: Props) {
+export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEnabled, aiAbove = false, topicSuggestions, promptContext, contact }: Props) {
   const draftKey = `th-note-${lessonId}`;
   const withFamily = useWithFamily();
   const family = useFamily();
@@ -386,7 +388,14 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
 
       <section className="card space-y-4">
         <h2 className="h2">Parent feedback</h2>
-        {aiEnabled ? (
+        {aiAbove ? (
+          <p className="text-sm text-muted">
+            ✨ above writes this for you, or type your own.{" "}
+            <button type="button" className="underline" onClick={preparePrompt} disabled={notesEmpty}>
+              Copy the prompt for ChatGPT
+            </button>
+          </p>
+        ) : aiEnabled ? (
           <>
             <button type="button" className="btn-primary w-full" onClick={writeWithAI} disabled={notesEmpty || writing}>
               {writing ? "Writing the message…" : "✦ Write parent message"}
@@ -415,7 +424,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
             </div>
           </>
         )}
-        {notesEmpty ? <p className="text-xs text-muted">Write “Learned today” or “Next time” first.</p> : null}
+        {notesEmpty && !aiAbove ? <p className="text-xs text-muted">Write “Learned today” or “Next time” first.</p> : null}
         {flash ? (
           <p role="status" className="rounded-xl bg-accent-soft p-3 text-sm text-accent">
             {flash}

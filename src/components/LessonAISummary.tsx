@@ -28,7 +28,10 @@ export function LessonAISummary({
   photoCount,
   initial,
   worksheets = [],
+  kids = [],
 }: {
+  /** First names of the children in the lesson: brothers and sisters each get their own photo button. */
+  kids?: string[];
   lessonId: string;
   aiEnabled: boolean;
   /** May the AI read pictures of the work? (Settings) */
@@ -51,10 +54,14 @@ export function LessonAISummary({
   const [sheetStep, setSheetStep] = useState<string | null>(null);
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [photos, setPhotos] = useState(photoCount);
+  // "Jaian's worksheet ×2 · Nivaan's worksheet" from the saved photo names.
+  const photoNames = Object.entries(
+    savedLabels.filter((l) => /worksheet|photo/i.test(l)).reduce<Record<string, number>>((m, l) => ({ ...m, [l]: (m[l] ?? 0) + 1 }), {}),
+  ).map(([l, n]) => (n > 1 ? `${l} ×${n}` : l));
   const [readPics, setReadPics] = useState(pictures);
 
   /** 📷 Worksheet photos straight from the iPhone/iPad camera or photo library. Made smaller (and JPG) first. */
-  async function addPhotos(files: FileList | null) {
+  async function addPhotos(files: FileList | null, who?: string) {
     if (!files?.length) return;
     setError(null);
     const sb = createClient();
@@ -67,7 +74,7 @@ export function LessonAISummary({
       const path = `${lessonId}/${randomId()}.jpg`;
       const { error: upErr } = await sb.storage.from(MATERIALS_BUCKET).upload(path, blob, { contentType: "image/jpeg" });
       if (upErr) continue;
-      const r = await addMaterialFile(lessonId, path, "photo", "Worksheet photo");
+      const r = await addMaterialFile(lessonId, path, "photo", who ? `${who}'s worksheet` : "Worksheet photo");
       if (!r.error) added++;
     }
     setStep(null);
@@ -211,15 +218,22 @@ export function LessonAISummary({
       {aiEnabled ? (
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
-            <label className={`btn-secondary cursor-pointer ${step ? "pointer-events-none opacity-50" : ""}`}>
-              📷 {photos ? "Add another worksheet photo" : "Add worksheet photo"}
-              <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => void addPhotos(e.target.files).finally(() => (e.target.value = ""))} />
-            </label>
-            <button type="button" className="btn-primary flex-1" onClick={run} disabled={!!step}>
+            {(kids.length > 1 ? kids : [undefined]).map((who) => (
+              <label key={who ?? "one"} className={`btn-secondary flex-1 cursor-pointer ${step ? "pointer-events-none opacity-50" : ""}`}>
+                📷 {who ? `${who}'s worksheet` : photos ? "Add another worksheet photo" : "Add worksheet photo"}
+                {who && savedLabels.some((l) => l.startsWith(`${who}'s worksheet`)) ? <span className="text-ok">✓</span> : null}
+                <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => void addPhotos(e.target.files, who).finally(() => (e.target.value = ""))} />
+              </label>
+            ))}
+            <button type="button" className="btn-primary w-full" onClick={run} disabled={!!step}>
               {step ? "Working…" : summary ? "✨ Write again" : "✨ Write note & parent message"}
             </button>
           </div>
-          {photos ? <p className="text-sm text-muted">{photos} {photos === 1 ? "photo" : "photos"} of work with this lesson.</p> : null}
+          {photos ? (
+            <p className="text-sm text-muted">
+              {photoNames.length ? photoNames.join(" · ") : `${photos} ${photos === 1 ? "photo" : "photos"} of work`} — the AI reads each child&apos;s work separately.
+            </p>
+          ) : null}
           {!readPics ? (
             <label className="flex items-start gap-3 rounded-xl border border-[var(--th-todo,var(--warn))]/40 bg-warn-soft p-3 text-sm">
               <input type="checkbox" className="mt-0.5 h-5 w-5" checked={readPics} onChange={(e) => void allowPictures(e.target.checked)} />

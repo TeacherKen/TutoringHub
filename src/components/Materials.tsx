@@ -19,7 +19,7 @@ const EXT_BY_TYPE: Record<string, string> = {
   "image/webp": "webp",
 };
 
-export function Materials({ lessonId, items }: { lessonId: string; items: MaterialView[] }) {
+export function Materials({ lessonId, items, bare = false }: { lessonId: string; items: MaterialView[]; bare?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +54,8 @@ export function Materials({ lessonId, items }: { lessonId: string; items: Materi
   }
 
   return (
-    <section className="card space-y-4">
-      <h2 className="h2">Worksheets and materials</h2>
+    <section className={bare ? "space-y-4" : "card space-y-4"}>
+      {bare ? null : <h2 className="h2">Worksheets and materials</h2>}
       {items.length ? (
         <ul className="space-y-2">
           {items.map((m) => (
