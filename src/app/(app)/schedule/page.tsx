@@ -1,5 +1,5 @@
 import { CalendarCatchUp } from "@/components/CalendarCatchUp";
-import Link from "next/link";
+import { SoundLink } from "@/components/glass/SoundLink";
 import { requireSignedIn } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtTime, mondayOf, todayKey } from "@/lib/time";
@@ -48,31 +48,31 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-5">
       <CalendarCatchUp />
-      <header className="flex items-start justify-between gap-3">
+      <header className="flex flex-wrap items-end justify-between gap-4 px-1.5 pt-1">
         <div>
-          <p className="text-sm text-muted">
+          <p className="text-base text-[var(--th-text-3)]">
             {fmtDay(monday)} – {fmtDay(addDays(monday, 6))}
           </p>
-          <h1 className="h1">{me.role === "tutor" ? "Family view" : "Ken's schedule"}</h1>
-          {me.role === "tutor" ? (
-            <p className="mt-1 text-sm text-muted">This is exactly what your family member sees.</p>
-          ) : null}
+          <h1 className="font-display text-[36px] font-semibold leading-tight sm:text-[44px]">{me.role === "tutor" ? "Family view" : "Ken's schedule"}</h1>
+          {me.role === "tutor" ? <p className="mt-1 text-sm text-[var(--th-text-3)]">This is exactly what your family member sees.</p> : null}
         </div>
-        <RefreshButton />
+        <div className="flex flex-wrap items-center gap-2.5">
+          <nav aria-label="Weeks" className="glass flex gap-0.5 rounded-[15px] p-0.5">
+            <SoundLink sound="flip" className="seg press" href={`/schedule?start=${addDays(monday, -7)}`} aria-label="Previous week">
+              ‹ Prev
+            </SoundLink>
+            <SoundLink sound="flip" className={`seg press ${monday === mondayOf(today) ? "font-semibold text-accent" : ""}`} href="/schedule">
+              This week
+            </SoundLink>
+            <SoundLink sound="flip" className="seg press" href={`/schedule?start=${addDays(monday, 7)}`} aria-label="Next week">
+              Next ›
+            </SoundLink>
+          </nav>
+          <RefreshButton />
+        </div>
       </header>
-      <div className="flex gap-2">
-        <Link className="btn-secondary flex-1" href={`/schedule?start=${addDays(monday, -7)}`}>
-          ‹ Previous
-        </Link>
-        <Link className="btn-secondary flex-1" href="/schedule">
-          This week
-        </Link>
-        <Link className="btn-secondary flex-1" href={`/schedule?start=${addDays(monday, 7)}`}>
-          Next ›
-        </Link>
-      </div>
       {error ? <p className="rounded-xl bg-danger-soft p-3 text-sm text-danger">Couldn&apos;t load the schedule.</p> : null}
 
       {days.map((d) => {
@@ -83,28 +83,32 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
           ...free.map((f) => ({ t: f.from.getTime(), kind: "free" as const, f })),
         ].sort((a, b) => a.t - b.t);
         return (
-          <section key={d} className="space-y-2">
-            <h2 className={`text-sm font-medium ${d === today ? "text-accent" : "text-muted"}`}>
-              {fmtDay(d)} {d === today ? "· Today" : ""}
+          <section
+            key={d}
+            className="glass space-y-2 rounded-[24px] p-4 sm:p-5"
+            style={d === today ? { borderColor: "var(--th-accent-line)", background: "color-mix(in srgb, var(--th-accent) 7%, transparent)" } : undefined}
+          >
+            <h2 className={`font-display px-1 text-lg font-semibold ${d === today ? "text-accent" : ""}`}>
+              {fmtDay(d)} {d === today ? <span className="pill ml-1 align-middle !py-0.5 text-accent" style={{ borderColor: "var(--th-accent-line)" }}>Today</span> : null}
             </h2>
             {dayRows.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-line px-4 py-3 text-sm text-muted">Free all day — no lessons</p>
+              <p className="rounded-2xl border border-dashed border-white/15 px-4 py-3 text-sm text-[var(--th-text-3)]">Free all day — no lessons</p>
             ) : (
               items.map((it) =>
                 it.kind === "lesson" ? (
-                  <div key={it.r.lesson_id} className="card flex items-center gap-4">
-                    <div className="w-24 shrink-0 text-sm font-semibold tabular-nums">
+                  <div key={it.r.lesson_id} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3">
+                    <div className="w-28 shrink-0 font-semibold tabular-nums text-accent">
                       {fmtTime(it.r.start_at)}–{fmtTime(it.r.end_at)}
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate font-medium">{it.r.students}</div>
+                      <div className="truncate text-base font-semibold">{it.r.students}</div>
                       <div className="text-sm text-muted">
                         {it.r.is_preply ? "Preply (online)" : it.r.mode === "online" ? "Online (at home)" : it.r.mode === "onsite" ? `Onsite${it.r.place ? ` · ${it.r.place}` : ""}` : ""}
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div key={`free-${it.t}`} className="rounded-xl border border-dashed border-line px-4 py-2 text-sm text-muted">
+                  <div key={`free-${it.t}`} className="rounded-2xl border border-dashed border-white/15 px-4 py-2 text-sm text-[var(--th-text-3)]">
                     Free {fmtTime(it.f.from)}–{fmtTime(it.f.to)}
                   </div>
                 ),
@@ -113,7 +117,7 @@ export default async function SchedulePage({ searchParams }: PageProps<"/schedul
           </section>
         );
       })}
-      <p className="pb-4 text-xs text-muted">Free time is shown between 08:00 and 22:00.</p>
+      <p className="px-1.5 pb-4 text-xs text-muted">Free time is shown between 08:00 and 22:00.</p>
     </div>
   );
 }

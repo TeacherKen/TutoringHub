@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getMatch } from "@/lib/match";
 import { Match } from "@/components/games/Match";
+import { StadiumGlass } from "@/components/glass/Stadium";
 
 export const dynamic = "force-dynamic";
 
@@ -15,15 +16,19 @@ export default async function MatchPage({ params }: PageProps<"/match/[token]">)
   const state = await getMatch(token);
   if (!state) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 text-center">
-        <h1 className="h1">This match link doesn&apos;t work</h1>
-        <p className="mt-2 text-muted">Ask Mr Ken to start a new match.</p>
-      </main>
+      <StadiumGlass>
+        <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 text-center">
+          <h1 className="h1">This match link doesn&apos;t work</h1>
+          <p className="mt-2 text-muted">Ask Mr Ken to start a new match.</p>
+        </main>
+      </StadiumGlass>
     );
   }
   return (
-    <main className="mx-auto min-h-dvh max-w-6xl px-3 py-3 sm:px-4 sm:py-4">
-      <Match key={token} token={token} initial={state} />
-    </main>
+    <StadiumGlass>
+      <main className="page-enter mx-auto min-h-dvh max-w-6xl px-3 py-3 sm:px-4 sm:py-5">
+        <Match key={token} token={token} initial={state} />
+      </main>
+    </StadiumGlass>
   );
 }

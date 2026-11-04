@@ -14,9 +14,9 @@ import { FracText, Pie } from "./FractionShapes";
 const NAVY = "#0b1d42";
 
 /** The frame around every games-corner screen. */
-export function ArcadeShell({ children, back, title }: { children: React.ReactNode; back?: string; title?: string }) {
+export function ArcadeShell({ children, back, title, glass = false }: { children: React.ReactNode; back?: string; title?: string; glass?: boolean }) {
   return (
-    <div className="flex min-h-dvh flex-col text-white" style={{ background: `radial-gradient(120% 80% at 50% 0%, #17336f 0%, ${NAVY} 60%)` }}>
+    <div className="flex min-h-dvh flex-col text-white" style={glass ? undefined : { background: `radial-gradient(120% 80% at 50% 0%, #17336f 0%, ${NAVY} 60%)` }}>
       <header className="flex items-center justify-between gap-3 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6">
         {back ? (
           <Link href={back} className="flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-white/10 px-4 text-lg font-semibold hover:bg-white/15">
@@ -160,16 +160,16 @@ export function Glyph({ id }: { id: GameInfo["id"] }) {
 type Kid = { id: string; name: string; onsite: boolean };
 
 /** The games corner's front page: a big tile for each game. Football asks who's playing first. */
-export function ArcadeHub({ kids }: { kids: Kid[] }) {
+export function ArcadeHub({ kids, glass = false }: { kids: Kid[]; glass?: boolean }) {
   const [choosing, setChoosing] = useState(false);
   const sorted = [...kids].sort((a, b) => Number(b.onsite) - Number(a.onsite) || a.name.localeCompare(b.name));
   return (
-    <ArcadeShell>
+    <ArcadeShell glass={glass}>
       <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-3 py-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
         {GAMES.map((g) => {
           const inner = (
             <>
-              <span className="flex flex-1 items-center justify-center py-4">
+              <span className={`flex flex-1 items-center justify-center py-4 ${glass ? "art" : ""}`}>
                 <Glyph id={g.id} />
               </span>
               <span className="block">
@@ -180,12 +180,16 @@ export function ArcadeHub({ kids }: { kids: Kid[] }) {
             </>
           );
           const cls = "flex min-h-56 flex-col rounded-3xl p-5 text-left shadow-[0_12px_30px_rgba(0,0,0,.35)] transition active:scale-[.98] focus-visible:outline-4 focus-visible:outline-[#ffc629]";
+          // Glass: each game's colour as tinted glass with white text (like the Play page).
+          const tile = glass
+            ? { cls: `${cls} game`, style: { background: `color-mix(in srgb, ${g.bg} 38%, transparent)`, borderColor: `color-mix(in srgb, color-mix(in srgb, ${g.bg}, #ffffff 30%) 55%, transparent)`, color: "#ffffff" } }
+            : null;
           return g.id === "football" ? (
-            <button key={g.id} type="button" onClick={() => setChoosing(true)} className={cls} style={{ background: `repeating-linear-gradient(90deg, ${g.bg} 0 44px, #227a43 44px 88px)`, color: g.fg }}>
+            <button key={g.id} type="button" onClick={() => setChoosing(true)} className={tile?.cls ?? cls} style={tile?.style ?? { background: `repeating-linear-gradient(90deg, ${g.bg} 0 44px, #227a43 44px 88px)`, color: g.fg }}>
               {inner}
             </button>
           ) : (
-            <Link key={g.id} href={`/arcade/${g.id}`} className={cls} style={{ background: g.bg, color: g.fg }}>
+            <Link key={g.id} href={`/arcade/${g.id}`} className={tile?.cls ?? cls} style={tile?.style ?? { background: g.bg, color: g.fg }}>
               {inner}
             </Link>
           );
@@ -194,7 +198,7 @@ export function ArcadeHub({ kids }: { kids: Kid[] }) {
 
       {choosing ? (
         <div role="dialog" aria-modal="true" aria-label="Who's playing?" className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 sm:items-center" onClick={() => setChoosing(false)}>
-          <div className="w-full max-w-2xl rounded-3xl p-5 sm:p-6" style={{ background: NAVY }} onClick={(e) => e.stopPropagation()}>
+          <div className={`w-full max-w-2xl rounded-3xl p-5 sm:p-6 ${glass ? "glass-hi" : ""}`} style={glass ? undefined : { background: NAVY }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-sport text-4xl font-extrabold italic">Who&apos;s playing?</h2>
               <button type="button" className="min-h-12 rounded-full bg-white/10 px-4 font-semibold hover:bg-white/15" onClick={() => setChoosing(false)}>

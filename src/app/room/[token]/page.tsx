@@ -2,24 +2,7 @@ import type { Metadata } from "next";
 import { getRoom } from "@/lib/room";
 import { studentForToken } from "@/lib/practice";
 import { Room } from "@/components/Room";
-import { GlassOrbs } from "@/components/GlassNav";
-import { feelBootScript, STADIUM, themeVars } from "@/lib/glassTheme";
-import "@fontsource/outfit/600.css";
-import "@fontsource/outfit/700.css";
-import "@fontsource/inter/400.css";
-import "@fontsource/inter/500.css";
-import "@fontsource/inter/600.css";
-
-/** The child's room in TutoringHub Glass, always in the football game's stadium colours (not Mr Ken's theme). */
-function Glass({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="th-glass th-stadium" style={themeVars(STADIUM) as React.CSSProperties}>
-      <script dangerouslySetInnerHTML={{ __html: feelBootScript() }} />
-      <GlassOrbs />
-      <div className="relative z-10">{children}</div>
-    </div>
-  );
-}
+import { StadiumGlass as Glass } from "@/components/glass/Stadium";
 
 export const dynamic = "force-dynamic";
 
