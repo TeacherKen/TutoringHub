@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { useState, useTransition } from "react";
 import { ensureRoomToken, resetRoomToken, setGamesOpen, setStudentSlides } from "@/app/actions/rooms";
 import { WatchScreen } from "./WatchScreen";
@@ -101,7 +102,7 @@ export function RoomControls({ students, showGames = true, lessonId, bare = fals
                 const r = await setGamesOpen(
                   students.map((s) => s.id),
                   !open,
-                );
+                ).catch(netFail);
                 if (r.ok) {
                   setOpen(!open);
                   if (!open && students.length === 1) setWatching(students[0].id); // opening games: watch straight away

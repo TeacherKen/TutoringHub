@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { useState } from "react";
 import { ensureFamilyToken, resetFamilyToken } from "@/app/actions/family";
 import { chatLink, type ChatApp } from "@/lib/chat";
@@ -32,7 +33,7 @@ export function FamilyLink({
 
   async function get(): Promise<string | null> {
     if (token) return token;
-    const r = await ensureFamilyToken(accountId);
+    const r = await ensureFamilyToken(accountId).catch(netFail);
     if (r.token) {
       setToken(r.token);
       return r.token;
@@ -92,7 +93,7 @@ export function FamilyLink({
             className="text-xs text-muted underline"
             onClick={async () => {
               if (!confirm("Make a new family link? The old one will stop working, and the parent will be asked to confirm again.")) return;
-              const r = await resetFamilyToken(accountId);
+              const r = await resetFamilyToken(accountId).catch(netFail);
               if (r.token) {
                 setToken(r.token);
                 flash("reset");

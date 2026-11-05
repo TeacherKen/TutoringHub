@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import "@fontsource/barlow-condensed/700.css";
 import "@fontsource/barlow-condensed/800-italic.css";
 import { useEffect, useState, useTransition } from "react";
@@ -29,7 +30,7 @@ export function PlayHub({ students }: { students: Kid[] }) {
   function practise(k: Kid) {
     setOpening(k.id);
     start(async () => {
-      const token = k.token ?? (await ensureRoomToken(k.id)).token;
+      const token = k.token ?? (await ensureRoomToken(k.id).catch(netFail)).token;
       if (token) router.push(`/room/${token}?tab=practice`);
       else {
         setOpening(null);
@@ -65,7 +66,7 @@ export function PlayHub({ students }: { students: Kid[] }) {
       const r = await startMatch(
         picked.map((p) => ({ studentId: p.id, tables: p.tables, mode: p.mode })),
         target,
-      );
+      ).catch(netFail);
       if (r.token) router.push(`/match/${r.token}`);
       else setError(r.error ?? "Couldn't start the match.");
     });
@@ -372,7 +373,7 @@ function IPadSetup({ students }: { students: Kid[] }) {
     setWho(id);
     if (id !== "me" && id !== "arcade" && !tokens[id]) {
       start(async () => {
-        const t = (await ensureRoomToken(id)).token;
+        const t = (await ensureRoomToken(id).catch(netFail)).token;
         if (t) setTokens((m) => ({ ...m, [id]: t }));
       });
     }

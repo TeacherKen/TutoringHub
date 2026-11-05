@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { useState, useTransition } from "react";
 import { backupNow } from "@/app/actions/backup";
 
@@ -35,7 +36,7 @@ export function BackupPanel({ files, ready }: { files: File[]; ready: boolean })
           disabled={pending || !ready}
           onClick={() =>
             start(async () => {
-              const r = await backupNow();
+              const r = await backupNow().catch(netFail);
               setMsg(r.ok ?? r.error ?? null);
             })
           }

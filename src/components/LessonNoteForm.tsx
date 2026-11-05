@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { saveFinalMessage, saveLessonNote, setSent, type NoteInput } from "@/app/actions/lessons";
 import { postJson } from "@/lib/postJson";
@@ -497,7 +498,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
             checked={Boolean(sentAt)}
             disabled={!finalMsg.trim() || finalState !== "saved"}
             onChange={async (e) => {
-              const r = await setSent(lessonId, e.target.checked);
+              const r = await setSent(lessonId, e.target.checked).catch(netFail);
               if (r.ok) setSentAt(r.sent_at);
             }}
           />

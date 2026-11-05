@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { useState, useTransition } from "react";
 import { setAiPictures } from "@/app/actions/settings";
 
@@ -20,7 +21,7 @@ export function AiPicturesSwitch({ initial, ready }: { initial: boolean; ready: 
             setOn(next);
             setMsg(null);
             start(async () => {
-              const r = await setAiPictures(next);
+              const r = await setAiPictures(next).catch(netFail);
               if (r.error) {
                 setOn(!next);
                 setMsg(r.error);

@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { useState, useTransition } from "react";
 import { MasteryGrid } from "./MasteryGrid";
 import { MODE_EXAMPLES, MODE_NAMES, MODES, TABLES, level, type FactState, type GameMode } from "@/lib/facts";
@@ -57,7 +58,7 @@ export function TimesTablesCard({
     setMode(m);
     setSaved("idle");
     start(async () => {
-      const r = await setStudentMode(studentId, m);
+      const r = await setStudentMode(studentId, m).catch(netFail);
       setSaved(r.ok ? "saved" : "error");
       setMsg(r.error ?? "");
     });
@@ -68,7 +69,7 @@ export function TimesTablesCard({
     setTables(next);
     setSaved("idle");
     start(async () => {
-      const r = await setStudentTables(studentId, next);
+      const r = await setStudentTables(studentId, next).catch(netFail);
       setSaved(r.ok ? "saved" : "error");
       setMsg(r.error ?? "");
     });

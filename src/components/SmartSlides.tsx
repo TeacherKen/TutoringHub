@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { MATERIALS_BUCKET } from "@/lib/constants";
@@ -21,17 +22,20 @@ export function SmartSlides({ studentId, name, currentId, lessonId }: { studentI
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = async () => {
-    const r = await listBoards(studentId);
+    const r = await listBoards(studentId).catch(() => null);
+    if (!r) return setError("Couldn't load the slides — check the internet and try again.");
     setBoards(r.boards);
     setReady(r.ready);
   };
   useEffect(() => {
     let alive = true;
-    listBoards(studentId).then((r) => {
-      if (!alive) return;
-      setBoards(r.boards);
-      setReady(r.ready);
-    });
+    listBoards(studentId)
+      .then((r) => {
+        if (!alive) return;
+        setBoards(r.boards);
+        setReady(r.ready);
+      })
+      .catch(() => alive && setError("Couldn't load the slides — check the internet and try again."));
     return () => {
       alive = false;
     };
@@ -56,7 +60,7 @@ export function SmartSlides({ studentId, name, currentId, lessonId }: { studentI
         if (upErr) throw upErr;
       }
       setBusy("Saving…");
-      const r = await createBoard(studentId, boardId, file.name.replace(/\.pdf$/i, ""), pages.length, pages[0].height / pages[0].width);
+      const r = await createBoard(studentId, boardId, file.name.replace(/\.pdf$/i, ""), pages.length, pages[0].height / pages[0].width).catch(netFail);
       if (r.error) throw new Error(r.error);
       setCurrent(boardId);
       setOpen(true);
@@ -98,7 +102,7 @@ export function SmartSlides({ studentId, name, currentId, lessonId }: { studentI
             type="button"
             className="text-xs text-muted underline"
             onClick={async () => {
-              if ((await setCurrentBoard(studentId, null)).ok) {
+              if ((await setCurrentBoard(studentId, null).catch(netFail)).ok) {
                 setCurrent(null);
                 setOpen(false);
               }
@@ -133,7 +137,7 @@ export function SmartSlides({ studentId, name, currentId, lessonId }: { studentI
                       type="button"
                       className="text-accent underline"
                       onClick={async () => {
-                        if ((await setCurrentBoard(studentId, b.id)).ok) {
+                        if ((await setCurrentBoard(studentId, b.id).catch(netFail)).ok) {
                           setCurrent(b.id);
                           setOpen(true);
                         }
@@ -145,7 +149,7 @@ export function SmartSlides({ studentId, name, currentId, lessonId }: { studentI
                       type="button"
                       className="text-muted underline"
                       onClick={async () => {
-                        if (confirm(`Delete "${b.title}" and ${name}'s writing on it?`) && (await deleteBoard(b.id)).ok) await refresh();
+                        if (confirm(`Delete "${b.title}" and ${name}'s writing on it?`) && (await deleteBoard(b.id).catch(netFail)).ok) await refresh();
                       }}
                     >
                       Delete

@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { useState, useTransition } from "react";
 import { skipReminders } from "@/app/actions/lessons";
 
@@ -27,7 +28,7 @@ export function ClearAll({ kind, ids }: { kind: "note" | "feedback"; ids: string
         className="rounded-full bg-accent px-3 py-1 font-medium text-accent-text disabled:opacity-60"
         onClick={() =>
           start(async () => {
-            const r = await skipReminders(kind, ids);
+            const r = await skipReminders(kind, ids).catch(netFail);
             if (r.error) setError(r.error);
             else setAsk(false);
           })
@@ -55,12 +56,12 @@ export function SkipOne({ kind, id }: { kind: "note" | "feedback"; id: string })
       className={`min-h-10 shrink-0 rounded-full px-3 text-sm font-medium hover:bg-surface-2 disabled:opacity-50 ${error ? "text-danger" : "text-muted"}`}
       onClick={() =>
         start(async () => {
-          const r = await skipReminders(kind, [id]);
+          const r = await skipReminders(kind, [id]).catch(netFail);
           setError(!!r.error);
         })
       }
     >
-      {pending ? "…" : error ? "Run update 0021" : "Skip"}
+      {pending ? "…" : error ? "Try again" : "Skip"}
     </button>
   );
 }

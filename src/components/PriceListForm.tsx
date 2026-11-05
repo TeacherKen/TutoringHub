@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { useState, useTransition } from "react";
 import { savePriceOptions } from "@/app/actions/settings";
 import type { PriceOption } from "@/lib/prices";
@@ -49,7 +50,7 @@ export function PriceListForm({ initial }: { initial: PriceOption[] }) {
             start(async () => {
               const r = await savePriceOptions(
                 rows.filter((x) => x.hours && x.price).map((x) => ({ id: x.id, label: x.label, hours: Number(x.hours), price: Number(x.price) })),
-              );
+              ).catch(netFail);
               setMsg(r.ok ?? r.error ?? null);
             })
           }
