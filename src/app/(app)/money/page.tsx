@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireTutor } from "@/lib/auth";
-import { getMoneyData, getSettings, reminderSince } from "@/lib/data";
+import { getMoneyData, getSettings, getStudents, reminderSince, type Student } from "@/lib/data";
 import { renewSoon, sumEarned, thb, type LessonEarning } from "@/lib/earnings";
 import { PackageCard } from "@/components/MoneyCards";
 import { MoneyDashboard, MoneyKpis } from "@/components/money/MoneyDashboard";
@@ -10,6 +10,10 @@ import { markPackagePaid } from "@/app/actions/students";
 import { SoundLink } from "@/components/glass/SoundLink";
 import { PromptPayQR } from "@/components/PromptPayQR";
 import { addDays, bkkDateKey, fmtDay, fmtHours, fmtTime, mondayOf } from "@/lib/time";
+import { createClient } from "@/lib/supabase/server";
+import { colourSlots } from "@/lib/studentColours";
+import { summarise, type PreplyStats } from "@/lib/preply";
+import { PreplyCard } from "@/components/money/PreplyCard";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +72,10 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
   const shown = money.lessons.filter((l) => l.date >= from && l.date < to).reverse();
   const byDay = new Map<string, LessonEarning[]>();
   for (const l of shown) byDay.set(l.date, [...(byDay.get(l.date) ?? []), l]);
+  const allStudents = await getStudents();
+  const preply = await loadPreply(allStudents);
+  const colours = colourSlots({ students: allStudents, packages: money.packages, accountNames: accountName });
+  const preplyStudents = allStudents.filter((s) => s.source === "preply" && s.active !== false).map((s) => ({ id: s.id, name: s.first_name }));
   const monthName = (key: string) => new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(new Date(`${key}T00:00:00Z`));
 
   return (
@@ -107,6 +115,10 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
         avgPerHour={avgPerHour}
         renewLinks={Object.fromEntries(money.accounts.filter((a) => a.studentIds[0]).map((a) => [a.name, `/students/${a.studentIds[0]}#hours`]))}
       />
+
+      {preply && (preply.rows.length || preplyStudents.length) ? (
+        <PreplyCard p={preply} slotOf={colours.slotOfStudent} today={today} students={preplyStudents} />
+      ) : null}
 
       {unpaid.length ? (
         <section id="unpaid" className="space-y-3">
@@ -214,4 +226,34 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
       </section>
     </div>
   );
+}
+
+/** Preply numbers (copied from Preply) plus the Preply lessons marked done since. Null before database update 0026. */
+async function loadPreply(students: Student[]) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("preply_stats").select("*");
+  if (error) return null;
+  const stats = (data ?? []) as PreplyStats[];
+  const doneSince = new Map<string, number>();
+  if (stats.length) {
+    const oldest = stats.map((s) => s.updated_at).sort()[0];
+    const { data: rows } = await supabase
+      .from("lessons")
+      .select("end_at, lesson_students!inner(student_id)")
+      .eq("status", "done")
+      .eq("ignored", false)
+      .gt("end_at", oldest)
+      .in(
+        "lesson_students.student_id",
+        stats.map((s) => s.student_id),
+      );
+    const copied = new Map(stats.map((s) => [s.student_id, s.updated_at]));
+    for (const l of (rows ?? []) as { end_at: string; lesson_students: { student_id: string }[] }[]) {
+      for (const ls of l.lesson_students) {
+        const at = copied.get(ls.student_id);
+        if (at && l.end_at > at) doneSince.set(ls.student_id, (doneSince.get(ls.student_id) ?? 0) + 1);
+      }
+    }
+  }
+  return summarise(stats, new Map(students.map((s) => [s.id, s.first_name])), doneSince);
 }
