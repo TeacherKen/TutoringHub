@@ -20,16 +20,22 @@ export const isFamilyToken = (t: string) => TOKEN_RE.test(t);
 export type FamilyPage = {
   accountId: string;
   familyName: string;
+  /** "Ms Aki" (from the children's details), for Mr Ken's notifications. */
+  parentName: string | null;
+  /** Messages between the family and Mr Ken, oldest first (lessonId: under that lesson update). */
+  notes: FamilyNote[];
   consented: boolean;
   children: { id: string; name: string; progress: TopicRow[]; facts: FactState[]; trophies: Trophy[]; stars: number }[];
   upcoming: { start_at: string; end_at: string; names: string[] }[];
   /** Lesson updates Mr Ken sent, newest first: his message, the topics, homework and that lesson's work pictures. */
-  messages: { date: string; names: string[]; text: string; topics: string[]; homework: string | null; photos: { label: string; url: string }[] }[];
+  messages: { lessonId: string; date: string; names: string[]; text: string; topics: string[]; homework: string | null; photos: { label: string; url: string }[] }[];
   work: { label: string; url: string; date: string }[];
   hours: { left: number; bought: number; lessonsLeft: number; endDate: string | null } | null;
   unpaid: { hours: number; price: number }[];
   promptpayId: string | null;
 };
+
+export type FamilyNote = { id: string; lessonId: string | null; author: "parent" | "tutor"; body: string; created_at: string };
 
 type LessonRow = {
   id: string;
@@ -55,10 +61,10 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   // Every child on the account counts for hours (a paused sibling's lessons still used them, the same as
   // on Mr Ken's pages); only active children are shown.
   const [{ data: kids }, { data: pk }] = await Promise.all([
-    admin.from("students").select("id, first_name, active").eq("hour_account_id", acct.id).order("first_name"),
+    admin.from("students").select("id, first_name, active, parent_name").eq("hour_account_id", acct.id).order("first_name"),
     admin.from("packages").select("*").eq("hour_account_id", acct.id).order("start_date"),
   ]);
-  const everyone = (kids ?? []) as { id: string; first_name: string; active: boolean }[];
+  const everyone = (kids ?? []) as { id: string; first_name: string; active: boolean; parent_name: string | null }[];
   const children = everyone.filter((c) => c.active);
   if (!children.length) return null;
   const ids = children.map((c) => c.id);
@@ -125,6 +131,7 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   }
 
   const messages = recentSent.map((l) => ({
+    lessonId: l.id,
     date: bkkDateKey(l.start_at),
     names: namesIn(l),
     text: l.final_message!.trim(),
@@ -182,9 +189,22 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   }
   const unpaid = packages.filter((p) => !p.paid_on && p.price_thb != null && Number(p.price_thb) > 0).map((p) => ({ hours: Number(p.hours), price: Number(p.price_thb) }));
 
+  // Messages with Mr Ken (the last 60; none before database update 0028).
+  const { data: noteRows } = await admin
+    .from("family_notes")
+    .select("id, lesson_id, author, body, created_at")
+    .eq("hour_account_id", acct.id)
+    .order("created_at", { ascending: false })
+    .limit(60);
+  const notes: FamilyNote[] = ((noteRows ?? []) as { id: string; lesson_id: string | null; author: "parent" | "tutor"; body: string; created_at: string }[])
+    .reverse()
+    .map((n) => ({ id: n.id, lessonId: n.lesson_id, author: n.author, body: n.body, created_at: n.created_at }));
+
   return {
     accountId: acct.id as string,
     familyName: children.map((c) => c.first_name).join(" & "),
+    parentName: children.map((c) => c.parent_name?.trim()).find(Boolean) ?? null,
+    notes,
     consented: Boolean(acct.family_consent_at),
     children: childRows,
     upcoming,
@@ -194,4 +214,25 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
     unpaid,
     promptpayId: ((settings as { promptpay_id?: string | null } | null)?.promptpay_id ?? null) || null,
   };
+}
+
+/** A family opened their page: remember when, and tell Mr Ken (at most once every 30 minutes per family). */
+export async function familyOpened(f: Pick<FamilyPage, "accountId" | "familyName" | "parentName">, firstStudentId: string | null): Promise<void> {
+  const admin = createAdminClient();
+  const cutoff = new Date(Date.now() - 30 * 60_000).toISOString();
+  // Only the first open in 30 minutes updates the time (and sends the pop-up), even with two tabs at once.
+  const { data } = await admin
+    .from("hour_accounts")
+    .update({ family_seen_at: new Date().toISOString() })
+    .eq("id", f.accountId)
+    .or(`family_seen_at.is.null,family_seen_at.lt.${cutoff}`)
+    .select("id");
+  if (!data?.length) return;
+  const { notifyTutor } = await import("@/lib/push");
+  await notifyTutor({
+    title: `👀 ${f.parentName ?? `${f.familyName}'s family`} opened the family page`,
+    body: `${f.familyName}'s progress page was just opened.`,
+    url: firstStudentId ? `/students/${firstStudentId}#messages` : "/",
+    tag: `seen-${f.accountId}`,
+  });
 }

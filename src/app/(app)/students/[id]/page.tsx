@@ -24,6 +24,8 @@ import { colourSlots } from "@/lib/studentColours";
 import { RenewalMessage } from "@/components/RenewalMessage";
 import { FamilyLink } from "@/components/FamilyLink";
 import { FamilyLinkProvider } from "@/components/FamilyLinkContext";
+import { NoteForm, NoteThread } from "@/components/FamilyNotes";
+import { MarkNotesRead } from "@/components/MarkNotesRead";
 import { Fold } from "@/components/glass/Fold";
 import { cleanPriceOptions } from "@/lib/prices";
 import { tutorName } from "@/lib/env";
@@ -33,6 +35,13 @@ import { deleteAdjustment, deletePackage, deleteStudent, markPackagePaid, setHou
 
 const PAID_BY: Record<string, string> = { bank_transfer: "Bank transfer", promptpay: "PromptPay", cash: "Cash", preply: "Preply", other: "Other" };
 const CONTACT: Record<string, string> = { whatsapp: "WhatsApp", line: "LINE", wechat: "WeChat", other: "Contact" };
+const fmtSeen = (iso: string) => {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  if (mins < 24 * 60) return `${Math.round(mins / 60)} h ago`;
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", day: "numeric", month: "short" }).format(new Date(iso));
+};
 const thb = (n: number) => `฿${Number(n).toLocaleString("en-US")}`;
 
 export default async function StudentPage({ params }: PageProps<"/students/[id]">) {
@@ -64,6 +73,18 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
   const others = students.filter((s) => s.id !== id && s.active);
   const sharingWith = account?.students.filter((s) => s.id !== id) ?? [];
   const bal = account?.balance;
+  // 💬 Messages with this family (none before database update 0028), and when they last opened their page.
+  const [{ data: noteRows }, { data: seenRow }] = account
+    ? await Promise.all([
+        supabase.from("family_notes").select("id, lesson_id, author, body, created_at, read_at").eq("hour_account_id", account.id).order("created_at", { ascending: false }).limit(40),
+        supabase.from("hour_accounts").select("family_seen_at").eq("id", account.id).maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }];
+  const notes = ((noteRows ?? []) as { id: string; lesson_id: string | null; author: "parent" | "tutor"; body: string; created_at: string; read_at: string | null }[])
+    .reverse()
+    .map((n) => ({ id: n.id, lessonId: n.lesson_id, author: n.author, body: n.body, created_at: n.created_at, unread: n.author === "parent" && !n.read_at }));
+  const unreadNotes = notes.filter((n) => n.unread).length;
+  const familySeen = (seenRow as { family_seen_at?: string | null } | null)?.family_seen_at ?? null;
   const { data: recent } = await supabase.from("lessons").select("topics").neq("topics", "{}").order("start_at", { ascending: false }).limit(80);
   const topicIdeas = [...new Set((recent ?? []).flatMap((r) => r.topics as string[]))].slice(0, 40);
   const monthOf = (iso: string) => bkkDateKey(iso).slice(0, 7);
@@ -204,6 +225,32 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
           contact={student.contact}
           initialToken={familyToken}
         />
+      ) : null}
+
+      {account ? (
+        <Fold
+          id="messages"
+          open={unreadNotes > 0}
+          summary={
+            <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="h2">💬 Messages</span>
+              {unreadNotes ? <span className="chip-warn">{unreadNotes} new</span> : null}
+              <span className="text-sm text-[var(--th-text-3)]">
+                {familySeen ? `Family page last opened ${fmtSeen(familySeen)}` : "Family page not opened yet"}
+              </span>
+            </span>
+          }
+        >
+          <div className="space-y-3 px-5 pb-5">
+            <MarkNotesRead accountId={account.id} unread={unreadNotes} />
+            {notes.length ? (
+              <NoteThread notes={notes} me="tutor" tutor="You" family={student.parent_name?.trim() || "Family"} />
+            ) : (
+              <p className="text-sm text-[var(--th-text-3)]">No messages yet. When the family writes on their page, it shows here and on Home.</p>
+            )}
+            <NoteForm who="tutor" accountId={account.id} placeholder={`Reply to ${student.parent_name?.trim() || "the family"} (shows on their page)…`} />
+          </div>
+        </Fold>
       ) : null}
 
       <Fold

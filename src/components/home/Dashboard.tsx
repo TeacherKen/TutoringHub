@@ -269,7 +269,13 @@ export function TodoPanel({
   unpaid,
   link,
   linkCount = 0,
+  messages = [],
+  seen = [],
 }: {
+  /** New messages from families (not read yet). */
+  messages?: Row[];
+  /** Families who opened their page recently (just so Mr Ken knows; nothing to do). */
+  seen?: Row[];
   /** Coming lessons in the next 2 days that aren't ready yet. */
   getReady?: { lesson: Lesson; r: Ready }[];
   notes: Lesson[];
@@ -307,6 +313,7 @@ export function TodoPanel({
   const readyRows = getReady.map(({ lesson: l, r }) => ({ ...lessonRow(l, true), extra: <ReadyPill lessonId={l.id} r={r} who={lessonNames(l)} /> }));
   // The button's words: what's waiting, most useful first.
   const groups: [string, number][] = [
+    ["Messages from families", messages.length],
     ["Get ready", readyRows.length],
     ["Notes to write", noteRows.length],
     ["Not marked as done", markRows.length],
@@ -333,6 +340,7 @@ export function TodoPanel({
       ) : (
         <TodoToggle summary={summary} count={total}>
           <div className="divide-y divide-white/10">
+            <TodoGroup title="Messages from families" rows={messages} />
             <TodoGroup title="Get ready" rows={readyRows} />
             <TodoGroup
               title="Notes to write"
@@ -353,6 +361,17 @@ export function TodoPanel({
           </div>
         </TodoToggle>
       )}
+      {seen.length ? (
+        <ul className="space-y-1 text-sm text-[var(--th-text-3)]">
+          {seen.map((s) => (
+            <li key={s.id}>
+              <SoundLink href={s.href} className="hover:underline">
+                👀 {s.text}
+              </SoundLink>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }

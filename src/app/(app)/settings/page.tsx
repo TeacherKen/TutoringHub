@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PushToggle } from "@/components/PushToggle";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/data";
@@ -41,6 +42,14 @@ export default async function SettingsPage() {
       {/* Two columns of cards on a laptop; one column on a phone */}
       <div className="space-y-5 lg:block lg:columns-2 lg:gap-5 lg:space-y-0 [&>section]:break-inside-avoid lg:[&>section]:mb-5">
       <SoundFeel />
+
+      <section id="notifications" className="glass rounded-[26px] p-5 sm:p-6 space-y-3">
+        <div>
+          <h2 className="font-display text-[22px] font-semibold">🔔 Phone notifications</h2>
+          <p className="text-sm text-muted">A pop-up when a family opens their page or sends you a message. Turn it on on each device you want it on (on iPhone: open TutoringHub from the home-screen icon first).</p>
+        </div>
+        <PushToggle />
+      </section>
 
 
       <section id="calendar" className="glass rounded-[26px] p-5 sm:p-6 space-y-4">

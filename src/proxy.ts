@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Real permission checks happen on each page and in the database.
 // Student rooms are opened with a private link instead of a sign-in.
 // "/games" = Mr Ken's own games in public/games (Magic Square, Wolf vs Sheep): children open them in their room without signing in.
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/no-access", "/room", "/api/room", "/games", "/family", "/match", "/api/match", "/arcade/manifest.webmanifest"];
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/no-access", "/room", "/api/room", "/games", "/family", "/match", "/api/match", "/arcade/manifest.webmanifest", "/sw.js"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

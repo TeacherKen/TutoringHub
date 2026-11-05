@@ -2,14 +2,21 @@ import { PromptPayQR } from "@/components/PromptPayQR";
 import { MasteryGrid } from "@/components/MasteryGrid";
 import { parseFact } from "@/lib/facts";
 import { TrophyShelf } from "@/components/Trophies";
-import type { FamilyPage } from "@/lib/family";
+import type { FamilyNote, FamilyPage } from "@/lib/family";
+import { NoteForm, NoteThread } from "@/components/FamilyNotes";
 import { bkkDateKey, fmtDay, fmtTime } from "@/lib/time";
 
 const thb = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 const hrs = (h: number) => `${Math.round(h * 100) / 100} ${Math.abs(h) === 1 ? "hour" : "hours"}`;
 
 /** What a family sees on their private page. */
-export function FamilyView({ f, tutor }: { f: FamilyPage; tutor: string }) {
+export function FamilyView({ f, tutor, token }: { f: FamilyPage; tutor: string; token: string }) {
+  // Replies under a lesson update stay with it; everything else is in "Messages with Mr Ken".
+  const shownLessons = new Set(f.messages.map((m) => m.lessonId));
+  const under = (lessonId: string) => f.notes.filter((n) => n.lessonId === lessonId);
+  const general = f.notes.filter((n) => !n.lessonId || !shownLessons.has(n.lessonId));
+  const family = f.parentName ?? "You";
+  const talk = { tutor, family, token };
   return (
     <main className="mx-auto max-w-2xl space-y-8 px-4 pb-12 pt-6">
       <header>
@@ -27,6 +34,7 @@ export function FamilyView({ f, tutor }: { f: FamilyPage; tutor: string }) {
             </h2>
           </div>
           <UpdateBody m={f.messages[0]} />
+          <Replies notes={under(f.messages[0].lessonId)} lessonId={f.messages[0].lessonId} {...talk} />
         </section>
       ) : null}
 
@@ -146,8 +154,9 @@ export function FamilyView({ f, tutor }: { f: FamilyPage; tutor: string }) {
                 <span className="text-sm text-accent group-open:hidden">Read</span>
                 <span className="hidden text-sm text-accent group-open:inline">Close</span>
               </summary>
-              <div className="mt-3">
+              <div className="mt-3 space-y-3">
                 <UpdateBody m={m} />
+                <Replies notes={under(m.lessonId)} lessonId={m.lessonId} {...talk} />
               </div>
             </details>
           ))}
@@ -168,6 +177,17 @@ export function FamilyView({ f, tutor }: { f: FamilyPage; tutor: string }) {
           </div>
         </section>
       ) : null}
+
+      <section id="messages" className="card space-y-3" aria-labelledby="msg-h">
+        <div>
+          <h2 id="msg-h" className="h2">
+            💬 Messages with {tutor}
+          </h2>
+          <p className="mt-1 text-sm text-muted">Questions, news, or anything you&apos;d like {tutor} to know. He&apos;ll reply here.</p>
+        </div>
+        <NoteThread notes={general} me="parent" tutor={tutor} family={family} />
+        <NoteForm who="parent" token={token} placeholder={`Write to ${tutor}…`} />
+      </section>
 
       <p className="text-center text-xs text-muted">This page is private to your family. Please don&apos;t share the link.</p>
     </main>
@@ -223,6 +243,19 @@ function Topics({ title, items, tone, mark = "" }: { title: string; items: strin
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Under a lesson update: the replies so far, and a small box to reply to it. */
+function Replies({ notes, lessonId, tutor, family, token }: { notes: FamilyNote[]; lessonId: string; tutor: string; family: string; token: string }) {
+  return (
+    <div className="space-y-2 border-t border-line pt-3">
+      <NoteThread notes={notes} me="parent" tutor={tutor} family={family} />
+      <details className="group" open={notes.length > 0}>
+        <summary className="cursor-pointer list-none text-sm font-medium text-accent group-open:hidden">💬 Reply to {tutor}</summary>
+        <NoteForm who="parent" token={token} lessonId={lessonId} placeholder={`Reply to ${tutor} about this lesson…`} />
+      </details>
     </div>
   );
 }

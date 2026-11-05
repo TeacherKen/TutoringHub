@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { getFamilyPage } from "@/lib/family";
+import { after } from "next/server";
+import { familyOpened, getFamilyPage } from "@/lib/family";
+import { getMe } from "@/lib/auth";
 import { acceptFamilyConsent } from "@/app/actions/family";
 import { FamilyView } from "@/components/FamilyView";
 import { tutorName } from "@/lib/env";
@@ -42,5 +44,9 @@ export default async function FamilyPage({ params }: PageProps<"/family/[token]"
     );
   }
 
-  return <FamilyView f={f} tutor={tutor} />;
+  // Tell Mr Ken the family opened the page (not when he's checking it himself), after the page is sent.
+  const me = await getMe();
+  if (me?.role !== "tutor") after(() => familyOpened(f, f.children[0]?.id ?? null));
+
+  return <FamilyView f={f} tutor={tutor} token={token} />;
 }

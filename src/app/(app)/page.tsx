@@ -2,6 +2,7 @@ import { CalendarCatchUp } from "@/components/CalendarCatchUp";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { getLessons, getMoneyData, getReminderLessons, getSettings, getStudents, isUnmarked, needsFeedback, needsNote, REMINDER_DAYS, reminderSince, type Lesson } from "@/lib/data";
 import { renewSoon, sumEarned } from "@/lib/earnings";
 import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, fmtLongDay, fmtTime, mondayOf, nowMs, todayKey, TZ } from "@/lib/time";
@@ -83,6 +84,7 @@ export default async function Home() {
   const colours = colourSlots({ students, packages: money.packages, accountNames: accountName });
   const slotOf = (l: Lesson) => (l.lesson_students[0] ? colours.slotOfStudent(l.lesson_students[0].student_id) : 8);
   const shown = current ?? next;
+  const family = await familyActivity(students);
   const weekCount = matched.filter((l) => bkkDateKey(l.start_at) >= mondayOf(today) && bkkDateKey(l.start_at) < addDays(mondayOf(today), 7) && !l.status.startsWith("cancelled")).length;
 
   return (
@@ -136,6 +138,8 @@ export default async function Home() {
           unpaid={unpaid.map((p) => ({ id: p.id, href: "/money#unpaid", text: `${accountName.get(p.hour_account_id) ?? "Package"}, ฿${Math.round(Number(p.price_thb)).toLocaleString("en-US")}` }))}
           link={unmatched.length ? <UnmatchedEvents events={unmatched} students={students} /> : null}
           linkCount={unmatched.length}
+          messages={family.messages}
+          seen={family.seen}
         />
       </div>
 
@@ -192,3 +196,33 @@ function UnmatchedEvents({ events, students }: { events: Lesson[]; students: { i
   );
 }
 
+
+/** 💬 New messages from families, and families who opened their page in the last 2 days (none before update 0028). */
+async function familyActivity(students: { id: string; first_name: string; hour_account_id: string | null; parent_name: string | null; active: boolean }[]) {
+  const supabase = await createClient();
+  const [{ data: notes }, { data: seenRows }] = await Promise.all([
+    supabase.from("family_notes").select("id, hour_account_id, body, created_at").eq("author", "parent").is("read_at", null).order("created_at", { ascending: false }).limit(20),
+    supabase.from("hour_accounts").select("id, family_seen_at").gte("family_seen_at", new Date(Date.now() - 2 * 86_400_000).toISOString()).order("family_seen_at", { ascending: false }).limit(6),
+  ]);
+  const kids = (id: string) => students.filter((s) => s.hour_account_id === id).sort((a, b) => Number(b.active) - Number(a.active));
+  const who = (id: string) => {
+    const k = kids(id);
+    return k.map((s) => s.parent_name?.trim()).find(Boolean) ?? `${k.filter((s) => s.active).map((s) => s.first_name).join(" & ") || "A"}'s family`;
+  };
+  const href = (id: string) => (kids(id)[0] ? `/students/${kids(id)[0].id}#messages` : "/students");
+  const ago = (iso: string) => {
+    const m = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+    return m < 2 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : "yesterday";
+  };
+  const messages = ((notes ?? []) as { id: string; hour_account_id: string; body: string; created_at: string }[]).map((n) => ({
+    id: n.id,
+    href: href(n.hour_account_id),
+    text: `${who(n.hour_account_id)}: “${n.body.length > 70 ? `${n.body.slice(0, 70)}…` : n.body}”`,
+  }));
+  const seen = ((seenRows ?? []) as { id: string; family_seen_at: string }[]).map((a) => ({
+    id: a.id,
+    href: href(a.id),
+    text: `${who(a.id)} opened the family page ${ago(a.family_seen_at)}`,
+  }));
+  return { messages, seen };
+}
