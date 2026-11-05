@@ -180,9 +180,13 @@ function ScreenPicture({ html, title }: { html: string; title: string }) {
   const back = (1 - front.idx) as 0 | 1;
   // What each copy shows: the one in front keeps its picture; the hidden one loads the newest.
   const docFor = (i: 0 | 1) => (i === front.idx ? front.html : html !== front.html ? html : "");
-  const size = (h: string) => ({ vw: attr(h, "data-vw", 1024), vh: attr(h, "data-vh", 700) });
+  // A game picture may show only part of the child's screen width (data-crop-x/-w); older pictures show it all.
+  const size = (h: string) => {
+    const vw = attr(h, "data-vw", 1024);
+    return { vw, vh: attr(h, "data-vh", 700), cx: attr(h, "data-crop-x", 0), cw: attr(h, "data-crop-w", vw) };
+  };
   const shown = size(front.html);
-  const scale = Math.min(1, boxWidth / shown.vw);
+  const scale = Math.min(1, boxWidth / shown.cw);
 
   function loaded(i: 0 | 1) {
     const el = frames[i].current;
@@ -198,7 +202,8 @@ function ScreenPicture({ html, title }: { html: string; title: string }) {
       <div className="relative overflow-hidden rounded-xl border border-line bg-white" style={{ height: shown.vh * scale }}>
         {([0, 1] as const).map((i) => {
           const doc = docFor(i);
-          const { vw, vh } = size(doc || front.html);
+          const { vw, vh, cx, cw } = size(doc || front.html);
+          const s = Math.min(1, boxWidth / cw);
           return (
             <iframe
               key={i}
@@ -211,7 +216,7 @@ function ScreenPicture({ html, title }: { html: string; title: string }) {
               sandbox="allow-same-origin"
               onLoad={() => loaded(i)}
               className={`pointer-events-none absolute left-0 top-0 origin-top-left border-0 ${i === back ? "invisible" : ""}`}
-              style={{ width: vw, height: vh, transform: `scale(${Math.min(1, boxWidth / vw)})` }}
+              style={{ width: vw, height: vh, transform: `translateX(${-cx * s}px) scale(${s})` }}
             />
           );
         })}

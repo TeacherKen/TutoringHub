@@ -404,7 +404,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
           />
         </section>
       ) : game ? (
-        <section className="mx-auto w-full max-w-lg space-y-4">
+        <section className={`mx-auto w-full space-y-4 ${gameInfo?.wide ? "max-w-5xl" : "max-w-lg"}`}>
           <div className="flex items-center justify-between">
             <button className="btn-quiet px-0" onClick={() => setGame(null)}>
               ‹ All games

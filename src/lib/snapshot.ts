@@ -100,7 +100,26 @@ export function snapshotElement(el: Element): string {
     .join("");
   const inline = [...document.querySelectorAll("head style")].map((st) => `<style>${st.textContent ?? ""}</style>`).join("");
   const htmlClass = document.documentElement.className.replace(/"/g, "");
-  const w = Math.round(el.getBoundingClientRect().width) + 32;
-  const h = Math.round(el.getBoundingClientRect().height) + 32;
-  return `<!doctype html><html class="${htmlClass}" data-vw="${w}" data-vh="${h}"><head><base href="${location.origin}/">${styles}${inline}</head><body style="padding:16px">${clone.outerHTML}</body></html>`;
+  // Laid out at the child's real screen width, so layouts that change with screen size match theirs;
+  // the tutor sees just the part with the game, including anything that spills outside its card.
+  const r = el.getBoundingClientRect();
+  let [x0, y0, x1, y1] = [r.left, r.top, r.right, r.bottom];
+  el.querySelectorAll("*").forEach((n) => {
+    const b = n.getBoundingClientRect();
+    if (!b.width || !b.height) return;
+    x0 = Math.min(x0, b.left);
+    y0 = Math.min(y0, b.top);
+    x1 = Math.max(x1, b.right);
+    y1 = Math.max(y1, b.bottom);
+  });
+  const vw = Math.round(window.innerWidth);
+  x0 = Math.max(0, x0);
+  x1 = Math.min(vw, x1);
+  const pad = 16;
+  const cropX = Math.max(0, Math.round(x0) - pad);
+  const cropW = Math.round(x1 - x0) + pad * 2;
+  const top = Math.round(r.top - y0) + pad;
+  const h = Math.round(y1 - y0) + pad * 2;
+  const box = `position:absolute;left:${Math.round(r.left)}px;top:${top}px;width:${Math.round(r.width)}px`;
+  return `<!doctype html><html class="${htmlClass}" data-vw="${vw}" data-vh="${h}" data-crop-x="${cropX}" data-crop-w="${cropW}"><head><base href="${location.origin}/">${styles}${inline}</head><body style="margin:0;overflow:hidden"><div style="${box}">${clone.outerHTML}</div></body></html>`;
 }
