@@ -913,12 +913,19 @@ html:has(.th-stadium) body {
 
 /* ---- Phone (under 640px): tabs along the bottom, and everything a little tighter ---- */
 .tabbar {
+  display: none; /* phones only (below); a plain rule here would beat Tailwind's sm:hidden */
+}
+@media (max-width: 639px) {
+  .tabbar {
+    display: grid;
+  }
+}
+.tabbar {
   position: fixed;
   left: 10px;
   right: 10px;
   bottom: max(10px, env(safe-area-inset-bottom));
   z-index: 50;
-  display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: 2px;
