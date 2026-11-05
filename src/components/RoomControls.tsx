@@ -1,6 +1,6 @@
 "use client";
 import { netFail } from "@/lib/netFail";
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { ensureRoomToken, resetRoomToken, setGamesOpen, setStudentSlides } from "@/app/actions/rooms";
 import { WatchScreen } from "./WatchScreen";
 import { SmartSlides } from "./SmartSlides";
@@ -25,6 +25,8 @@ export function RoomControls({ students, showGames = true, lessonId, bare = fals
   const [open, setOpen] = useState(students.some((s) => s.games_open));
   const [msg, setMsg] = useState<string | null>(null);
   const [watching, setWatching] = useState<string | null>(null);
+  // Same function every time, so it only scrolls when the watch view first opens.
+  const scrollIntoView = useCallback((el: HTMLDivElement | null) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }), []);
   const [done, setDone] = useState<{ id: string; what: "copy" | "send" } | null>(null);
   const tick = (id: string, what: "copy" | "send") => {
     setDone({ id, what });
@@ -154,9 +156,14 @@ export function RoomControls({ students, showGames = true, lessonId, bare = fals
               ) : null}
             </div>
           </div>
+          {/* Watching shows right under the buttons (the smart slides below can be very tall). */}
+          {watching === s.id ? (
+            <div ref={scrollIntoView} className="scroll-mt-28">
+              <WatchScreen studentId={s.id} name={s.first_name} token={tokens[s.id]} />
+            </div>
+          ) : null}
           <SmartSlides studentId={s.id} name={s.first_name} currentId={s.board_id ?? null} lessonId={lessonId} />
           <SlidesField student={s} />
-          {watching === s.id ? <WatchScreen studentId={s.id} name={s.first_name} token={tokens[s.id]} /> : null}
           {tokens[s.id] ? <WolfOnlineTutor token={tokens[s.id]!} name={s.first_name} /> : null}
         </div>
       ))}
