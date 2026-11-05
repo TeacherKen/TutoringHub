@@ -168,7 +168,7 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
 
       {ended ? (
         <>
-          <StepLabel n={1} text="Add worksheet photos, then let ✨ write the note and message" />
+          <StepLabel id="send-update" n={1} text="Add worksheet photos, then let ✨ write the note and message" />
           <LessonAISummary
             lessonId={lesson.id}
             aiEnabled={aiAvailable()}
@@ -413,9 +413,9 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
 }
 
 /** "① Add worksheet photos…": the order to do things in after a lesson. */
-function StepLabel({ n, text }: { n: number; text: string }) {
+function StepLabel({ n, text, id }: { n: number; text: string; id?: string }) {
   return (
-    <p className="-mb-2 mt-1 flex items-center gap-2.5 px-1.5 text-sm font-semibold text-[var(--th-text-2)]">
+    <p id={id} className="-mb-2 mt-1 flex scroll-mt-28 items-center gap-2.5 px-1.5 text-sm font-semibold text-[var(--th-text-2)]">
       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent font-display text-[15px] font-bold text-[var(--th-accent-ink)]">
         {n}
       </span>

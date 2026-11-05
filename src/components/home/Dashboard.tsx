@@ -455,3 +455,37 @@ export function WeekList({ days, ready, slotOf }: { days: [string, Lesson[]][]; 
     </section>
   );
 }
+
+/**
+ * 📸 Just finished: one big button per lesson that ended in the last 12 hours without an update sent.
+ * It opens the lesson right at step 1 (worksheet photo → ✨ note and message → 📮 send), so on the phone
+ * it's one tap from Home. Gone once the update is sent or skipped.
+ */
+export function JustDone({ lessons }: { lessons: { id: string; names: string; end: string }[] }) {
+  if (!lessons.length) return null;
+  return (
+    <section aria-label="Lessons just finished" className="flex flex-col gap-2.5">
+      {lessons.map((l) => (
+        <SoundLink
+          key={l.id}
+          href={`/lessons/${l.id}#send-update`}
+          className="glass press flex items-center gap-3 rounded-[22px] px-4 py-3.5 sm:px-5"
+          style={{ borderColor: "var(--th-accent-line)", background: "linear-gradient(135deg, var(--th-accent-soft), transparent 70%)" }}
+        >
+          <span aria-hidden className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent text-[22px]">
+            📸
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Add photo &amp; send update</span>
+            <span className="block truncate text-sm text-[var(--th-text-3)]">
+              {l.names} · finished {l.end}
+            </span>
+          </span>
+          <span aria-hidden className="text-xl text-accent">
+            ›
+          </span>
+        </SoundLink>
+      ))}
+    </section>
+  );
+}

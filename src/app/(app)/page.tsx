@@ -13,7 +13,7 @@ import { backupIfDue } from "@/lib/backup";
 import { after } from "next/server";
 import { loadPrep } from "@/lib/prepData";
 import { loadReady } from "@/lib/readyData";
-import { Hero, MonthPanel, TodayTimeline, TodoPanel, WeekList } from "@/components/home/Dashboard";
+import { Hero, JustDone, MonthPanel, TodayTimeline, TodoPanel, WeekList } from "@/components/home/Dashboard";
 import { tutorName } from "@/lib/env";
 import { colourSlots } from "@/lib/studentColours";
 
@@ -85,6 +85,15 @@ export default async function Home() {
   const slotOf = (l: Lesson) => (l.lesson_students[0] ? colours.slotOfStudent(l.lesson_students[0].student_id) : 8);
   const shown = current ?? next;
   const family = await familyActivity(students);
+  // 📸 Just finished: a big button to add the worksheet photo and send the update (fewest taps on the phone).
+  const justDone = matched
+    .filter((l) => {
+      const end = Date.parse(l.end_at);
+      return end <= now && end > now - 12 * 3_600_000 && !l.sent_at && !l.feedback_skipped && !l.status.startsWith("cancelled");
+    })
+    .sort((a, b) => b.end_at.localeCompare(a.end_at))
+    .slice(0, 3)
+    .map((l) => ({ id: l.id, names: l.lesson_students.map((ls) => ls.students?.first_name).filter(Boolean).join(" & ") || "Lesson", end: fmtTime(l.end_at) }));
   const weekCount = matched.filter((l) => bkkDateKey(l.start_at) >= mondayOf(today) && bkkDateKey(l.start_at) < addDays(mondayOf(today), 7) && !l.status.startsWith("cancelled")).length;
 
   return (
@@ -113,6 +122,8 @@ export default async function Home() {
           ) : null
         }
       />
+
+      <JustDone lessons={justDone} />
 
       {/* Three glass cards side by side on a laptop, one under another on a phone */}
       <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
