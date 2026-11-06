@@ -1020,16 +1020,6 @@ html:has(.th-stadium) body {
   right: -12px;
 }
 
-/* 🖥️ Smart slides on Mr Ken's lesson and student pages: as wide as the window on a laptop
-   (those pages are a narrow column for reading). No transform, so full screen still works. */
-@media (min-width: 1024px) {
-  .slides-wide {
-    position: relative;
-    left: 50%;
-    width: min(1500px, calc(100vw - 64px));
-    margin-left: calc(min(1500px, calc(100vw - 64px)) / -2);
-  }
-}
 
 /* ⛶ Smart slides in full screen: nothing around them may hold the full-screen view in place */
 html.board-full * {
