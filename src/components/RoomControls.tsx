@@ -162,7 +162,10 @@ export function RoomControls({ students, showGames = true, lessonId, bare = fals
               <WatchScreen studentId={s.id} name={s.first_name} token={tokens[s.id]} />
             </div>
           ) : null}
-          <SmartSlides studentId={s.id} name={s.first_name} currentId={s.board_id ?? null} lessonId={lessonId} />
+          {/* On a laptop the slides use the whole window width, not just the narrow page column. */}
+          <div className="slides-wide">
+            <SmartSlides studentId={s.id} name={s.first_name} currentId={s.board_id ?? null} lessonId={lessonId} />
+          </div>
           <SlidesField student={s} />
           {tokens[s.id] ? <WolfOnlineTutor token={tokens[s.id]!} name={s.first_name} /> : null}
         </div>

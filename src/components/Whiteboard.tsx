@@ -858,10 +858,14 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     document.addEventListener("fullscreenchange", onFs);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // The see-through glass boxes and the page's fade-in would otherwise keep the full-screen view
+    // inside them (a browser rule), so it only filled its box on Mr Ken's lesson page. Switched off meanwhile.
+    document.documentElement.classList.add("board-full");
     return () => {
       window.removeEventListener("keydown", onKey);
       document.removeEventListener("fullscreenchange", onFs);
       document.body.style.overflow = prev;
+      document.documentElement.classList.remove("board-full");
     };
   }, [full]);
   useEffect(() => {
