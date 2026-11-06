@@ -67,7 +67,7 @@ export const liveKey = (roomToken: string, boardId: string) => createHash("sha25
 export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: boolean): Promise<BoardPoll> {
   const admin = createAdminClient();
   const other: Who = me === "student" ? "tutor" : "student";
-  const [marksRes, liveRes, urls, owner] = await Promise.all([
+  const [marksRes, liveRes, urls, owner, mineRes] = await Promise.all([
     admin
       .from("board_marks")
       .select("id, page, author, data, deleted, rev, created_at")
@@ -85,6 +85,8 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
           )
       : Promise.resolve(null),
     withUrls ? admin.from("students").select("room_token").eq("id", b.student_id).maybeSingle<{ room_token: string | null }>() : Promise.resolve(null),
+    // Opening the slides: where I stopped last time (the slides can last 2–3 lessons).
+    withUrls ? admin.from("board_live").select("page").eq("board_id", b.id).eq("who", me).maybeSingle<{ page: number | null }>() : Promise.resolve(null),
   ]);
   const marks = (marksRes.data ?? []) as Mark[];
   const board: BoardInfo = { id: b.id, title: b.title, pages: b.pages, aspect: Number(b.aspect), layout: boardLayout(b.pages, b.layout) };
@@ -96,6 +98,7 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
     rev: marks.length ? Number(marks[marks.length - 1].rev) : after,
     other: liveRes.data ?? null,
     now: new Date().toISOString(),
+    ...(withUrls ? { mine: mineRes?.data?.page != null ? { page: Number(mineRes.data.page) } : null } : {}),
   };
 }
 

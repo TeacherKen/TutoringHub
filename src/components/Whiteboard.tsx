@@ -282,6 +282,14 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   });
   // 📑 All pages as small pictures, to jump straight to one (like Canva's page list).
   const [pagesOpen, setPagesOpen] = useState(false);
+  // 📍 "Carrying on from page 17": shown for a few seconds after opening slides used in an earlier lesson.
+  const resumeFor = useRef<string | null>(null);
+  const [resumed, setResumed] = useState<number | null>(null);
+  useEffect(() => {
+    if (resumed == null) return;
+    const id = setTimeout(() => setResumed(null), 12_000);
+    return () => clearTimeout(id);
+  }, [resumed]);
   const [size, setSize] = useState<keyof typeof SIZES>("thin");
   const [other, setOther] = useState<Live | null>(null);
   const [follow, setFollow] = useState(true);
@@ -569,7 +577,8 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   // ---- Telling the other screen what I'm doing ------------------------------
   const sendLive = useCallback(
     (extra: Record<string, unknown> = {}) => {
-      if (!boardIdRef.current) return;
+      // Not until I know where I stopped last time, so "page 1" doesn't overwrite it.
+      if (!boardIdRef.current || resumeFor.current) return;
       const t0 = Date.now();
       lastLive.current = t0;
       const { page: pg, tool: t, color: c } = stateRef.current;
@@ -662,6 +671,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           future.current = [];
           rev.current = 0;
           setPage(0);
+          resumeFor.current = data.board.id; // carry on where I stopped, once the page list arrives
           // Writing that wasn't saved before a reload: show it again and keep sending it.
           const q = queue.current;
           if (q) {
@@ -691,6 +701,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         if (data.board.urls) {
           needUrls = false;
           setBoard(data.board);
+          // 📍 Slides that last 2–3 lessons: open on the page I stopped at last time, not page 1.
+          if (resumeFor.current === data.board.id && data.mine !== undefined) {
+            resumeFor.current = null;
+            const at = data.mine?.page;
+            if (at != null && at !== data.board.layout[0] && data.board.layout.includes(at)) {
+              setPage(at);
+              setResumed(data.board.layout.indexOf(at) + 1);
+            }
+          }
         } else {
           applyLayout(data.board.layout);
         }
@@ -1611,6 +1630,22 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         </div>
       </div>
       </div>
+
+      {resumed != null ? (
+        <div className="flex flex-wrap items-center justify-center gap-2 text-sm" role="status">
+          <span>📍 Carrying on from page {resumed}, where you stopped last time.</span>
+          <button
+            type="button"
+            className="btn-quiet min-h-10 px-3 text-sm underline"
+            onClick={() => {
+              goPage(0);
+              setResumed(null);
+            }}
+          >
+            Back to page 1
+          </button>
+        </div>
+      ) : null}
 
       {pagesOpen ? (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-3 sm:items-center" onClick={() => setPagesOpen(false)}>

@@ -88,7 +88,15 @@ export function removePage(layout: number[], id: number): number[] | null {
   if (pageKind(id) === "slide" || !layout.includes(id)) return null;
   return layout.filter((x) => x !== id);
 }
-export type BoardPoll = { board: BoardInfo | null; marks: Mark[]; rev: number; other: Live | null; now?: string };
+export type BoardPoll = {
+  board: BoardInfo | null;
+  marks: Mark[];
+  rev: number;
+  other: Live | null;
+  now?: string;
+  /** First load only: the page I was last on in these slides, to carry on from there. */
+  mine?: { page: number } | null;
+};
 
 export const MAX_POINTS = 4000; // numbers (x,y pairs × 2) in one line
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
