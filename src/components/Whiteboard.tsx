@@ -269,7 +269,16 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const [selected, setSelected] = useState<string[]>([]);
   const selectedRef = useRef<string[]>([]);
   const drag = useRef<Drag | null>(null);
-  const keys = useRef<{ undo: () => void; redo: () => void; del: () => void; all: () => void; none: () => void }>({ undo: () => {}, redo: () => {}, del: () => {}, all: () => {}, none: () => {} });
+  const keys = useRef<{ undo: () => void; redo: () => void; del: () => void; all: () => void; none: () => void; turn: (by: number) => void }>({
+    undo: () => {},
+    redo: () => {},
+    del: () => {},
+    all: () => {},
+    none: () => {},
+    turn: () => {},
+  });
+  // 📑 All pages as small pictures, to jump straight to one (like Canva's page list).
+  const [pagesOpen, setPagesOpen] = useState(false);
   const [size, setSize] = useState<keyof typeof SIZES>("thin");
   const [other, setOther] = useState<Live | null>(null);
   const [follow, setFollow] = useState(true);
@@ -736,7 +745,14 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
   // ---- Keyboard: Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl+Y redo ----------------------
   useLayoutEffect(() => {
-    keys.current = { undo, redo, del: deleteSelected, all: selectAll, none: () => select([]) };
+    keys.current = {
+      undo,
+      redo,
+      del: deleteSelected,
+      all: selectAll,
+      none: () => select([]),
+      turn: (by) => board && goPage(board.layout.indexOf(page) + by),
+    };
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -747,6 +763,13 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         return;
       }
       if (e.key === "Escape") keys.current.none();
+      // ← → (and Page Up / Page Down) turn the page. Only in the child's room: Mr Ken's lesson page can
+      // show more than one child's slides, and his arrow keys shouldn't move all of them.
+      if (!isTutor && !e.metaKey && !e.ctrlKey && !e.altKey && ["ArrowRight", "ArrowLeft", "PageDown", "PageUp"].includes(e.key)) {
+        e.preventDefault();
+        keys.current.turn(e.key === "ArrowRight" || e.key === "PageDown" ? 1 : -1);
+        return;
+      }
       if (!(e.metaKey || e.ctrlKey)) return;
       const k = e.key.toLowerCase();
       if (k === "a" && stateRef.current.tool === "select") {
@@ -763,7 +786,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [isTutor]);
 
   // ---- Paste a picture (⌘V / Ctrl+V), or copied words as typing ----------------------
   const paste = useRef<(e: ClipboardEvent) => void>(() => {});
@@ -1578,15 +1601,65 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       </div>
       </div>
 
+      {pagesOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-3 sm:items-center" onClick={() => setPagesOpen(false)}>
+        <div className="w-full max-w-5xl rounded-2xl border border-line bg-surface p-3 shadow-2xl" role="dialog" aria-modal="true" aria-label="All pages" onClick={(e) => e.stopPropagation()}>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-medium">Tap a page to go there</p>
+            <button type="button" className="btn-quiet min-h-10 px-3 text-sm" onClick={() => setPagesOpen(false)}>
+              Close
+            </button>
+          </div>
+          <div className="grid max-h-[70vh] grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4 lg:grid-cols-6">
+            {board.layout.map((id, i) => {
+              const k = pageKind(id);
+              const src = k === "slide" ? board.urls?.[id] : undefined;
+              const on = id === page;
+              const theirs = isTutor && other?.page === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    goPage(i);
+                    setPagesOpen(false);
+                  }}
+                  aria-current={on ? "page" : undefined}
+                  ref={on ? (el) => el?.scrollIntoView({ block: "center" }) : undefined}
+                  className={`relative overflow-hidden rounded-xl border-2 bg-white text-left ${on ? "border-[var(--accent,#2f8f83)]" : "border-transparent hover:border-line"}`}
+                  style={{ aspectRatio: String(1 / (Number(board.aspect) || 0.5625)) }}
+                >
+                  {src ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={src} alt="" loading="lazy" className="h-full w-full object-contain" />
+                  ) : (
+                    <span className="grid h-full w-full place-items-center text-2xl text-slate-400">{k === "grid" ? "▦" : "⬜"}</span>
+                  )}
+                  <span className="absolute bottom-1 left-1 rounded-md bg-black/65 px-1.5 text-xs font-semibold text-white tabular-nums">{i + 1}</span>
+                  {theirs ? <span className="absolute right-1 top-1 rounded-md bg-amber-400 px-1.5 text-[11px] font-bold text-black">{otherName}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        </div>
+      ) : null}
+
       {/* Tools — big buttons for small hands */}
       <div className={`flex flex-wrap items-center justify-center ${full ? "gap-1.5" : "gap-2"}`}>
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
           <button type="button" className={btn(false)} onClick={() => goPage(pos - 1)} disabled={pos === 0} aria-label="Previous page">
             ◀
           </button>
-          <span className="min-w-16 text-center text-sm font-medium tabular-nums">
-            {pos + 1} / {board.layout.length}
-          </span>
+          <button
+            type="button"
+            className={`${btn(pagesOpen)} min-w-20 gap-1 text-sm font-medium tabular-nums`}
+            onClick={() => setPagesOpen(!pagesOpen)}
+            aria-expanded={pagesOpen}
+            title="See all pages and jump to one"
+          >
+            {pos + 1} / {board.layout.length} <span aria-hidden>▦</span>
+          </button>
           <button type="button" className={btn(false)} onClick={() => goPage(pos + 1)} disabled={pos >= board.layout.length - 1} aria-label="Next page">
             ▶
           </button>
