@@ -995,3 +995,27 @@ html:has(.th-stadium) body {
     outline: 2px solid CanvasText;
   }
 }
+
+/* 💬 New family messages: a small red number on the Home tab */
+.nav-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(7, 23, 25, 0.9);
+}
+.tab .nav-badge {
+  margin-left: 2px;
+}
+.tabbar-item .nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -12px;
+}

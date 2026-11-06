@@ -78,7 +78,17 @@ const TUTOR = [
 ];
 const VIEWER = [{ href: "/schedule", label: "Schedule", icon: "week" }];
 
-export function GlassNav({ role }: { role: "tutor" | "viewer" }) {
+/** A small red dot with a number on a tab, e.g. new family messages on Home. */
+function Badge({ n }: { n?: number }) {
+  if (!n) return null;
+  return (
+    <span className="nav-badge" aria-label={`${n} new`}>
+      {n > 9 ? "9+" : n}
+    </span>
+  );
+}
+
+export function GlassNav({ role, badges = {} }: { role: "tutor" | "viewer"; badges?: Record<string, number> }) {
   const path = usePathname();
   const items = role === "tutor" ? TUTOR : VIEWER;
   const active = (href: string) =>
@@ -134,6 +144,7 @@ export function GlassNav({ role }: { role: "tutor" | "viewer" }) {
               >
                 {ICONS[it.icon]}
                 {it.label}
+                <Badge n={badges[it.href]} />
               </Link>
             );
           })}
@@ -179,7 +190,10 @@ export function GlassNav({ role }: { role: "tutor" | "viewer" }) {
               onClick={() => play("nav")}
               className={`tabbar-item press ${on ? "is-on" : ""}`}
             >
-              {ICONS[it.icon]}
+              <span className="relative">
+                {ICONS[it.icon]}
+                <Badge n={badges[it.href]} />
+              </span>
               <span>{it.label}</span>
             </Link>
           );

@@ -7,6 +7,7 @@ import "@fontsource/inter/600.css";
 import "@fontsource/barlow-condensed/700-italic.css";
 import "@fontsource/barlow-condensed/800-italic.css";
 import { requireSignedIn } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { GlassNav, GlassOrbs } from "@/components/GlassNav";
 import { AppMain } from "@/components/AppMain";
 import { GlassToast } from "@/components/glass/Toast";
@@ -19,13 +20,20 @@ export const viewport: Viewport = { themeColor: "#071719" };
 // The signed-in app, in TutoringHub Glass: dark background with drifting glows, the glass top bar, then the page.
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const me = await requireSignedIn();
+  // 💬 New messages from families: a red number on the Home tab (none before database update 0028).
+  let unread = 0;
+  if (me.role === "tutor") {
+    const supabase = await createClient();
+    const { count } = await supabase.from("family_notes").select("id", { count: "exact", head: true }).eq("author", "parent").is("read_at", null);
+    unread = count ?? 0;
+  }
   return (
     <div className="th-glass pb-12 max-sm:pb-[calc(96px+env(safe-area-inset-bottom))]">
       {/* The colour theme saved on this device, applied before the page draws */}
       <script dangerouslySetInnerHTML={{ __html: themeBootScript() }} />
       <GlassOrbs />
       <div className="relative z-10 px-3 pt-3 sm:px-5">
-        <GlassNav role={me.role === "tutor" ? "tutor" : "viewer"} />
+        <GlassNav role={me.role === "tutor" ? "tutor" : "viewer"} badges={{ "/": unread }} />
         <AppMain>{children}</AppMain>
       </div>
       <GlassToast />
