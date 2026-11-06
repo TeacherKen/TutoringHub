@@ -1441,8 +1441,12 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   /** Tutor: turn every page with writing into a picture and add it to the lesson. */
   async function saveWork() {
     if (!board || !saveLessonId) return;
-    const withWriting = board.layout.filter((id) => [...marks.current.values()].some((m) => m.page === id));
-    if (!withWriting.length) return setSaving("There's no writing to save yet.");
+    // Only pages written on in this lesson (the last 8 hours): slides that last 2–3 lessons would
+    // otherwise save the earlier lessons' pages again, and the AI would write about them too.
+    const since = Date.now() - 8 * 3_600_000;
+    const fresh = (m: Mark) => !m.created_at || Date.parse(m.created_at) > since;
+    const withWriting = board.layout.filter((id) => [...marks.current.values()].some((m) => m.page === id && fresh(m)));
+    if (!withWriting.length) return setSaving("Nothing was written on these slides today, so there's nothing to save.");
     let done = 0;
     try {
       const sb = createClient();
@@ -1457,7 +1461,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         if (r.error) throw new Error(r.error);
         done++;
       }
-      setSaving(`Saved ${done} ${done === 1 ? "page" : "pages"} to the lesson ✓ (under Worksheets and materials)`);
+      setSaving(`Saved today's ${done} ${done === 1 ? "page" : "pages"} to the lesson ✓ (under Worksheets and materials)`);
       router.refresh();
     } catch {
       setSaving(done ? `Saved ${done} pages, then something went wrong. Try again.` : "Couldn't save. Please try again.");
