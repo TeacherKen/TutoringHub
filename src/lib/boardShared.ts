@@ -94,8 +94,9 @@ export type BoardPoll = {
   rev: number;
   other: Live | null;
   now?: string;
-  /** First load only: the page I was last on in these slides, to carry on from there. */
-  mine?: { page: number } | null;
+  /** First load only: where to carry on in slides used in an earlier lesson — the page after the child's
+   *  last writing (or that page itself when it was in the last few hours, i.e. the same lesson). */
+  resume?: { page: number; after: number | null } | null;
 };
 
 export const MAX_POINTS = 4000; // numbers (x,y pairs × 2) in one line
@@ -371,4 +372,14 @@ export function lessonWriting(marks: Mark[], layout: number[], fromIso: string, 
   const to = Date.parse(toIso);
   const inLesson = marks.filter((m) => !m.deleted && m.created_at && Date.parse(m.created_at) >= from && Date.parse(m.created_at) <= to);
   return { marks: inLesson, pages: layout.filter((id) => inLesson.some((m) => m.page === id)) };
+}
+
+/** 📍 Where to open slides again: after the page the child last wrote on, if that was in an earlier lesson
+ *  (over 3 hours ago); the same page if it was in this lesson (e.g. a refresh). Nothing written: page 1. */
+export function resumeAt(layout: number[], last: { page: number; created_at: string } | null, now = Date.now()): { page: number; after: number | null } | null {
+  if (!last || !layout.includes(last.page)) return null;
+  const sameLesson = now - Date.parse(last.created_at) < 3 * 3_600_000;
+  const pos = layout.indexOf(last.page);
+  if (sameLesson || pos === layout.length - 1) return { page: last.page, after: null };
+  return { page: layout[pos + 1], after: last.page };
 }

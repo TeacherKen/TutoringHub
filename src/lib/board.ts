@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { MATERIALS_BUCKET } from "@/lib/constants";
 import { createHash, randomUUID } from "node:crypto";
-import { BOARD_KEEP_DAYS, IMG_KEY_RE, boardExpired, boardLayout, cleanLive, cleanMark, insertPage, isUuid, removePage, type BoardInfo, type BoardPoll, type Live, type Mark, type MarkData } from "@/lib/boardShared";
+import { BOARD_KEEP_DAYS, IMG_KEY_RE, boardExpired, boardLayout, resumeAt, cleanLive, cleanMark, insertPage, isUuid, removePage, type BoardInfo, type BoardPoll, type Live, type Mark, type MarkData } from "@/lib/boardShared";
 
 // Smart slides on the server. Both the student's room (private link) and Mr Ken's
 // view (signed in) come through here, after their own checks, using the admin client.
@@ -85,8 +85,18 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
           )
       : Promise.resolve(null),
     withUrls ? admin.from("students").select("room_token").eq("id", b.student_id).maybeSingle<{ room_token: string | null }>() : Promise.resolve(null),
-    // Opening the slides: where I stopped last time (the slides can last 2–3 lessons).
-    withUrls ? admin.from("board_live").select("page").eq("board_id", b.id).eq("who", me).maybeSingle<{ page: number | null }>() : Promise.resolve(null),
+    // Opening the slides: the page the child last wrote on (slides can last 2–3 lessons).
+    withUrls
+      ? admin
+          .from("board_marks")
+          .select("page, created_at")
+          .eq("board_id", b.id)
+          .eq("author", "student")
+          .eq("deleted", false)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle<{ page: number; created_at: string }>()
+      : Promise.resolve(null),
   ]);
   const marks = (marksRes.data ?? []) as Mark[];
   const board: BoardInfo = { id: b.id, title: b.title, pages: b.pages, aspect: Number(b.aspect), layout: boardLayout(b.pages, b.layout) };
@@ -98,7 +108,7 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
     rev: marks.length ? Number(marks[marks.length - 1].rev) : after,
     other: liveRes.data ?? null,
     now: new Date().toISOString(),
-    ...(withUrls ? { mine: mineRes?.data?.page != null ? { page: Number(mineRes.data.page) } : null } : {}),
+    ...(withUrls ? { resume: resumeAt(board.layout, mineRes?.data ?? null) } : {}),
   };
 }
 

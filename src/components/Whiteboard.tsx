@@ -284,7 +284,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const [pagesOpen, setPagesOpen] = useState(false);
   // 📍 "Carrying on from page 17": shown for a few seconds after opening slides used in an earlier lesson.
   const resumeFor = useRef<string | null>(null);
-  const [resumed, setResumed] = useState<number | null>(null);
+  const [resumed, setResumed] = useState<{ at: number; after: number | null } | null>(null);
   useEffect(() => {
     if (resumed == null) return;
     const id = setTimeout(() => setResumed(null), 12_000);
@@ -702,12 +702,13 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           needUrls = false;
           setBoard(data.board);
           // 📍 Slides that last 2–3 lessons: open on the page I stopped at last time, not page 1.
-          if (resumeFor.current === data.board.id && data.mine !== undefined) {
+          if (resumeFor.current === data.board.id && data.resume !== undefined) {
             resumeFor.current = null;
-            const at = data.mine?.page;
-            if (at != null && at !== data.board.layout[0] && data.board.layout.includes(at)) {
-              setPage(at);
-              setResumed(data.board.layout.indexOf(at) + 1);
+            const r = data.resume;
+            if (r && r.page !== data.board.layout[0] && data.board.layout.includes(r.page)) {
+              setPage(r.page);
+              const L = data.board.layout;
+              setResumed({ at: L.indexOf(r.page) + 1, after: r.after != null ? L.indexOf(r.after) + 1 : null });
             }
           }
         } else {
@@ -1633,7 +1634,21 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
       {resumed != null ? (
         <div className="flex flex-wrap items-center justify-center gap-2 text-sm" role="status">
-          <span>📍 Carrying on from page {resumed}, where you stopped last time.</span>
+          <span>
+            📍 {resumed.after ? `Last time ${isTutor ? otherName : "you"} wrote up to page ${resumed.after}, so this is page ${resumed.at}.` : `Carrying on from page ${resumed.at}.`}
+          </span>
+          {resumed.after ? (
+            <button
+              type="button"
+              className="btn-quiet min-h-10 px-3 text-sm underline"
+              onClick={() => {
+                goPage(resumed.after! - 1);
+                setResumed(null);
+              }}
+            >
+              Back to page {resumed.after}
+            </button>
+          ) : null}
           <button
             type="button"
             className="btn-quiet min-h-10 px-3 text-sm underline"
@@ -1642,7 +1657,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
               setResumed(null);
             }}
           >
-            Back to page 1
+            Page 1
           </button>
         </div>
       ) : null}
