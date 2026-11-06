@@ -231,6 +231,9 @@ export async function pagePicture(board: BoardInfo, id: number, all: Iterable<Ma
   return new Promise<Blob>((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error("image"))), "image/jpeg", 0.88));
 }
 
+/** Which slides the arrow keys turn on Mr Ken's page: the ones his mouse is over or last touched. */
+let activeBoard: string | null = null;
+
 export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const isTutor = me === "tutor";
   const router = useRouter();
@@ -763,9 +766,9 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         return;
       }
       if (e.key === "Escape") keys.current.none();
-      // ← → (and Page Up / Page Down) turn the page. Only in the child's room: Mr Ken's lesson page can
-      // show more than one child's slides, and his arrow keys shouldn't move all of them.
-      if (!isTutor && !e.metaKey && !e.ctrlKey && !e.altKey && ["ArrowRight", "ArrowLeft", "PageDown", "PageUp"].includes(e.key)) {
+      // ← → (and Page Up / Page Down) turn the page. In the child's room always; on Mr Ken's lesson page
+      // (which can show more than one child's slides) only the slides his mouse is over or last touched.
+      if ((!isTutor || activeBoard === api) && !e.metaKey && !e.ctrlKey && !e.altKey && ["ArrowRight", "ArrowLeft", "PageDown", "PageUp"].includes(e.key)) {
         e.preventDefault();
         keys.current.turn(e.key === "ArrowRight" || e.key === "PageDown" ? 1 : -1);
         return;
@@ -786,7 +789,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isTutor]);
+  }, [isTutor, api]);
 
   // ---- Paste a picture (⌘V / Ctrl+V), or copied words as typing ----------------------
   const paste = useRef<(e: ClipboardEvent) => void>(() => {});
@@ -1462,7 +1465,11 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     : `min(100%, calc(${isTutor ? 70 : 78}dvh / ${board.aspect}))`;
 
   return (
-    <div className={full ? "fixed inset-0 z-50 flex flex-col gap-2 bg-bg p-2 sm:p-3" : "space-y-3"}>
+    <div
+      className={full ? "fixed inset-0 z-50 flex flex-col gap-2 bg-bg p-2 sm:p-3" : "space-y-3"}
+      onPointerEnter={() => (activeBoard = api)}
+      onPointerDown={() => (activeBoard = api)}
+    >
       {isTutor ? (
         <div className={`flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 text-sm ${full ? "px-3 py-1.5" : "p-3"}`}>
           <span>
