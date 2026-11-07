@@ -1397,7 +1397,8 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   function goPage(pos: number) {
     if (!board) return;
     const next = board.layout[Math.max(0, Math.min(board.layout.length - 1, pos))];
-    if (isTutor && other && next !== other.page) setFollow(false);
+    // Mr Ken moved on by himself: stop following the child, even if their screen hasn't said where it is yet.
+    if (isTutor && (!other || next !== other.page)) setFollow(false);
     setPage(next);
     setPageMenu(false);
     setConfirmRemove(false);
