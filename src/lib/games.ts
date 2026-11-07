@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 // Every game in TutoringHub, in one list: the student room's Games tab and the games corner both use it.
 
-export type GameId = "football" | "wolf-vs-sheep" | "magic-square" | "qm" | "tt" | "sd" | "fp" | "ff" | "fc" | "sb" | "ck" | "ms";
+export type GameId = "football" | "wolf-vs-sheep" | "magic-square" | "qm" | "tt" | "sd" | "fp" | "ff" | "fc" | "sb" | "ck" | "ms" | "cq" | "pb" | "ls";
 export type GameInfo = {
   id: GameId;
   name: string;
@@ -30,6 +30,9 @@ export const GAMES: GameInfo[] = [
   { id: "fc", name: "Fraction Challenge", topic: "Fractions", blurb: "3/4 of 20, adding, equivalent fractions", players: "1 player · ages 9–12", bg: "#e8b23a", fg: "#2b1a08" },
   { id: "ck", name: "Clock Rescue", topic: "Time & money", blurb: "Set the clock, read the time, how much later?", players: "1 player · ages 6–11", bg: "#2f7d9a", fg: "#ffffff" },
   { id: "ms", name: "Money Shop", topic: "Time & money", blurb: "Pay and give change in baht or dollars", players: "1 player · ages 6–11", bg: "#3f8f4f", fg: "#ffffff" },
+  { id: "cq", name: "Clock Tower Quest", topic: "Time & money", blurb: "Beat the monsters with your time skills", players: "1 player · ages 6–12", wide: true, bg: "#4b3b8f", fg: "#ffffff" },
+  { id: "pb", name: "Piggy Bank Rain", topic: "Time & money", blurb: "Catch coins to fill the piggy exactly", players: "1 player · ages 5–9", bg: "#e07aa5", fg: "#ffffff" },
+  { id: "ls", name: "My Little Shop", topic: "Time & money", blurb: "Run a shop, give change, buy upgrades", players: "1 player · ages 7–12", wide: true, bg: "#c2643c", fg: "#ffffff" },
   { id: "sb", name: "Shape Builder", topic: "Thinking", blurb: "Fit all 12 blocks into the animal", players: "1 player · ages 6–12", wide: true, bg: "#1f6f8b", fg: "#ffffff" },
 ];
 

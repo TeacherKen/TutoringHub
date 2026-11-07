@@ -84,7 +84,7 @@ export function ClockFace({ time, onChange, step = 5, size = 260 }: { time: Time
   );
 }
 
-function Choices({ options, onPick, wrongPick }: { options: string[]; onPick: (i: number) => void; wrongPick: number | null }) {
+export function Choices({ options, onPick, wrongPick }: { options: string[]; onPick: (i: number) => void; wrongPick: number | null }) {
   return (
     <div className="grid grid-cols-2 gap-2">
       {options.map((o, i) => (

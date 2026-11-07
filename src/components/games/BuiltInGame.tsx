@@ -9,6 +9,9 @@ import { FractionChallenge } from "./FractionChallenge";
 import { ShapeBuilder } from "./ShapeBuilder";
 import { ClockRescue } from "./ClockRescue";
 import { MoneyShop } from "./MoneyShop";
+import { ClockQuest } from "./ClockQuest";
+import { PiggyRain } from "./PiggyRain";
+import { LittleShop } from "./LittleShop";
 
 /** The games that are part of TutoringHub itself, by id (the student room and the games corner both use this). */
 export function BuiltInGame({ id }: { id: GameId }) {
@@ -31,6 +34,12 @@ export function BuiltInGame({ id }: { id: GameId }) {
       return <ClockRescue />;
     case "ms":
       return <MoneyShop />;
+    case "cq":
+      return <ClockQuest />;
+    case "pb":
+      return <PiggyRain />;
+    case "ls":
+      return <LittleShop />;
     default:
       return null;
   }

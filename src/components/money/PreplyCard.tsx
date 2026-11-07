@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { famTint } from "@/lib/glassTint";
-import { nextMilestone, usd, type PreplyRow, type PreplySummary } from "@/lib/preply";
+import { nextMilestone, thb, usd, type PreplyRow, type PreplySummary } from "@/lib/preply";
 import { fmtDay } from "@/lib/time";
 import { Fold } from "@/components/glass/Fold";
 import { PreplyForm } from "./PreplyForm";
@@ -10,7 +10,7 @@ import { PreplyForm } from "./PreplyForm";
 
 const PLAN = { subscription: "Subscription", package: "Package", trial: "Trial" } as const;
 
-export function PreplyCard({ p, slotOf, today, students }: { p: PreplySummary; slotOf: (id: string) => number; today: string; students: { id: string; name: string }[] }) {
+export function PreplyCard({ p, slotOf, today, students, fx }: { p: PreplySummary; slotOf: (id: string) => number; today: string; students: { id: string; name: string }[]; fx: { rate: number; live: boolean } }) {
   const [top, ...rest] = p.rows;
   const sinceTotal = p.rows.reduce((s, r) => s + r.since, 0);
   return (
@@ -23,6 +23,9 @@ export function PreplyCard({ p, slotOf, today, students }: { p: PreplySummary; s
           <h2 id="preply-h" className="font-display text-[26px] font-semibold leading-tight">
             {usd(p.income)} earned
           </h2>
+          <p className="text-[15px] font-semibold tabular-nums text-[var(--th-text-2)]" title={`At ${fx.rate.toFixed(2)} baht to the dollar${fx.live ? " (today's rate)" : " (approximate)"}`}>
+            {thb(p.income, fx.rate)} <span className="text-xs font-normal text-[var(--th-text-3)]">at ฿{fx.rate.toFixed(2)} per $1{fx.live ? "" : " (approx.)"}</span>
+          </p>
         </div>
         <p className="text-sm text-[var(--th-text-3)]">
           {p.lessons} lessons · numbers from Preply on {p.asOf ? fmtDay(p.asOf, today) : "—"}
@@ -52,12 +55,12 @@ export function PreplyCard({ p, slotOf, today, students }: { p: PreplySummary; s
         </div>
       ) : null}
 
-      {top ? <Spotlight r={top} today={today} /> : null}
+      {top ? <Spotlight r={top} today={today} rate={fx.rate} /> : null}
 
       {rest.length ? (
         <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(250px,1fr))]">
           {rest.map((r) => (
-            <Small key={r.student_id} r={r} slot={slotOf(r.student_id)} today={today} />
+            <Small key={r.student_id} r={r} slot={slotOf(r.student_id)} today={today} rate={fx.rate} />
           ))}
         </div>
       ) : null}
@@ -75,7 +78,7 @@ export function PreplyCard({ p, slotOf, today, students }: { p: PreplySummary; s
 }
 
 /** The top student: a gold card with the big number, a monthly average and the next lesson milestone. */
-function Spotlight({ r, today }: { r: PreplyRow; today: string }) {
+function Spotlight({ r, today, rate }: { r: PreplyRow; today: string; rate: number }) {
   const perMonth = r.months > 0 ? r.income_usd / r.months : null;
   const m = nextMilestone(r.lessonsNow, r.per_four_weeks);
   const from = m.at - (m.at <= 50 ? 10 : 50);
@@ -102,6 +105,7 @@ function Spotlight({ r, today }: { r: PreplyRow; today: string }) {
       <p className="font-display mt-2 text-[44px] font-bold leading-none tabular-nums max-sm:text-[36px]" style={{ background: "linear-gradient(90deg, #fde68a, #fbbf24)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
         {usd(r.income_usd)}
       </p>
+      <p className="mt-1 text-lg font-semibold tabular-nums text-[#fde68a]/80">{thb(r.income_usd, rate)}</p>
       <p className="mt-2 text-[15px] text-[var(--th-text-2)]">
         {r.lessonsNow} lessons over {r.months} {r.months === 1 ? "month" : "months"}
         {perMonth ? ` · about ${usd(perMonth, false)} a month` : ""}
@@ -139,7 +143,7 @@ function Spotlight({ r, today }: { r: PreplyRow; today: string }) {
 }
 
 /** Everyone else: what they've earned, how much of the plan is booked, and a warning if nothing is. */
-function Small({ r, slot, today }: { r: PreplyRow; slot: number; today: string }) {
+function Small({ r, slot, today, rate }: { r: PreplyRow; slot: number; today: string; rate: number }) {
   const t = famTint(slot);
   const nothingBooked = r.plan === "subscription" && r.booked === 0 && (r.booked_of ?? 0) > 0;
   const pct = r.booked != null && r.booked_of ? Math.round((r.booked / r.booked_of) * 100) : null;
@@ -154,7 +158,9 @@ function Small({ r, slot, today }: { r: PreplyRow; slot: number; today: string }
         </div>
         <span className="tag shrink-0">{PLAN[r.plan]}</span>
       </div>
-      <p className="font-display mt-1.5 text-[26px] font-bold leading-tight tabular-nums">{usd(r.income_usd)}</p>
+      <p className="font-display mt-1.5 text-[26px] font-bold leading-tight tabular-nums">
+        {usd(r.income_usd)} <span className="text-base font-semibold text-[var(--th-text-3)]">{thb(r.income_usd, rate)}</span>
+      </p>
       <p className="text-sm text-[var(--th-text-3)]">
         {r.lessonsNow} lessons · {r.months} {r.months === 1 ? "month" : "months"}
         {r.lesson_price_usd != null ? ` · ${usd(r.lesson_price_usd, false)} a lesson` : ""}

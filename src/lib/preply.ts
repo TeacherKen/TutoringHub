@@ -61,3 +61,6 @@ export function nextMilestone(lessons: number, perFourWeeks: number | null): { a
 
 export const usd = (n: number, cents = true) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: cents ? 2 : 0 }).format(n);
+
+/** "≈ ฿190,415" — dollars shown in baht at today's rate. */
+export const thb = (usdAmount: number, rate: number) => `≈ ฿${Math.round(usdAmount * rate).toLocaleString("en-US")}`;

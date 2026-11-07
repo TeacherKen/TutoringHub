@@ -1,3 +1,4 @@
+import { usdToThb } from "@/lib/fx";
 import Link from "next/link";
 import { requireTutor } from "@/lib/auth";
 import { getMoneyData, getSettings, getStudents, reminderSince, type Student } from "@/lib/data";
@@ -117,7 +118,7 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
       />
 
       {preply && (preply.rows.length || preplyStudents.length) ? (
-        <PreplyCard p={preply} slotOf={colours.slotOfStudent} today={today} students={preplyStudents} />
+        <PreplyCard p={preply} slotOf={colours.slotOfStudent} today={today} students={preplyStudents} fx={await usdToThb()} />
       ) : null}
 
       {unpaid.length ? (

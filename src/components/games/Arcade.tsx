@@ -148,6 +148,30 @@ export function Glyph({ id }: { id: GameInfo["id"] }) {
         <ClockFace time={{ h: 10, m: 10 }} size={104} />
       </span>
     );
+  if (id === "cq")
+    return (
+      <span aria-hidden className="relative text-[64px] leading-none drop-shadow-lg">
+        🏰<span className="absolute -bottom-1 -right-5 text-[40px]">🐉</span>
+      </span>
+    );
+  if (id === "pb")
+    return (
+      <span aria-hidden className="relative text-[68px] leading-none drop-shadow-lg">
+        🐷
+        <span className="absolute -left-6 -top-3 scale-75">
+          <Cash m={{ value: 10, kind: "coin" }} c="THB" small />
+        </span>
+        <span className="absolute -right-5 -top-6 scale-75">
+          <Cash m={{ value: 5, kind: "coin" }} c="THB" small />
+        </span>
+      </span>
+    );
+  if (id === "ls")
+    return (
+      <span aria-hidden className="relative text-[64px] leading-none drop-shadow-lg">
+        🏪<span className="absolute -bottom-1 -right-6 text-[40px]">🐼</span>
+      </span>
+    );
   if (id === "ms")
     return (
       <span aria-hidden className="flex items-end gap-1.5 drop-shadow-lg">
