@@ -289,3 +289,13 @@ export async function setStudentMode(studentId: string, mode: string): Promise<{
   revalidatePath(`/students/${studentId}`);
   return { ok: true };
 }
+
+/** Show or hide this child's times tables chart and trophies on the family page. */
+export async function setFamilyShowTables(studentId: string, show: boolean): Promise<{ ok?: boolean; error?: string }> {
+  await assertTutor();
+  const supabase = await createClient();
+  const { error } = await supabase.from("students").update({ family_show_tables: Boolean(show) }).eq("id", studentId);
+  if (error) return { error: "Run database update 0029 first." };
+  revalidatePath(`/students/${studentId}`);
+  return { ok: true };
+}

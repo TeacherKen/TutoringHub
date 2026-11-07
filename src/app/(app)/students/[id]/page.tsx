@@ -190,6 +190,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         ready={tt.ready}
         stats={tt.stats}
         initialMode={cleanMode(student.tt_mode)}
+        initialShowFamily={(student as { family_show_tables?: boolean | null }).family_show_tables !== false}
       />
 
       {past[0] ? (

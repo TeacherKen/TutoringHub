@@ -3,7 +3,7 @@ import { netFail } from "@/lib/netFail";
 import { useState, useTransition } from "react";
 import { MasteryGrid } from "./MasteryGrid";
 import { MODE_EXAMPLES, MODE_NAMES, MODES, TABLES, level, type FactState, type GameMode } from "@/lib/facts";
-import { setStudentMode, setStudentTables } from "@/app/actions/students";
+import { setFamilyShowTables, setStudentMode, setStudentTables } from "@/app/actions/students";
 import { roundStars, shelf, trophies, type TrophyStats } from "@/lib/trophies";
 import { TrophyShelf } from "./Trophies";
 
@@ -22,6 +22,7 @@ export function TimesTablesCard({
   ready,
   stats,
   initialMode,
+  initialShowFamily = true,
 }: {
   studentId: string;
   name: string;
@@ -32,7 +33,10 @@ export function TimesTablesCard({
   ready: boolean;
   stats: TrophyStats;
   initialMode: GameMode;
+  initialShowFamily?: boolean;
 }) {
+  const [showFamily, setShowFamily] = useState(initialShowFamily);
+  const [familyMsg, setFamilyMsg] = useState("");
   const [tables, setTables] = useState(initialTables);
   const [mode, setMode] = useState(initialMode);
   const [saved, setSaved] = useState<"idle" | "saved" | "error">("idle");
@@ -53,6 +57,17 @@ export function TimesTablesCard({
   const won = shelfItems.filter((t) => t.got).length;
   const weak = progress.filter((p) => level(p) === "weak").map((p) => p.fact.replace("x", "×"));
   const shown = [...new Set([...tables, ...progress.map((p) => Number(p.fact.split("x")[0]))])].filter((t) => TABLES.includes(t as (typeof TABLES)[number])).sort((a, b) => a - b);
+
+  function toggleFamily(on: boolean) {
+    setShowFamily(on);
+    setFamilyMsg("Saving…");
+    void setFamilyShowTables(studentId, on)
+      .catch(netFail)
+      .then((r) => {
+        if (r.error) setShowFamily(!on);
+        setFamilyMsg(r.error ?? "✓ Saved");
+      });
+  }
 
   function chooseMode(m: GameMode) {
     setMode(m);
@@ -93,6 +108,16 @@ export function TimesTablesCard({
           <p className="text-xs text-muted">Make a room link first to play.</p>
         )}
       </div>
+
+      <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-surface-2 px-3 py-2.5 text-sm">
+        <input type="checkbox" className="mt-0.5 h-5 w-5 accent-[var(--accent,#2f8f83)]" checked={showFamily} onChange={(e) => toggleFamily(e.target.checked)} />
+        <span>
+          <span className="font-medium">Show this chart and trophies on the family page</span>
+          <span className="block text-xs text-muted">
+            {showFamily ? `Parents can see ${name}'s times tables.` : `Hidden from parents. ${name} can still play, and you still see it here.`} {familyMsg}
+          </span>
+        </span>
+      </label>
 
       <div className="space-y-2">
         <p className="text-sm">

@@ -61,7 +61,7 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   // Every child on the account counts for hours (a paused sibling's lessons still used them, the same as
   // on Mr Ken's pages); only active children are shown.
   const [{ data: kids }, { data: pk }] = await Promise.all([
-    admin.from("students").select("id, first_name, active, parent_name").eq("hour_account_id", acct.id).order("first_name"),
+    admin.from("students").select("id, first_name, active, parent_name, family_show_tables").eq("hour_account_id", acct.id).order("first_name"),
     admin.from("packages").select("*").eq("hour_account_id", acct.id).order("start_date"),
   ]);
   const everyone = (kids ?? []) as { id: string; first_name: string; active: boolean; parent_name: string | null }[];
@@ -153,12 +153,15 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
       mine,
     );
     return { c, mine, stats };
-  }).map(({ c, mine, stats }) => ({
+  }).map(({ c, mine, stats }) => {
+    // Mr Ken can hide a child's chart (e.g. they weren't trying): then nothing about it is sent to the page.
+    const show = (c as { family_show_tables?: boolean | null }).family_show_tables !== false;
+    return {
     id: c.id,
     name: c.first_name,
-    facts: mine,
-    trophies: trophies(stats).filter((t) => t.got),
-    stars: stats.stars,
+    facts: show ? mine : [],
+    trophies: show ? trophies(stats).filter((t) => t.got) : [],
+    stars: show ? stats.stars : 0,
     progress: mergeProgress(
       savedRows.filter((s) => s.student_id === c.id),
       all
@@ -169,7 +172,8 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
           return own?.length ? { ...l, topics: own } : l;
         }),
     ),
-  }));
+    };
+  });
 
   // Hours left and when they run out.
   const packages = (pk ?? []) as { hours: number; price_thb: number | null; start_date: string; paid_on: string | null; hours_used_before?: number | null }[];
