@@ -238,6 +238,7 @@ export function PlayHub({ students }: { students: Kid[] }) {
 const TOPICS: { topic: GameInfo["topic"]; emoji: string }[] = [
   { topic: "Times tables", emoji: "✖️" },
   { topic: "Fractions", emoji: "🍕" },
+  { topic: "Time & money", emoji: "⏰" },
   { topic: "Thinking", emoji: "🧠" },
 ];
 

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { GAMES, type GameInfo } from "@/lib/games";
 import { BallIcon } from "./Controls";
+import { ClockFace } from "./ClockRescue";
+import { Cash } from "./MoneyShop";
 import { FracText, Pie } from "./FractionShapes";
 
 // 🎮 The games corner: for children on Mr Ken's iPad in an onsite lesson. Full screen, no
@@ -138,6 +140,22 @@ export function Glyph({ id }: { id: GameInfo["id"] }) {
         {["#e8173f", "#e8173f", "#e8173f", "", "#5ad60f", "#e8173f", "#f5c400", "#f5c400", "#5ad60f", "#5ad60f", "#e8173f", "#f5c400", "#17e0ff", "#17e0ff", "#5ad60f", "#8e24aa", "#f5c400", "#17e0ff", "#ff9a26", "#5ad60f", "#8e24aa", "#f5c400", "#17e0ff", "#ff9a26", "#ff9a26"].map((c, i) => (
           <span key={i} className="h-7 w-7 rounded-sm sm:h-8 sm:w-8" style={{ background: c || "transparent", boxShadow: c ? "inset 0 0 0 1px rgba(0,0,0,.3)" : undefined }} />
         ))}
+      </span>
+    );
+  if (id === "ck")
+    return (
+      <span aria-hidden className="drop-shadow-lg">
+        <ClockFace time={{ h: 10, m: 10 }} size={104} />
+      </span>
+    );
+  if (id === "ms")
+    return (
+      <span aria-hidden className="flex items-end gap-1.5 drop-shadow-lg">
+        <Cash m={{ value: 100, kind: "note" }} c="THB" />
+        <span className="flex flex-col items-center gap-1">
+          <Cash m={{ value: 10, kind: "coin" }} c="THB" />
+          <Cash m={{ value: 25, kind: "coin" }} c="USD" small />
+        </span>
       </span>
     );
   if (id === "tt")
