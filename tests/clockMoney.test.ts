@@ -86,3 +86,39 @@ describe("money shop", () => {
     }
   });
 });
+
+import { ampm, duration, hhmm, timeJumps, toFace } from "@/lib/clock";
+describe("teacher demo clock", () => {
+  it("21:30 to 06:30 next day is 9 hours, going through midnight", () => {
+    const r = timeJumps(21 * 60 + 30, 6 * 60 + 30);
+    expect(r.total).toBe(9 * 60);
+    expect(r.nextDay).toBe(true);
+    expect(r.jumps.map((j) => [hhmm(j.from), hhmm(j.to), j.mins])).toEqual([
+      ["21:30", "22:00", 30],
+      ["22:00", "00:00", 120],
+      ["00:00", "06:00", 360],
+      ["06:00", "06:30", 30],
+    ]);
+    expect(r.jumps[1].note).toMatch(/midnight/);
+  });
+  it("same day, through noon", () => {
+    const r = timeJumps(9 * 60 + 15, 14 * 60 + 40);
+    expect(r.total).toBe(5 * 60 + 25);
+    expect(r.nextDay).toBe(false);
+    expect(r.jumps.map((j) => j.mins)).toEqual([45, 120, 120, 40]);
+  });
+  it("short gaps inside one hour are one jump", () => {
+    expect(timeJumps(600 + 10, 600 + 45).jumps).toEqual([{ from: 610, to: 645, mins: 35, note: undefined }]);
+    expect(timeJumps(600, 900).jumps.map((j) => j.mins)).toEqual([120, 180]);
+  });
+  it("says times both ways", () => {
+    expect(ampm(21 * 60 + 30)).toBe("9:30 pm");
+    expect(ampm(0)).toBe("12:00 midnight");
+    expect(ampm(720)).toBe("12:00 noon");
+    expect(ampm(5)).toBe("12:05 am");
+    expect(toFace(21 * 60 + 30)).toEqual({ h: 9, m: 30 });
+    expect(toFace(0)).toEqual({ h: 12, m: 0 });
+    expect(duration(570)).toBe("9 h 30 min");
+    expect(duration(45)).toBe("45 min");
+  });
+});

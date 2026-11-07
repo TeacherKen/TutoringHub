@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { CLOCK_LEVELS, clockHint, clockQ, digital, hourAngle, hourFromAngle, minuteAngle, minutesFromAngle, same, STEP, type ClockLevel, type ClockQ, type Time } from "@/lib/clock";
+import { ampm, CLOCK_LEVELS, clockHint, clockQ, DAY, digital, duration, hhmm, hourAngle, timeJumps, toFace, hourFromAngle, minuteAngle, minutesFromAngle, same, STEP, type ClockLevel, type ClockQ, type Time } from "@/lib/clock";
 import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
 
@@ -104,7 +104,7 @@ function Choices({ options, onPick, wrongPick }: { options: string[]; onPick: (i
 
 export function ClockRescue() {
   const [level, setLevel] = useState<ClockLevel>("hour");
-  const [phase, setPhase] = useState<"setup" | "play" | "done">("setup");
+  const [phase, setPhase] = useState<"setup" | "play" | "done" | "demo">("setup");
   const [q, setQ] = useState<ClockQ | null>(null);
   const [n, setN] = useState(0);
   const [set, setSet] = useState<Time>({ h: 12, m: 0 });
@@ -174,9 +174,14 @@ export function ClockRescue() {
         <button type="button" className="btn-primary w-full" onClick={start}>
           Start
         </button>
+        <button type="button" className="btn-secondary w-full" onClick={() => setPhase("demo")}>
+          🧑‍🏫 Teacher demo clock
+        </button>
       </div>
     );
   }
+
+  if (phase === "demo") return <ClockDemo onBack={() => setPhase("setup")} />;
 
   if (phase === "done") {
     return (
@@ -285,6 +290,114 @@ export function ClockRescue() {
       )}
 
       {wrong ? <p className="rounded-2xl bg-surface-2 p-3 text-center text-danger">Not quite. {clockHint(q)}</p> : null}
+    </div>
+  );
+}
+
+/** One time to set: big 24-hour digits with ▲▼, the 12-hour way of saying it, and a clock whose hands can be dragged. */
+function TimeSetter({ label, mins, onChange }: { label: string; mins: number; onChange: (m: number) => void }) {
+  const wrap = (m: number) => ((m % DAY) + DAY) % DAY;
+  const pm = mins >= 720;
+  const arrow = "grid h-9 w-12 place-items-center rounded-xl bg-surface-2 text-lg hover:bg-line active:scale-95";
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-2xl bg-surface-2/60 p-3">
+      <p className="text-sm font-semibold uppercase tracking-wide text-muted">{label}</p>
+      <div className="flex items-center gap-1.5">
+        <div className="flex flex-col items-center gap-1">
+          <button type="button" aria-label={`${label}: hour up`} className={arrow} onClick={() => onChange(wrap(mins + 60))}>▲</button>
+          <span className="w-14 text-center text-4xl font-bold tabular-nums">{hhmm(mins).slice(0, 2)}</span>
+          <button type="button" aria-label={`${label}: hour down`} className={arrow} onClick={() => onChange(wrap(mins - 60))}>▼</button>
+        </div>
+        <span className="pb-1 text-4xl font-bold">:</span>
+        <div className="flex flex-col items-center gap-1">
+          <button type="button" aria-label={`${label}: minutes up`} className={arrow} onClick={() => onChange(wrap(mins - (mins % 5) + 5))}>▲</button>
+          <span className="w-14 text-center text-4xl font-bold tabular-nums">{hhmm(mins).slice(3)}</span>
+          <button type="button" aria-label={`${label}: minutes down`} className={arrow} onClick={() => onChange(wrap(mins % 5 ? mins - (mins % 5) : mins - 5))}>▼</button>
+        </div>
+      </div>
+      <p className="text-sm text-muted">
+        {pm ? "🌙" : "☀️"} {ampm(mins)}
+      </p>
+      <ClockFace
+        time={toFace(mins)}
+        size={170}
+        step={5}
+        // Dragging keeps the same half of the day (am stays am, pm stays pm).
+        onChange={(t) => onChange((pm ? 720 : 0) + (t.h % 12) * 60 + t.m)}
+      />
+    </div>
+  );
+}
+
+/**
+ * 🧑‍🏫 For Mr Ken to show a question to the class: set a start and an end time (the end can be the next day),
+ * let the children think, then reveal the jumps one by one: to the next o'clock, to midnight, whole hours, the minutes.
+ */
+function ClockDemo({ onBack }: { onBack: () => void }) {
+  const [start, setStart] = useState(21 * 60 + 30);
+  const [end, setEnd] = useState(6 * 60 + 30);
+  const [shown, setShown] = useState(0);
+  const { jumps, total, nextDay } = timeJumps(start, end);
+  const done = shown > jumps.length;
+  const change = (set: (m: number) => void) => (m: number) => {
+    set(m);
+    setShown(0);
+  };
+  const dayTag = (m: number) => (m >= DAY ? " (next day)" : "");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" className="btn-quiet min-h-10 px-0 text-sm text-muted" onClick={onBack}>
+          ‹ Back
+        </button>
+        <p className="font-semibold">Teacher demo clock</p>
+        <span className="w-12" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TimeSetter label="Start" mins={start} onChange={change(setStart)} />
+        <TimeSetter label={nextDay ? "End · next day" : "End"} mins={end} onChange={change(setEnd)} />
+      </div>
+
+      <p className="text-center text-xl font-semibold">
+        How long is it from <span className="text-accent">{hhmm(start)}</span> to <span className="text-accent">{hhmm(end)}</span>
+        {nextDay ? " the next day" : ""}?
+      </p>
+
+      {shown > 0 ? (
+        <ol className="space-y-2">
+          {jumps.slice(0, shown).map((j, i) => (
+            <li key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-surface-2 px-3.5 py-2.5 text-lg">
+              <span className="tabular-nums">{hhmm(j.from)}{dayTag(j.from)}</span>
+              <span className="text-muted">→</span>
+              <span className="font-semibold tabular-nums">{hhmm(j.to)}{dayTag(j.to)}</span>
+              <span className="ml-auto rounded-full bg-accent-soft px-3 py-0.5 font-bold text-accent">+ {duration(j.mins)}</span>
+              {j.note ? <span className="w-full text-sm text-muted">{j.note === "noon" ? "12 noon" : `12 ${j.note}`}</span> : null}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      {done ? (
+        <div className="rounded-2xl border-2 border-accent bg-accent-soft p-4 text-center">
+          <p className="text-sm text-muted">{jumps.map((j) => duration(j.mins)).join(" + ")}</p>
+          <p className="text-3xl font-bold text-accent">= {duration(total)}</p>
+          {total >= 60 && total % 60 ? <p className="text-sm text-muted">({total} minutes)</p> : null}
+        </div>
+      ) : null}
+
+      <div className="flex gap-2">
+        {shown > 0 ? (
+          <button type="button" className="btn-secondary" onClick={() => setShown(0)}>
+            Hide
+          </button>
+        ) : null}
+        {!done ? (
+          <button type="button" className="btn-primary flex-1" disabled={total === 0} onClick={() => setShown((n) => n + 1)}>
+            {shown === 0 ? "Show the first step" : shown < jumps.length ? "Next step" : "Show the answer"}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

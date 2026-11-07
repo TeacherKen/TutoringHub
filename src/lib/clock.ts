@@ -146,3 +146,60 @@ export function clockHint(q: ClockQ): string {
   if (t.m === 0) return `O'clock: the long hand points straight up to 12, the short hand points to the ${t.h}.`;
   return `The long hand points to ${longHand}. It's after ${t.h}, so the short hand is just past the ${t.h}.`;
 }
+
+// 🧑‍🏫 Teacher demo: two 24-hour times (minutes after midnight, 0–1439). If the end is earlier, it's the next day.
+
+export const DAY = 1440;
+
+/** "21:30". */
+export const hhmm = (mins: number) => `${String(Math.floor((((mins % DAY) + DAY) % DAY) / 60)).padStart(2, "0")}:${pad((((mins % DAY) + DAY) % DAY) % 60)}`;
+
+/** "9:30 pm", "12:00 midnight", "12:00 noon". */
+export function ampm(mins: number): string {
+  const m = ((mins % DAY) + DAY) % DAY;
+  if (m === 0) return "12:00 midnight";
+  if (m === 720) return "12:00 noon";
+  const h = Math.floor(m / 60);
+  return `${h % 12 === 0 ? 12 : h % 12}:${pad(m % 60)} ${h < 12 ? "am" : "pm"}`;
+}
+
+/** A 24-hour time on the 12-hour clock face. */
+export const toFace = (mins: number): Time => {
+  const m = ((mins % DAY) + DAY) % DAY;
+  const h = Math.floor(m / 60) % 12;
+  return { h: h === 0 ? 12 : h, m: m % 60 };
+};
+
+/** "9 h 30 min", "45 min", "3 h". */
+export function duration(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return [h ? `${h} h` : "", m ? `${m} min` : ""].filter(Boolean).join(" ") || "0 min";
+}
+
+export type Jump = { from: number; to: number; mins: number; note?: string };
+
+/**
+ * The way children are taught to work out a time gap: first to the next o'clock, then to noon or midnight
+ * when the gap passes one, then whole hours, then the last few minutes. `to` may be bigger than DAY (next day).
+ */
+export function timeJumps(start: number, end: number): { jumps: Jump[]; total: number; nextDay: boolean } {
+  const s = ((start % DAY) + DAY) % DAY;
+  let e = ((end % DAY) + DAY) % DAY;
+  const nextDay = e <= s;
+  if (nextDay) e += DAY;
+  const stops = new Set<number>([e]);
+  if (s % 60) stops.add(Math.min(e, s + (60 - (s % 60))));
+  for (const mark of [720, DAY, DAY + 720]) if (mark > s && mark < e) stops.add(mark);
+  if (e % 60) {
+    const lastHour = e - (e % 60);
+    if (lastHour > s) stops.add(lastHour);
+  }
+  const points = [s, ...[...stops].filter((p) => p > s).sort((a, b) => a - b)];
+  const jumps: Jump[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const to = points[i];
+    jumps.push({ from: points[i - 1], to, mins: to - points[i - 1], note: to === DAY ? "midnight — the next day starts" : to % DAY === 720 ? "noon" : undefined });
+  }
+  return { jumps, total: e - s, nextDay };
+}
