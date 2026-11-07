@@ -222,3 +222,57 @@ export function challengeHint(q: ChallengeQ): string {
   if (q.kind === "equiv") return `The bottom was multiplied by ${q.d / q.from.d}, so multiply the top by ${q.d / q.from.d} too.`;
   return q.kind === "add" ? "The bottom numbers are the same, so just add the tops." : "The bottom numbers are the same, so just take away the tops.";
 }
+
+// 🧑‍🏫 Teacher fraction maker: Mr Ken types two fractions, then shows which is bigger and adds them, step by step.
+
+export const lcm = (a: number, b: number) => (a / gcd(a, b)) * b;
+export const simplify = (f: Frac): Frac => {
+  const g = gcd(f.n, f.d) || 1;
+  return { n: f.n / g, d: f.d / g };
+};
+/** 23/18 → { whole: 1, part: 5/18 }. */
+export const mixed = (f: Frac) => ({ whole: Math.floor(f.n / f.d), part: { n: f.n % f.d, d: f.d } });
+/** The same fraction with a new bottom number (d must be a multiple of f.d). */
+export const scaleTo = (f: Frac, d: number): Frac => ({ n: f.n * (d / f.d), d });
+
+export type Working = { common: number; a2: Frac; b2: Frac };
+/** Make the bottoms the same, using the smallest shared bottom number (1/2 and 7/9 → 9/18 and 14/18). */
+export function sameBottoms(a: Frac, b: Frac): Working {
+  const common = lcm(a.d, b.d);
+  return { common, a2: scaleTo(a, common), b2: scaleTo(b, common) };
+}
+
+/** Plain-English working for "which is bigger?". */
+export function compareWorking(a: Frac, b: Frac): string[] {
+  const c = compareFrac(a, b);
+  const sign = c > 0 ? ">" : c < 0 ? "<" : "=";
+  const verdict = c === 0 ? `${fracText(a)} and ${fracText(b)} are the same amount.` : `${fracText(c > 0 ? a : b)} is bigger.`;
+  if (a.d === b.d) return [`Same bottom number (${a.d}), so just compare the tops: ${a.n} ${sign} ${b.n}.`, verdict];
+  if (a.n === b.n && a.n > 0) return [`Same top number (${a.n}). Fewer, bigger slices win: ${a.d < b.d ? fracText(a) : fracText(b)} has bigger slices.`, verdict];
+  const w = sameBottoms(a, b);
+  return [
+    `Make the bottom numbers the same: ${w.common}.`,
+    `${fracText(a)} = ${fracText(w.a2)} and ${fracText(b)} = ${fracText(w.b2)}.`,
+    `Now compare the tops: ${w.a2.n} ${sign} ${w.b2.n}.`,
+    verdict,
+  ];
+}
+
+export type SumWorking = { w: Working; raw: Frac; simple: Frac; lines: string[] };
+/** Plain-English working for a + b (or a − b). */
+export function sumWorking(a: Frac, b: Frac, op: "+" | "-" = "+"): SumWorking {
+  const w = sameBottoms(a, b);
+  const raw = { n: op === "+" ? w.a2.n + w.b2.n : w.a2.n - w.b2.n, d: w.common };
+  const simple = simplify(raw);
+  const lines: string[] = [];
+  if (a.d !== b.d) lines.push(`Make the bottom numbers the same: ${w.common}. ${fracText(a)} = ${fracText(w.a2)}, ${fracText(b)} = ${fracText(w.b2)}.`);
+  lines.push(`${op === "+" ? "Add" : "Take away"} the tops, keep the bottom: ${fracText(w.a2)} ${op === "+" ? "+" : "−"} ${fracText(w.b2)} = ${fracText(raw)}.`);
+  const wholes = (n: number) => `${n} whole${n === 1 ? "" : "s"}`;
+  if (simple.d === 1) lines.push(`${fracText(raw)} = ${wholes(simple.n)}.`);
+  else if (simple.d !== raw.d) lines.push(`Simplify (divide top and bottom by ${raw.d / simple.d}): ${fracText(raw)} = ${fracText(simple)}.`);
+  if (simple.n >= simple.d && simple.d > 1) {
+    const m = mixed(simple);
+    lines.push(`${fracText(simple)} is more than 1 whole: ${m.whole} and ${fracText(m.part)}.`);
+  }
+  return { w, raw, simple, lines };
+}

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { PIZZA_LEVELS, pizzaQ, pizzaRight, type PizzaLevel, type PizzaQ } from "@/lib/fractions";
 import { Bar, FracText, Pie } from "./FractionShapes";
 import { useBest } from "./useBest";
+import { FractionMaker } from "./FractionMaker";
 
 // 🍕 Pizza Fractions (youngest children): shade slices to make a fraction, name a shaded picture,
 // and make the same amount on a bar cut into more pieces (3/4 = 6/8). 10 questions, beat your time.
@@ -13,7 +14,7 @@ type Msg = { ok: boolean; text: React.ReactNode } | null;
 
 export function PizzaFractions() {
   const [level, setLevel] = useState<PizzaLevel>("make");
-  const [phase, setPhase] = useState<"setup" | "play" | "done">("setup");
+  const [phase, setPhase] = useState<"setup" | "play" | "done" | "maker">("setup");
   const [q, setQ] = useState<PizzaQ | null>(null);
   const [n, setN] = useState(0);
   const [shaded, setShaded] = useState<number[]>([]);
@@ -123,9 +124,14 @@ export function PizzaFractions() {
         <button type="button" className="btn-primary w-full" onClick={start}>
           Start
         </button>
+        <button type="button" className="btn-secondary w-full" onClick={() => setPhase("maker")}>
+          🧑‍🏫 Teacher fraction maker
+        </button>
       </div>
     );
   }
+
+  if (phase === "maker") return <FractionMaker onBack={() => setPhase("setup")} />;
 
   if (phase === "done") {
     return (
