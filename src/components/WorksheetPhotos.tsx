@@ -1,4 +1,5 @@
 "use client";
+import { photoToJpeg } from "@/lib/photo";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -13,22 +14,7 @@ import { randomId } from "@/lib/randomId";
 const MAX_SIDE = 1800;
 
 async function shrink(file: File): Promise<Blob | null> {
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas
-      .getContext("2d")!
-      .drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
-    return await new Promise((resolve) =>
-      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.85),
-    );
-  } catch {
-    return null; // this browser can't read the photo
-  }
+  return photoToJpeg(file, MAX_SIDE).catch(() => null); // null: this browser can't read the photo
 }
 
 export function WorksheetPhotos({
@@ -123,7 +109,7 @@ export function WorksheetPhotos({
       <input
         ref={input}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         multiple
         className="hidden"
         onChange={(e) => {

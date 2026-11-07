@@ -1,4 +1,6 @@
 "use client";
+import { isHeic, isPhoto, photoToJpeg } from "@/lib/photo";
+import { netFail } from "@/lib/netFail";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -66,19 +68,30 @@ export function LessonAISummary({
     setError(null);
     const sb = createClient();
     let added = 0;
+    let problem = "";
     for (const [i, file] of [...files].slice(0, 6).entries()) {
-      if (!file.type.startsWith("image/")) continue;
-      setStep(`Adding photo ${i + 1} of ${Math.min(files.length, 6)}…`);
-      const blob = await toJpeg(file).catch(() => null);
-      if (!blob) continue;
+      if (!isPhoto(file)) {
+        problem = `"${file.name}" isn't a photo.`;
+        continue;
+      }
+      setStep(isHeic(file) ? `Changing iPhone photo ${i + 1} to JPG…` : `Adding photo ${i + 1} of ${Math.min(files.length, 6)}…`);
+      const blob = await photoToJpeg(file).catch(() => null);
+      if (!blob) {
+        problem = `"${file.name}" couldn't be opened. Try a screenshot of it, or save it as a JPG.`;
+        continue;
+      }
       const path = `${lessonId}/${randomId()}.jpg`;
       const { error: upErr } = await sb.storage.from(MATERIALS_BUCKET).upload(path, blob, { contentType: "image/jpeg" });
-      if (upErr) continue;
-      const r = await addMaterialFile(lessonId, path, "photo", who ? `${who}'s worksheet` : "Worksheet photo");
-      if (!r.error) added++;
+      if (upErr) {
+        problem = "The photo didn't upload. Check the internet and try again.";
+        continue;
+      }
+      const r = await addMaterialFile(lessonId, path, "photo", who ? `${who}'s worksheet` : "Worksheet photo").catch(netFail);
+      if (r.error) problem = r.error;
+      else added++;
     }
     setStep(null);
-    if (!added) return setError("The photo didn't upload. Try again.");
+    if (!added) return setError(problem || "The photo didn't upload. Try again.");
     setPhotos((n) => n + added);
     router.refresh();
   }
@@ -222,7 +235,7 @@ export function LessonAISummary({
               <label key={who ?? "one"} className={`btn-secondary flex-1 cursor-pointer ${step ? "pointer-events-none opacity-50" : ""}`}>
                 📷 {who ? `${who}'s worksheet` : photos ? "Add another worksheet photo" : "Add worksheet photo"}
                 {who && savedLabels.some((l) => l.startsWith(`${who}'s worksheet`)) ? <span className="text-ok">✓</span> : null}
-                <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => void addPhotos(e.target.files, who).finally(() => (e.target.value = ""))} />
+                <input type="file" accept="image/*,.heic,.heif" multiple className="sr-only" onChange={(e) => void addPhotos(e.target.files, who).finally(() => (e.target.value = ""))} />
               </label>
             ))}
             <button type="button" className="btn-primary w-full" onClick={run} disabled={!!step}>
@@ -356,13 +369,3 @@ export function LessonAISummary({
 }
 
 /** A phone photo made smaller and turned into a JPG (quicker to upload; every format the AI can read). */
-async function toJpeg(file: File, max = 2000): Promise<Blob> {
-  const bmp = await createImageBitmap(file);
-  const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bmp.width * scale);
-  canvas.height = Math.round(bmp.height * scale);
-  canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-  bmp.close();
-  return new Promise((ok, no) => canvas.toBlob((b) => (b ? ok(b) : no(new Error("jpeg"))), "image/jpeg", 0.85));
-}

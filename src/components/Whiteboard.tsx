@@ -1,4 +1,5 @@
 "use client";
+import { isHeic, isPhoto, readPhoto } from "@/lib/photo";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
@@ -1274,10 +1275,10 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
   /** Paste, drop or pick a picture: shrink it, store it with the slides, put it in the middle of the page. */
   async function addPicture(file: Blob) {
-    if (!board || !file.type.startsWith("image/")) return;
-    setNotice("Adding picture…");
+    if (!board || !isPhoto(file)) return;
+    setNotice(isHeic(file) ? "Changing the iPhone photo to JPG…" : "Adding picture…");
     try {
-      const bmp = await createImageBitmap(file);
+      const bmp = await readPhoto(file);
       const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
       const w = Math.max(1, Math.round(bmp.width * scale));
       const h = Math.max(1, Math.round(bmp.height * scale));
@@ -1880,7 +1881,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       <input
         ref={fileInput}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
