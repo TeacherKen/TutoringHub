@@ -1,6 +1,7 @@
 "use client";
 import { isHeic, isPhoto, photoToJpeg } from "@/lib/photo";
 import { netFail } from "@/lib/netFail";
+import { reportPhotoProblem } from "@/app/actions/photoReport";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -76,14 +77,17 @@ export function LessonAISummary({
         continue;
       }
       setStep(isHeic(file) ? `Changing iPhone photo ${i + 1} to JPG…` : `Adding photo ${i + 1} of ${Math.min(files.length, MAX_PHOTOS)}…`);
-      const blob = await photoToJpeg(file).catch(() => null);
+      let why = "";
+      const blob = await photoToJpeg(file).catch((e) => ((why = String(e?.message ?? e)), null));
       if (!blob) {
+        void reportPhotoProblem({ name: file.name, type: file.type, size: file.size, step: "open", error: why, agent: navigator.userAgent }).catch(() => {});
         problem = `"${file.name}" couldn't be opened. Try a screenshot of it, or save it as a JPG.`;
         continue;
       }
       const path = `${lessonId}/${randomId()}.jpg`;
       const { error: upErr } = await sb.storage.from(MATERIALS_BUCKET).upload(path, blob, { contentType: "image/jpeg" });
       if (upErr) {
+        void reportPhotoProblem({ name: file.name, type: file.type, size: file.size, step: "upload", error: upErr.message, agent: navigator.userAgent }).catch(() => {});
         problem = "The photo didn't upload. Check the internet and try again.";
         continue;
       }

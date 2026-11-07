@@ -12,9 +12,15 @@ export const isHeic = (f: File | Blob) => /image\/hei[cf]/i.test(f.type) || ("na
 export const isPhoto = (f: File | Blob) => f.type.startsWith("image/") || ("name" in f && PICTURE.test((f as File).name));
 
 async function heicToJpeg(f: Blob): Promise<Blob> {
-  const { default: heic2any } = await import("heic2any");
-  const out = await heic2any({ blob: f, toType: "image/jpeg", quality: 0.9 });
-  return Array.isArray(out) ? out[0] : out;
+  // Newer converter first: it reads photos from recent iPhones (iOS 17+), which the older one can't.
+  try {
+    const { heicTo } = await import("heic-to/next");
+    return await heicTo({ blob: f, type: "image/jpeg", quality: 0.9 });
+  } catch {
+    const { default: heic2any } = await import("heic2any");
+    const out = await heic2any({ blob: f, toType: "image/jpeg", quality: 0.9 });
+    return Array.isArray(out) ? out[0] : out;
+  }
 }
 
 /** Fallback for browsers whose createImageBitmap can't read a type but an <img> can. */
@@ -35,8 +41,19 @@ function viaImg(f: Blob): Promise<ImageBitmap> {
   });
 }
 
+/** Safari can open HEIC itself; Chrome can't. */
+async function canDecodeHere(f: Blob): Promise<boolean> {
+  try {
+    (await createImageBitmap(f)).close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Open any photo as a bitmap ready to draw. Throws only if it really can't be read. */
 export async function readPhoto(f: Blob): Promise<ImageBitmap> {
+  if (isHeic(f) && !(await canDecodeHere(f))) return await createImageBitmap(await heicToJpeg(f));
   try {
     return await createImageBitmap(f);
   } catch {
