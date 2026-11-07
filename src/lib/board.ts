@@ -63,11 +63,17 @@ export async function getBoardRow(boardId: string): Promise<BoardRow | null> {
  *  and knowing the board's id alone isn't enough to draw on a child's screen. */
 export const liveKey = (roomToken: string, boardId: string) => createHash("sha256").update(`board:${boardId}:${roomToken}`).digest("hex").slice(0, 32);
 
+/** If I was on these slides in the last 2 hours, I'm still in the same lesson: stay on that page. */
+function stillHere(layout: number[], mine: { page: number; updated_at: string } | null, now = Date.now()) {
+  if (!mine || !layout.includes(mine.page)) return null;
+  return now - Date.parse(mine.updated_at) < 2 * 3_600_000 ? { page: mine.page, after: null } : null;
+}
+
 /** New lines, rubbings-out and the other person's live info since `after`. */
 export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: boolean): Promise<BoardPoll> {
   const admin = createAdminClient();
   const other: Who = me === "student" ? "tutor" : "student";
-  const [marksRes, liveRes, urls, owner, mineRes] = await Promise.all([
+  const [marksRes, liveRes, urls, owner, mineRes, myLiveRes] = await Promise.all([
     admin
       .from("board_marks")
       .select("id, page, author, data, deleted, rev, created_at")
@@ -97,6 +103,8 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
           .limit(1)
           .maybeSingle<{ page: number; created_at: string }>()
       : Promise.resolve(null),
+    // Re-opening during a lesson (a reload, a dropped connection): go back to the page I was on just now.
+    withUrls ? admin.from("board_live").select("page, updated_at").eq("board_id", b.id).eq("who", me).maybeSingle<{ page: number; updated_at: string }>() : Promise.resolve(null),
   ]);
   const marks = (marksRes.data ?? []) as Mark[];
   const board: BoardInfo = { id: b.id, title: b.title, pages: b.pages, aspect: Number(b.aspect), layout: boardLayout(b.pages, b.layout) };
@@ -108,7 +116,7 @@ export async function pollBoard(b: BoardRow, me: Who, after: number, withUrls: b
     rev: marks.length ? Number(marks[marks.length - 1].rev) : after,
     other: liveRes.data ?? null,
     now: new Date().toISOString(),
-    ...(withUrls ? { resume: resumeAt(board.layout, mineRes?.data ?? null) } : {}),
+    ...(withUrls ? { resume: stillHere(board.layout, myLiveRes?.data ?? null) ?? resumeAt(board.layout, mineRes?.data ?? null) } : {}),
   };
 }
 
