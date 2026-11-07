@@ -1,4 +1,5 @@
 "use client";
+import { BoardIcon, TOOL_LABELS } from "./BoardIcons";
 import { isHeic, isPhoto, readPhoto } from "@/lib/photo";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -1716,7 +1717,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       <div className={`flex flex-wrap items-center justify-center ${full ? "gap-1.5" : "gap-2"}`}>
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
           <button type="button" className={btn(false)} onClick={() => goPage(pos - 1)} disabled={pos === 0} aria-label="Previous page">
-            ◀
+            <BoardIcon name="prev" />
           </button>
           <button
             type="button"
@@ -1725,10 +1726,10 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
             aria-expanded={pagesOpen}
             title="See all pages and jump to one"
           >
-            {pos + 1} / {board.layout.length} <span aria-hidden>▦</span>
+            {pos + 1} / {board.layout.length} <BoardIcon name="pages" size={16} />
           </button>
           <button type="button" className={btn(false)} onClick={() => goPage(pos + 1)} disabled={pos >= board.layout.length - 1} aria-label="Next page">
-            ▶
+            <BoardIcon name="next" />
           </button>
           <div className="relative">
             <button type="button" className={btn(pageMenu)} onClick={() => setPageMenu(!pageMenu)} title="Add a page" aria-expanded={pageMenu}>
@@ -1774,8 +1775,9 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
                 if (tool === "pointer" && t !== "pointer") broadcast("point", { hide: true });
                 if (t !== "select") select([]);
                 setTool(t);
-              }} aria-pressed={tool === t} title={TOOL_NAMES[t]}>
-              <span aria-hidden>{TOOL_NAMES[t].split(" ")[0]}</span>
+              }} aria-pressed={tool === t} title={TOOL_NAMES[t]} style={{ flexDirection: "column", gap: 1, paddingInline: full ? 6 : 8 }}>
+              <BoardIcon name={t} size={full ? 19 : 21} />
+              <span aria-hidden className="text-[10.5px] font-semibold leading-none">{TOOL_LABELS[t]}</span>
               <span className="sr-only">{TOOL_NAMES[t]}</span>
             </button>
           ))}
@@ -1807,7 +1809,14 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
                 aria-label={COLOR_NAMES[c]}
                 aria-pressed={color === c}
                 className="h-10 w-10 rounded-full border-4"
-                style={{ background: c, borderColor: color === c ? "var(--color-accent, #0f766e)" : "transparent", outline: color === c ? "2px solid white" : "none", outlineOffset: -6 }}
+                style={{
+                  background: c,
+                  borderColor: color === c ? "var(--color-accent, #0f766e)" : "transparent",
+                  outline: color === c ? "2px solid white" : "none",
+                  outlineOffset: -6,
+                  // A thin light ring so the black dot shows on the dark toolbar.
+                  boxShadow: "0 0 0 1.5px rgba(255,255,255,.55)",
+                }}
               />
             ))}
             {tool === "pen" || tool === "line" || tool === "rect" ? (
@@ -1821,14 +1830,16 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
           {selCount && tool === "select" ? (
             <button type="button" className="btn-danger h-11 px-3 text-sm" onClick={deleteSelected} title="Delete what's selected (Delete key)">
-              🗑 Delete{selCount > 1 ? ` ${selCount}` : ""}
+              <BoardIcon name="trash" size={18} /> Delete{selCount > 1 ? ` ${selCount}` : ""}
             </button>
           ) : null}
           <button type="button" className={btn(false)} onClick={undo} title="Undo (Ctrl/⌘ + Z)">
-            ↶ Undo
+            <span className="flex items-center gap-1.5">
+              <BoardIcon name="undo" size={20} /> Undo
+            </span>
           </button>
           <button type="button" className={btn(false)} onClick={redo} title="Redo (Ctrl/⌘ + Shift + Z)" aria-label="Redo">
-            ↷
+            <BoardIcon name="redo" size={20} />
           </button>
           {confirmClear ? (
             <>
@@ -1840,8 +1851,8 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
               </button>
             </>
           ) : myMarksOnPage ? (
-            <button type="button" className={btn(false)} onClick={() => setConfirmClear(true)} title="Clear this page">
-              🗑️
+            <button type="button" className={btn(false)} onClick={() => setConfirmClear(true)} title="Clear this page" aria-label="Clear this page">
+              <BoardIcon name="trash" />
             </button>
           ) : null}
         </div>
@@ -1854,7 +1865,9 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
               </button>
             ) : (
               <button type="button" className={btn(timerMenu)} onClick={() => setTimerMenu(!timerMenu)} aria-expanded={timerMenu} title={`Countdown on ${otherName}'s screen`}>
-                ⏱ Timer
+                <span className="flex items-center gap-1.5">
+                  <BoardIcon name="timer" size={20} /> Timer
+                </span>
               </button>
             )}
             {timerMenu ? (
@@ -1871,11 +1884,15 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
 
         {full ? (
           <button type="button" className="btn-primary h-11 px-4" onClick={exitFull}>
-            ✕ Smaller
+            <span className="flex items-center gap-1.5">
+              <BoardIcon name="smaller" size={20} /> Smaller
+            </span>
           </button>
         ) : (
           <button type="button" className="btn-primary h-12 px-4" onClick={enterFull}>
-            ⛶ Full screen
+            <span className="flex items-center gap-1.5">
+              <BoardIcon name="full" size={20} /> Full screen
+            </span>
           </button>
         )}
       </div>
