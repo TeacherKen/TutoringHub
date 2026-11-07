@@ -171,7 +171,9 @@ export function FamilyView({ f, tutor, token }: { f: FamilyPage; tutor: string; 
               <a key={w.url} href={w.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-line bg-white">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={w.url} alt={`${w.label}, ${fmtDay(w.date)}`} className="aspect-video w-full object-cover" loading="lazy" />
-                <span className="block px-2 py-1 text-xs text-muted">{fmtDay(w.date)}</span>
+                <span className="block px-2 py-1 text-xs text-muted">
+                  <span className="font-medium text-ink">{w.label}</span> · {fmtDay(w.date)}
+                </span>
               </a>
             ))}
           </div>
@@ -217,16 +219,27 @@ function UpdateBody({ m }: { m: FamilyPage["messages"][number] }) {
           {m.homework}
         </div>
       ) : null}
-      {m.photos.length ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {m.photos.map((p) => (
-            <a key={p.url} href={p.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-line bg-white">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.url} alt={p.label} className="aspect-video w-full object-cover" loading="lazy" />
-            </a>
-          ))}
-        </div>
-      ) : null}
+      {m.photos.length
+        ? // One group per child ("IP's worksheet", "IQ's worksheet"), so parents of siblings can see whose work is whose.
+          Object.entries(
+            m.photos.reduce<Record<string, typeof m.photos>>((g, p) => ({ ...g, [p.label]: [...(g[p.label] ?? []), p] }), {}),
+          ).map(([label, pics]) => (
+            <div key={label} className="space-y-1.5">
+              <p className="text-sm font-semibold">
+                📄 {label}
+                {pics.length > 1 ? <span className="font-normal text-muted"> · {pics.length} photos</span> : null}
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {pics.map((p) => (
+                  <a key={p.url} href={p.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-line bg-white">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.url} alt={p.label} className="aspect-video w-full object-cover" loading="lazy" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))
+        : null}
     </div>
   );
 }
