@@ -64,17 +64,18 @@ export function LessonAISummary({
 
   /** 📷 Worksheet photos straight from the iPhone/iPad camera or photo library. Made smaller (and JPG) first. */
   async function addPhotos(files: FileList | null, who?: string) {
+    const MAX_PHOTOS = 12;
     if (!files?.length) return;
     setError(null);
     const sb = createClient();
     let added = 0;
     let problem = "";
-    for (const [i, file] of [...files].slice(0, 6).entries()) {
+    for (const [i, file] of [...files].slice(0, MAX_PHOTOS).entries()) {
       if (!isPhoto(file)) {
         problem = `"${file.name}" isn't a photo.`;
         continue;
       }
-      setStep(isHeic(file) ? `Changing iPhone photo ${i + 1} to JPG…` : `Adding photo ${i + 1} of ${Math.min(files.length, 6)}…`);
+      setStep(isHeic(file) ? `Changing iPhone photo ${i + 1} to JPG…` : `Adding photo ${i + 1} of ${Math.min(files.length, MAX_PHOTOS)}…`);
       const blob = await photoToJpeg(file).catch(() => null);
       if (!blob) {
         problem = `"${file.name}" couldn't be opened. Try a screenshot of it, or save it as a JPG.`;
@@ -92,6 +93,13 @@ export function LessonAISummary({
     }
     setStep(null);
     if (!added) return setError(problem || "The photo didn't upload. Try again.");
+    // Some went in, some didn't: say so, so nothing goes missing quietly.
+    const tried = Math.min(files.length, MAX_PHOTOS);
+    const skipped = files.length - tried;
+    if (added < tried || skipped)
+      setError(
+        `Added ${added} of ${files.length} photos.${added < tried && problem ? ` ${problem}` : ""}${skipped ? ` Only ${MAX_PHOTOS} at a time — add the other ${skipped} again.` : ""}`,
+      );
     setPhotos((n) => n + added);
     router.refresh();
   }
