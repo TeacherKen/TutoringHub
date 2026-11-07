@@ -1,9 +1,10 @@
 // Smart slides: shapes shared by the student's room, Mr Ken's view and the server.
 // All positions are fractions of the page (0 to 1), so every screen size lines up.
 
-export const COLORS = ["#1f2937", "#2563eb", "#dc2626", "#16a34a", "#ea580c", "#9333ea"] as const;
+export const COLORS = ["#1f2937", "#ffffff", "#2563eb", "#dc2626", "#16a34a", "#ea580c", "#9333ea"] as const;
 export const COLOR_NAMES: Record<string, string> = {
   "#1f2937": "black",
+  "#ffffff": "white",
   "#2563eb": "blue",
   "#dc2626": "red",
   "#16a34a": "green",
@@ -17,7 +18,7 @@ export const COLOR_NAMES: Record<string, string> = {
 };
 export const HIGHLIGHT = "#facc15";
 /** Highlighter colours (see-through when drawn). */
-export const HL_COLORS = ["#facc15", "#4ade80", "#f472b6", "#60a5fa", "#fb923c"] as const;
+export const HL_COLORS = ["#facc15", "#4ade80", "#f472b6", "#60a5fa", "#fb923c", "#ffffff"] as const;
 export const SIZES = { thin: 0.003, thick: 0.007 } as const;
 
 export type Tool = "select" | "pen" | "hl" | "line" | "rect" | "text" | "eraser" | "pointer";

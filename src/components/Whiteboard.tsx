@@ -1793,7 +1793,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
                 aria-label={`${COLOR_NAMES[c]} highlighter`}
                 aria-pressed={hlColor === c}
                 className="h-10 w-10 rounded-full border-4"
-                style={{ background: c, borderColor: hlColor === c ? "var(--color-accent, #0f766e)" : "transparent", outline: hlColor === c ? "2px solid white" : "none", outlineOffset: -6 }}
+                style={{ background: c, borderColor: hlColor === c ? "var(--color-accent, #0f766e)" : "transparent", outline: hlColor === c ? "2px solid white" : "none", outlineOffset: -6, boxShadow: "0 0 0 1.5px rgba(255,255,255,.55)" }}
               />
             ))}
           </div>
