@@ -1,7 +1,7 @@
 import { CalendarCatchUp } from "@/components/CalendarCatchUp";
 import { SoundLink } from "@/components/glass/SoundLink";
 import { requireTutor } from "@/lib/auth";
-import { getAccountSummaries, getLessons, getSettings, getStudents, needsFeedback, reminderSince } from "@/lib/data";
+import { getColourInputs, getLessons, getSettings, getStudents, needsFeedback, reminderSince } from "@/lib/data";
 import { loadReady } from "@/lib/readyData";
 import { colourSlots } from "@/lib/studentColours";
 import { addDays, bkkDateKey, bkkStartOfDay, fmtDay, fmtHours, mondayOf, todayKey } from "@/lib/time";
@@ -17,11 +17,11 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
   await requireTutor();
   const { start } = await searchParams;
   const monday = mondayOf(validKey(start) ?? todayKey());
-  const [all, settings, students, accounts] = await Promise.all([
+  const [all, settings, students, colourInputs] = await Promise.all([
     getLessons(bkkStartOfDay(monday).toISOString(), bkkStartOfDay(addDays(monday, 7)).toISOString()),
     getSettings(),
     getStudents(),
-    getAccountSummaries(),
+    getColourInputs(),
   ]);
   const lessons = all.filter((l) => l.lesson_students.length > 0);
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
@@ -30,11 +30,7 @@ export default async function WeekPage({ searchParams }: PageProps<"/week">) {
   const isThisWeek = monday === mondayOf(today);
 
   // Colours: the same for each family/student as on Students and Money.
-  const colours = colourSlots({
-    students,
-    packages: accounts.flatMap((a) => a.packages.map(() => ({ hour_account_id: a.id }))),
-    accountNames: new Map(accounts.map((a) => [a.id, a.name])),
-  });
+  const colours = colourSlots({ students, ...colourInputs });
   const slotOf = Object.fromEntries(lessons.map((l) => [l.id, colours.slotOfStudent(l.lesson_students[0].student_id)]));
   const readyMap = await loadReady(lessons, students);
   const ready = Object.fromEntries(readyMap);

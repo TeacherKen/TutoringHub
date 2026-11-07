@@ -15,6 +15,7 @@ import { loadPrep } from "@/lib/prepData";
 import { loadReady } from "@/lib/readyData";
 import { Hero, JustDone, MonthPanel, TodayTimeline, TodoPanel, WeekList } from "@/components/home/Dashboard";
 import { tutorName } from "@/lib/env";
+import { FamilyInbox, type InboxFamily } from "@/components/home/FamilyInbox";
 import { colourSlots } from "@/lib/studentColours";
 
 export default async function Home() {
@@ -125,6 +126,8 @@ export default async function Home() {
 
       <JustDone lessons={justDone} />
 
+      <FamilyInbox families={family.inbox} />
+
       {/* Three glass cards side by side on a laptop, one under another on a phone */}
       <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
         <TodayTimeline lessons={todays} now={now} prep={prep} ready={ready} />
@@ -149,7 +152,6 @@ export default async function Home() {
           unpaid={unpaid.map((p) => ({ id: p.id, href: "/money#unpaid", text: `${accountName.get(p.hour_account_id) ?? "Package"}, ฿${Math.round(Number(p.price_thb)).toLocaleString("en-US")}` }))}
           link={unmatched.length ? <UnmatchedEvents events={unmatched} students={students} /> : null}
           linkCount={unmatched.length}
-          messages={family.messages}
           seen={family.seen}
         />
       </div>
@@ -212,7 +214,7 @@ function UnmatchedEvents({ events, students }: { events: Lesson[]; students: { i
 async function familyActivity(students: { id: string; first_name: string; hour_account_id: string | null; parent_name: string | null; active: boolean }[]) {
   const supabase = await createClient();
   const [{ data: notes }, { data: seenRows }] = await Promise.all([
-    supabase.from("family_notes").select("id, hour_account_id, body, created_at").eq("author", "parent").is("read_at", null).order("created_at", { ascending: false }).limit(20),
+    supabase.from("family_notes").select("id, hour_account_id, body, created_at, lesson_id").eq("author", "parent").is("read_at", null).order("created_at", { ascending: false }).limit(20),
     supabase.from("hour_accounts").select("id, family_seen_at").gte("family_seen_at", new Date(Date.now() - 2 * 86_400_000).toISOString()).order("family_seen_at", { ascending: false }).limit(6),
   ]);
   const kids = (id: string) => students.filter((s) => s.hour_account_id === id).sort((a, b) => Number(b.active) - Number(a.active));
@@ -225,15 +227,23 @@ async function familyActivity(students: { id: string; first_name: string; hour_a
     const m = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
     return m < 2 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : "yesterday";
   };
-  const messages = ((notes ?? []) as { id: string; hour_account_id: string; body: string; created_at: string }[]).map((n) => ({
-    id: n.id,
-    href: href(n.hour_account_id),
-    text: `${who(n.hour_account_id)}: “${n.body.length > 70 ? `${n.body.slice(0, 70)}…` : n.body}”`,
-  }));
+  const rows = ((notes ?? []) as { id: string; hour_account_id: string; body: string; created_at: string; lesson_id: string | null }[]).reverse();
+  const lessonIds = [...new Set(rows.map((n) => n.lesson_id).filter(Boolean) as string[])];
+  const { data: lessonRows } = lessonIds.length ? await supabase.from("lessons").select("id, start_at").in("id", lessonIds) : { data: [] };
+  const lessonDay = new Map(((lessonRows ?? []) as { id: string; start_at: string }[]).map((l) => [l.id, fmtDay(bkkDateKey(l.start_at))]));
+  const when = (iso: string) => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
+  const byFamily = new Map<string, InboxFamily>();
+  for (const n of rows) {
+    const id = n.hour_account_id;
+    if (!byFamily.has(id)) byFamily.set(id, { accountId: id, who: who(id), kids: kids(id).filter((s) => s.active).map((s) => s.first_name).join(" & ") || kids(id).map((s) => s.first_name).join(" & "), href: href(id), notes: [] });
+    byFamily.get(id)!.notes.push({ id: n.id, body: n.body, when: when(n.created_at), lesson: n.lesson_id ? (lessonDay.get(n.lesson_id) ?? null) : null });
+  }
+  // Newest conversation first.
+  const inbox = [...byFamily.values()].reverse();
   const seen = ((seenRows ?? []) as { id: string; family_seen_at: string }[]).map((a) => ({
     id: a.id,
     href: href(a.id),
     text: `${who(a.id)} opened the family page ${ago(a.family_seen_at)}`,
   }));
-  return { messages, seen };
+  return { inbox, seen };
 }

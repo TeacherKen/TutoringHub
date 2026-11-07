@@ -168,16 +168,41 @@ export type AccountSummary = {
 };
 
 /** Hours bought / used / left for every hour account. */
-export async function getAccountSummaries(): Promise<AccountSummary[]> {
+/** Just what the colour dots need: family names and which families have packages (no lesson history). */
+export async function getColourInputs(): Promise<{ packages: { hour_account_id: string }[]; accountNames: Map<string, string> }> {
   const supabase = await createClient();
+  const [{ data: accounts }, { data: packages }] = await Promise.all([
+    supabase.from("hour_accounts").select("id, name"),
+    supabase.from("packages").select("hour_account_id"),
+  ]);
+  return {
+    packages: (packages ?? []) as { hour_account_id: string }[],
+    accountNames: new Map(((accounts ?? []) as { id: string; name: string }[]).map((a) => [a.id, a.name])),
+  };
+}
+
+/** Every family's hours. With `onlyId`, just that one family (much faster: only their own lessons are read). */
+export async function getAccountSummaries(onlyId?: string): Promise<AccountSummary[]> {
+  const supabase = await createClient();
+  let accountsQ = supabase.from("hour_accounts").select("id, name");
+  let studentsQ = supabase.from("students").select("id, first_name, source, hour_account_id");
+  let packagesQ = supabase.from("packages").select("*");
+  let adjustQ = supabase.from("hour_adjustments").select("*");
+  if (onlyId) {
+    accountsQ = accountsQ.eq("id", onlyId);
+    studentsQ = studentsQ.eq("hour_account_id", onlyId);
+    packagesQ = packagesQ.eq("hour_account_id", onlyId);
+    adjustQ = adjustQ.eq("hour_account_id", onlyId);
+  }
   const [{ data: accounts }, { data: students }, { data: packages }, { data: adjustments }] = await Promise.all([
-    supabase.from("hour_accounts").select("id, name").order("name"),
-    supabase.from("students").select("id, first_name, source, hour_account_id"),
-    supabase.from("packages").select("*").order("start_date"),
-    supabase.from("hour_adjustments").select("*").order("adjusted_on"),
+    accountsQ.order("name"),
+    studentsQ,
+    packagesQ.order("start_date"),
+    adjustQ.order("adjusted_on"),
   ]);
   const pk = (packages ?? []) as Package[];
   const earliest = pk.map((p) => p.start_date).sort()[0];
+  const memberIds = ((students ?? []) as { id: string }[]).map((s) => s.id);
 
   let lessons: HoursLesson[] = [];
   if (earliest) {
@@ -185,17 +210,19 @@ export async function getAccountSummaries(): Promise<AccountSummary[]> {
     // Page through in blocks of 1,000 (the database's maximum per request).
     const data: { id: string; start_at: string; end_at: string; status: string; length_hours: number | null; lesson_students: unknown }[] = [];
     for (let fromRow = 0; ; fromRow += 1000) {
-      const { data: page, error: pageErr } = await supabase
+      let q = supabase
         .from("lessons")
-        .select("id, start_at, end_at, status, length_hours, lesson_students(student_id, uses_hours)")
-        .gte("start_at", fromIso)
+        .select(onlyId ? "id, start_at, end_at, status, length_hours, lesson_students!inner(student_id, uses_hours)" : "id, start_at, end_at, status, length_hours, lesson_students(student_id, uses_hours)")
+        .gte("start_at", fromIso);
+      if (onlyId) q = q.in("lesson_students.student_id", memberIds.length ? memberIds : ["00000000-0000-0000-0000-000000000000"]);
+      const { data: page, error: pageErr } = await q
         .in("status", [...CHARGED_STATUSES])
         .eq("ignored", false)
         .order("start_at")
         .order("id")
         .range(fromRow, fromRow + 999);
       if (pageErr) throw new Error("Couldn't load the hours. Please refresh.");
-      data.push(...(page ?? []));
+      data.push(...((page ?? []) as unknown as typeof data));
       if (!page || page.length < 1000) break;
     }
     lessons = data.map((l) => ({

@@ -47,9 +47,8 @@ const thb = (n: number) => `฿${Number(n).toLocaleString("en-US")}`;
 export default async function StudentPage({ params }: PageProps<"/students/[id]">) {
   await requireTutor();
   const { id } = await params;
-  const [students, accounts, settings, progress, money, tt] = await Promise.all([
+  const [students, settings, progress, money, tt] = await Promise.all([
     getStudents(),
-    getAccountSummaries(),
     getSettings(),
     getProgress([id]),
     getMoneyData(),
@@ -57,7 +56,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
   ]);
   const student = students.find((s) => s.id === id);
   if (!student) notFound();
-  const account = accounts.find((a) => a.id === student.hour_account_id);
+  const account = student.hour_account_id ? (await getAccountSummaries(student.hour_account_id))[0] : undefined;
 
   const supabase = await createClient();
   const { data: links } = await supabase
