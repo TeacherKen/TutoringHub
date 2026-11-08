@@ -468,7 +468,7 @@ export function JustDone({ lessons }: { lessons: { id: string; names: string; en
       {lessons.map((l) => (
         <SoundLink
           key={l.id}
-          href={`/lessons/${l.id}#send-update`}
+          href={`/lessons/${l.id}?view=after#send-update`}
           className="glass press flex items-center gap-3 rounded-[22px] px-4 py-3.5 sm:px-5"
           style={{ borderColor: "var(--th-accent-line)", background: "linear-gradient(135deg, var(--th-accent-soft), transparent 70%)" }}
         >

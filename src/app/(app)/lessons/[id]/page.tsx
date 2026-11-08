@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -24,7 +25,8 @@ import { SoundLink } from "@/components/glass/SoundLink";
 import { colourSlots } from "@/lib/studentColours";
 import { FamilyLinkProvider } from "@/components/FamilyLinkContext";
 
-export default async function LessonPage({ params }: PageProps<"/lessons/[id]">) {
+export default async function LessonPage({ params, searchParams }: PageProps<"/lessons/[id]">) {
+  const sp = await searchParams;
   await requireTutor();
   const { id } = await params;
   const lesson = await getLesson(id);
@@ -127,6 +129,8 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
 
   // Once the lesson has started, the page is about "after the lesson": photos → ✨ → check → send.
   const ended = isPast(lesson.start_at);
+  // Before and during class: Teach. After it ends: After class. Either can be chosen.
+  const view: "teach" | "after" = sp.view === "teach" || sp.view === "after" ? sp.view : isPast(lesson.end_at) ? "after" : "teach";
 
   const page = (
     <div className="flex flex-col gap-5">
@@ -147,7 +151,6 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
             <h1 className="font-display text-[34px] font-semibold leading-tight tracking-[-0.015em] sm:text-[44px]">{lessonNames(lesson)}</h1>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               {inLesson.length ? <ModePill lesson={lesson} slot={slot} /> : null}
-              {earned?.value != null ? <span className="pill ok">This class: {thb(earned.value)}</span> : null}
               {lesson.title && lesson.title !== lessonNames(lesson) ? <span className="tag">“{lesson.title}”</span> : null}
               {ready ? <ReadyPill lessonId={lesson.id} r={ready} who={lessonNames(lesson)} /> : null}
             </div>
@@ -156,17 +159,44 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
         </div>
       </header>
 
-      {lastPlan ? (
-        <section
-          className="glass rounded-[24px] p-5"
-          style={{ borderColor: "var(--th-accent-line)", background: "color-mix(in srgb, var(--th-accent) 9%, transparent)" }}
-        >
-          <h2 className="text-xs font-semibold tracking-[0.16em] text-accent">LAST TIME YOU PLANNED</h2>
-          <p className="mt-2 whitespace-pre-wrap text-[17px] leading-relaxed">{lastPlan}</p>
-        </section>
-      ) : null}
+      {/* Two jobs, two tabs: teaching the class, and the update afterwards. Picked by the time, switchable. */}
+      <nav aria-label="Lesson page" className="glass flex gap-1 self-start rounded-[22px] p-1.5">
+        <Link href={`/lessons/${lesson.id}?view=teach`} replace scroll={false} className={`tab press ${view === "teach" ? "is-on" : ""}`} aria-current={view === "teach" ? "page" : undefined}>
+          🧑‍🏫 Teach
+        </Link>
+        <Link href={`/lessons/${lesson.id}?view=after`} replace scroll={false} className={`tab press ${view === "after" ? "is-on" : ""}`} aria-current={view === "after" ? "page" : undefined}>
+          📮 After class{lesson.sent_at ? " ✓" : ""}
+        </Link>
+      </nav>
 
-      {ended ? (
+      {view === "teach" ? (
+        <>
+          {lastPlan ? (
+            <section
+              className="glass rounded-[24px] p-5"
+              style={{ borderColor: "var(--th-accent-line)", background: "color-mix(in srgb, var(--th-accent) 9%, transparent)" }}
+            >
+              <h2 className="text-xs font-semibold tracking-[0.16em] text-accent">LAST TIME YOU PLANNED</h2>
+              <p className="mt-2 whitespace-pre-wrap text-[17px] leading-relaxed">{lastPlan}</p>
+            </section>
+          ) : null}
+          {inLesson.length ? (
+            <RoomControls students={students.filter((s) => studentIds.includes(s.id)).map(roomStudent)} lessonId={lesson.id} />
+          ) : (
+            <p className="card text-muted">Add a student under Lesson settings below to open their room, slides and games.</p>
+          )}
+          <Fold
+            summary={
+              <span className="flex flex-wrap items-baseline gap-x-3">
+                <span className="h2">Worksheets and materials</span>
+                <span className="text-sm text-[var(--th-text-3)]">{materials.length ? `${materials.length} saved` : "none yet"}</span>
+              </span>
+            }
+          >
+            <Materials lessonId={lesson.id} items={materials} bare />
+          </Fold>
+        </>
+      ) : (
         <>
           <StepLabel id="send-update" n={1} text="Add worksheet photos, then let ✨ write the note and message" />
           <LessonAISummary
@@ -220,187 +250,70 @@ export default async function LessonPage({ params }: PageProps<"/lessons/[id]">)
             lessonTopics={lesson.topics ?? []}
             kids={inLesson.map((ls) => ({ id: ls.student_id, name: ls.students?.first_name ?? "Student", topics: ls.topics ?? null }))}
           />
-
-          {inLesson.length ? (
-            <Fold
-              summary={
-                <span className="flex flex-wrap items-baseline gap-x-3">
-                  <span className="h2">Student room</span>
-                  <span className="text-sm text-[var(--th-text-3)]">smart slides, games, watch live</span>
-                </span>
-              }
-            >
-              <RoomControls students={students.filter((s) => studentIds.includes(s.id)).map(roomStudent)} lessonId={lesson.id} bare />
-            </Fold>
-          ) : null}
-          <Fold
-            summary={
-              <span className="flex flex-wrap items-baseline gap-x-3">
-                <span className="h2">Students in this lesson</span>
-                <span className="text-sm text-[var(--th-text-3)]">{inLesson.map((ls) => ls.students?.first_name).join(" & ") || "none linked yet"}</span>
-              </span>
-            }
-            open={inLesson.length === 0}
-          >
-            <div className="space-y-3">
-              {inLesson.length === 0 ? <p className="text-sm text-muted">No student linked yet.</p> : null}
-              {inLesson.map((ls) => (
-                <div key={ls.student_id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                  <SoundLink href={`/students/${ls.student_id}`} sound="open" className="flex items-center gap-3 font-semibold hover:text-accent">
-                    <Avatar name={ls.students?.first_name ?? "?"} slot={colours.slotOfStudent(ls.student_id)} size={36} />
-                    {ls.students?.first_name}
-                  </SoundLink>
-                  <div className="flex items-center gap-2">
-                    <form action={setUsesHours}>
-                      <input type="hidden" name="lesson_id" value={lesson.id} />
-                      <input type="hidden" name="student_id" value={ls.student_id} />
-                      <input type="hidden" name="uses_hours" value={ls.uses_hours ? "false" : "true"} />
-                      <button className={`pill press min-h-9 ${ls.uses_hours ? "ok" : ""}`} title="Tap to change">
-                        {ls.uses_hours ? "Uses package hours" : "Not using hours"}
-                      </button>
-                    </form>
-                    <form action={removeLessonStudent}>
-                      <input type="hidden" name="lesson_id" value={lesson.id} />
-                      <input type="hidden" name="student_id" value={ls.student_id} />
-                      <button className="min-h-9 px-2 text-xs text-muted underline">Remove</button>
-                    </form>
-                  </div>
-                </div>
-              ))}
-              {notIn.length ? (
-                <form action={addLessonStudent} className="flex gap-2">
-                  <input type="hidden" name="lesson_id" value={lesson.id} />
-                  <select name="student_id" className="input flex-1" defaultValue="" required>
-                    <option value="" disabled>
-                      Add a student…
-                    </option>
-                    {notIn.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.first_name}
-                      </option>
-                    ))}
-                  </select>
-                  <button className="btn-secondary">Add</button>
-                </form>
-              ) : null}
-            </div>
-          </Fold>
-          <Fold
-            summary={
-              <span className="flex flex-wrap items-baseline gap-x-3">
-                <span className="h2">Worksheets and materials</span>
-                <span className="text-sm text-[var(--th-text-3)]">{materials.length ? `${materials.length} saved` : "none yet"}</span>
-              </span>
-            }
-          >
-            <Materials lessonId={lesson.id} items={materials} bare />
-          </Fold>
-        </>
-      ) : (
-        <>
-          {inLesson.length ? <RoomControls students={students.filter((s) => studentIds.includes(s.id)).map(roomStudent)} lessonId={lesson.id} /> : null}
-          <Fold
-            summary={
-              <span className="flex flex-wrap items-baseline gap-x-3">
-                <span className="h2">Students in this lesson</span>
-                <span className="text-sm text-[var(--th-text-3)]">{inLesson.map((ls) => ls.students?.first_name).join(" & ") || "none linked yet"}</span>
-              </span>
-            }
-            open={inLesson.length === 0}
-          >
-            <div className="space-y-3">
-              {inLesson.length === 0 ? <p className="text-sm text-muted">No student linked yet.</p> : null}
-              {inLesson.map((ls) => (
-                <div key={ls.student_id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                  <SoundLink href={`/students/${ls.student_id}`} sound="open" className="flex items-center gap-3 font-semibold hover:text-accent">
-                    <Avatar name={ls.students?.first_name ?? "?"} slot={colours.slotOfStudent(ls.student_id)} size={36} />
-                    {ls.students?.first_name}
-                  </SoundLink>
-                  <div className="flex items-center gap-2">
-                    <form action={setUsesHours}>
-                      <input type="hidden" name="lesson_id" value={lesson.id} />
-                      <input type="hidden" name="student_id" value={ls.student_id} />
-                      <input type="hidden" name="uses_hours" value={ls.uses_hours ? "false" : "true"} />
-                      <button className={`pill press min-h-9 ${ls.uses_hours ? "ok" : ""}`} title="Tap to change">
-                        {ls.uses_hours ? "Uses package hours" : "Not using hours"}
-                      </button>
-                    </form>
-                    <form action={removeLessonStudent}>
-                      <input type="hidden" name="lesson_id" value={lesson.id} />
-                      <input type="hidden" name="student_id" value={ls.student_id} />
-                      <button className="min-h-9 px-2 text-xs text-muted underline">Remove</button>
-                    </form>
-                  </div>
-                </div>
-              ))}
-              {notIn.length ? (
-                <form action={addLessonStudent} className="flex gap-2">
-                  <input type="hidden" name="lesson_id" value={lesson.id} />
-                  <select name="student_id" className="input flex-1" defaultValue="" required>
-                    <option value="" disabled>
-                      Add a student…
-                    </option>
-                    {notIn.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.first_name}
-                      </option>
-                    ))}
-                  </select>
-                  <button className="btn-secondary">Add</button>
-                </form>
-              ) : null}
-            </div>
-          </Fold>
-          <LessonNoteForm
-            lessonId={lesson.id}
-            initial={{
-              learned: lesson.learned ?? "",
-              next_time: lesson.next_time ?? "",
-              homework: lesson.homework ?? "",
-              how_it_went: lesson.how_it_went,
-              topics: lesson.topics ?? [],
-              status: lesson.status,
-              length_hours: lesson.length_hours != null ? Number(lesson.length_hours) : null,
-              final_message: lesson.final_message ?? "",
-              sent_at: lesson.sent_at,
-              updated_at: lesson.note_updated_at,
-            }}
-            defaultLength={hoursBetween(lesson.start_at, lesson.end_at)}
-            isPast={isPast(lesson.start_at)}
-            aiEnabled={aiAvailable()}
-            aiAbove={ended && aiAvailable()}
-            contact={parentOf ? { app: parentOf.contact_app, value: parentOf.contact } : undefined}
-            topicSuggestions={topicSuggestions}
-            promptContext={{
-              studentNames: inLesson.map((ls) => ls.students?.first_name ?? "").filter(Boolean),
-              parentName: firstStudent?.parent_name ?? null,
-              level: firstStudent?.level ?? null,
-              date: fmtLongDay(bkkDateKey(lesson.start_at)),
-              tutorName: tutorName(),
-              progress: progressText,
-              tone: settings.tone,
-              allowEmoji: settings.allow_emoji,
-              template: settings.prompt_template,
-            }}
-          />
-
-          <Fold
-            summary={
-              <span className="flex flex-wrap items-baseline gap-x-3">
-                <span className="h2">Worksheets and materials</span>
-                <span className="text-sm text-[var(--th-text-3)]">{materials.length ? `${materials.length} saved` : "none yet"}</span>
-              </span>
-            }
-          >
-            <Materials lessonId={lesson.id} items={materials} bare />
-          </Fold>
         </>
       )}
-      <form action={setIgnored} className="pb-4">
-        <input type="hidden" name="lesson_id" value={lesson.id} />
-        <input type="hidden" name="ignored" value={lesson.ignored ? "false" : "true"} />
-        <button className="btn-quiet px-0 text-sm text-muted">{lesson.ignored ? "Show this event again" : "This isn't a lesson — hide it"}</button>
-      </form>
+
+      {/* Things about the booking, not the teaching: who's in it, hours, price. Closed, at the bottom. */}
+      <Fold
+        summary={
+          <span className="flex flex-wrap items-baseline gap-x-3">
+            <span className="h2">Lesson settings</span>
+            <span className="text-sm text-[var(--th-text-3)]">students, hours{earned?.value != null ? ", price" : ""}</span>
+          </span>
+        }
+        open={inLesson.length === 0}
+      >
+        <div className="space-y-4">
+          {earned?.value != null ? <p className="text-sm">This class earns <strong>{thb(earned.value)}</strong>.</p> : null}
+                <div className="space-y-3">
+                  {inLesson.length === 0 ? <p className="text-sm text-muted">No student linked yet.</p> : null}
+                  {inLesson.map((ls) => (
+                    <div key={ls.student_id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                      <SoundLink href={`/students/${ls.student_id}`} sound="open" className="flex items-center gap-3 font-semibold hover:text-accent">
+                        <Avatar name={ls.students?.first_name ?? "?"} slot={colours.slotOfStudent(ls.student_id)} size={36} />
+                        {ls.students?.first_name}
+                      </SoundLink>
+                      <div className="flex items-center gap-2">
+                        <form action={setUsesHours}>
+                          <input type="hidden" name="lesson_id" value={lesson.id} />
+                          <input type="hidden" name="student_id" value={ls.student_id} />
+                          <input type="hidden" name="uses_hours" value={ls.uses_hours ? "false" : "true"} />
+                          <button className={`pill press min-h-9 ${ls.uses_hours ? "ok" : ""}`} title="Tap to change">
+                            {ls.uses_hours ? "Uses package hours" : "Not using hours"}
+                          </button>
+                        </form>
+                        <form action={removeLessonStudent}>
+                          <input type="hidden" name="lesson_id" value={lesson.id} />
+                          <input type="hidden" name="student_id" value={ls.student_id} />
+                          <button className="min-h-9 px-2 text-xs text-muted underline">Remove</button>
+                        </form>
+                      </div>
+                    </div>
+                  ))}
+                  {notIn.length ? (
+                    <form action={addLessonStudent} className="flex gap-2">
+                      <input type="hidden" name="lesson_id" value={lesson.id} />
+                      <select name="student_id" className="input flex-1" defaultValue="" required>
+                        <option value="" disabled>
+                          Add a student…
+                        </option>
+                        {notIn.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.first_name}
+                          </option>
+                        ))}
+                      </select>
+                      <button className="btn-secondary">Add</button>
+                    </form>
+                  ) : null}
+                </div>
+          <form action={setIgnored} className="pb-4">
+            <input type="hidden" name="lesson_id" value={lesson.id} />
+            <input type="hidden" name="ignored" value={lesson.ignored ? "false" : "true"} />
+            <button className="btn-quiet px-0 text-sm text-muted">{lesson.ignored ? "Show this event again" : "This isn't a lesson — hide it"}</button>
+          </form>
+        </div>
+      </Fold>
     </div>
   );
   return accountId ? (

@@ -307,31 +307,6 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="col-span-2 sm:col-span-1">
-            <span className="label">Lesson status</span>
-            <select className="input" value={note.status} onChange={(e) => set("status", e.target.value)}>
-              {STATUS_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="col-span-2 sm:col-span-1">
-            <span className="label">Length (hours){charged ? " — uses package hours" : ""}</span>
-            <input
-              className="input"
-              type="number"
-              step="0.25"
-              min="0"
-              inputMode="decimal"
-              value={note.length_hours ?? ""}
-              placeholder={String(defaultLength)}
-              onChange={(e) => set("length_hours", e.target.value === "" ? null : Number(e.target.value))}
-            />
-          </label>
-        </div>
 
         <label className="block">
           <span className="label">Learned today</span>
@@ -399,6 +374,40 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
             </div>
           ) : null}
         </div>
+      {/* Status and hours are usually right by themselves, so they're tucked away here. */}
+        <details className="rounded-xl border border-line px-3 py-2">
+          <summary className="cursor-pointer select-none py-1 text-sm text-muted">
+            Status &amp; hours: <span className="font-medium text-ink">{STATUS_OPTIONS.find((o) => o.value === note.status)?.label ?? note.status}</span> ·{" "}
+            <span className="font-medium text-ink tabular-nums">{note.length_hours ?? defaultLength} h</span>
+          </summary>
+          <div className="pt-2">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="col-span-2 sm:col-span-1">
+              <span className="label">Lesson status</span>
+              <select className="input" value={note.status} onChange={(e) => set("status", e.target.value)}>
+                {STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="col-span-2 sm:col-span-1">
+              <span className="label">Length (hours){charged ? " — uses package hours" : ""}</span>
+              <input
+                className="input"
+                type="number"
+                step="0.25"
+                min="0"
+                inputMode="decimal"
+                value={note.length_hours ?? ""}
+                placeholder={String(defaultLength)}
+                onChange={(e) => set("length_hours", e.target.value === "" ? null : Number(e.target.value))}
+              />
+            </label>
+          </div>
+          </div>
+        </details>
       </section>
 
       <section className="card space-y-4">
