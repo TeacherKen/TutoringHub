@@ -11,30 +11,41 @@ import { Bar, FracText, Pie } from "./FractionShapes";
 const SLICES = [2, 3, 4, 5, 6, 8, 10, 12];
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
 
-export function FractionShow({ onBack }: { onBack: () => void }) {
-  const [parts, setParts] = useState(2);
-  const [on, setOn] = useState<number[]>([0]);
-  const [shape, setShape] = useState<"pizza" | "bar">("pizza");
-  const [hidden, setHidden] = useState(false);
+export type FractionView = { kind: "fraction"; parts: number; on: number[]; shape: "pizza" | "bar"; hidden: boolean };
 
-  const n = on.length;
-  const tap = (i: number) => setOn((s) => (s.includes(i) ? s.filter((x) => x !== i) : [...s, i]));
-  const choose = (p: number) => {
-    setParts(p);
-    setOn([]);
+/**
+ * On its own it keeps its own state. With `value` + `onChange`, Mr Ken's taps are sent to the child's
+ * screen (teach together). With `readOnly`, it just shows what Mr Ken is showing.
+ */
+export function FractionShow({ onBack, value, onChange, readOnly = false }: { onBack?: () => void; value?: FractionView; onChange?: (v: FractionView) => void; readOnly?: boolean }) {
+  const [own, setOwn] = useState<FractionView>({ kind: "fraction", parts: 2, on: [0], shape: "pizza", hidden: false });
+  const v = value ?? own;
+  const set = (patch: Partial<FractionView>) => {
+    if (readOnly) return;
+    const next = { ...v, ...patch };
+    if (onChange) onChange(next);
+    else setOwn(next);
   };
+  const { parts, on, shape, hidden } = v;
+  const n = on.length;
+  const tap = (i: number) => set({ on: on.includes(i) ? on.filter((x) => x !== i) : [...on, i] });
+  const choose = (p: number) => set({ parts: p, on: [] });
   const words = n === parts ? `${NUMBER_WORDS[n]} ${fracWords({ n, d: parts }).split(" ").slice(1).join(" ")} = 1 whole` : fracWords({ n, d: parts });
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <button type="button" className="btn-quiet min-h-10 px-0 text-sm text-muted" onClick={onBack}>
-          ‹ Back
-        </button>
-        <p className="font-semibold">Show a fraction</p>
-        <span className="w-12" />
-      </div>
+      {onBack && !value ? (
+        <div className="flex items-center justify-between gap-2">
+          <button type="button" className="btn-quiet min-h-10 px-0 text-sm text-muted" onClick={onBack}>
+            ‹ Back
+          </button>
+          <p className="font-semibold">Show a fraction</p>
+          <span className="w-12" />
+        </div>
+      ) : null}
 
+      {readOnly ? null : (
+      <>
       <div className="space-y-1.5">
         <p className="text-sm font-medium text-muted">How many equal slices?</p>
         <div className="flex flex-wrap gap-1.5">
@@ -53,20 +64,22 @@ export function FractionShow({ onBack }: { onBack: () => void }) {
             ["bar", "🍫 Chocolate bar"],
           ] as const
         ).map(([k, label]) => (
-          <button key={k} type="button" aria-pressed={shape === k} onClick={() => setShape(k)} className={`min-h-11 flex-1 rounded-xl border-2 font-semibold ${shape === k ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}>
+          <button key={k} type="button" aria-pressed={shape === k} onClick={() => set({ shape: k })} className={`min-h-11 flex-1 rounded-xl border-2 font-semibold ${shape === k ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}>
             {label}
           </button>
         ))}
       </div>
+      </>
+      )}
 
       <div className="flex flex-col items-center gap-5 rounded-2xl bg-surface-2/60 p-4 sm:flex-row sm:justify-center">
         <div className="w-full max-w-[300px]">
           {shape === "pizza" ? (
-            <Pie parts={parts} shaded={on} onTap={tap} size={300} label={`Pizza cut into ${parts} equal slices. Tap a slice to colour it.`} />
+            <Pie parts={parts} shaded={on} onTap={readOnly ? undefined : tap} size={300} label={`Pizza cut into ${parts} equal slices. Tap a slice to colour it.`} />
           ) : (
-            <Bar parts={parts} shaded={on} onTap={tap} label={`Chocolate bar with ${parts} equal pieces. Tap a piece to colour it.`} />
+            <Bar parts={parts} shaded={on} onTap={readOnly ? undefined : tap} label={`Chocolate bar with ${parts} equal pieces. Tap a piece to colour it.`} />
           )}
-          <p className="mt-1 text-center text-sm text-muted">Tap a slice to colour it</p>
+          {readOnly ? null : <p className="mt-1 text-center text-sm text-muted">Tap a slice to colour it</p>}
         </div>
 
         <div className="flex min-w-[11rem] flex-col items-center gap-2 text-center">
@@ -98,17 +111,19 @@ export function FractionShow({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
+      {readOnly ? null : (
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn-secondary" onClick={() => setOn([])}>
+        <button type="button" className="btn-secondary" onClick={() => set({ on: [] })}>
           Clear
         </button>
-        <button type="button" className="btn-secondary" onClick={() => setOn(Array.from({ length: parts }, (_, i) => i))}>
+        <button type="button" className="btn-secondary" onClick={() => set({ on: Array.from({ length: parts }, (_, i) => i) })}>
           Colour all
         </button>
-        <button type="button" className={hidden ? "btn-primary flex-1" : "btn-secondary flex-1"} onClick={() => setHidden((h) => !h)}>
+        <button type="button" className={hidden ? "btn-primary flex-1" : "btn-secondary flex-1"} onClick={() => set({ hidden: !hidden })}>
           {hidden ? "Show the fraction" : "Hide the number (ask first)"}
         </button>
       </div>
+      )}
     </div>
   );
 }

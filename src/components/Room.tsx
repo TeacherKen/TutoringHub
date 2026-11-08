@@ -1,4 +1,6 @@
 "use client";
+import { useTeachListener } from "./TeachTogether";
+import { FractionShow } from "./games/FractionShow";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { RoomData } from "@/lib/room";
@@ -27,6 +29,12 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   const onDevice = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [room, setRoom] = useState(initial);
   const [tab, setTab] = useState<Tab>(initialTab ?? (initial.gamesOpen ? "games" : "lesson"));
+  const teach = useTeachListener(token);
+  const teachOn = Boolean(teach);
+  const teachRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (teachOn) teachRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [teachOn]);
   const [game, setGame] = useState<GameId | null>(null);
   const [slide, setSlide] = useState(-1); // -1 = smart slides (when there are some)
   const openRef = useRef(initial.gamesOpen);
@@ -278,6 +286,16 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
           </button>
         </div>
       </header>
+
+      {/* 🧑‍🏫 Mr Ken is showing something live (teach together): it sits on top of everything else. */}
+      {teach ? (
+        <section ref={teachRef} className="glass mb-5 scroll-mt-4 rounded-[26px] border-2 border-accent p-4 sm:p-5" aria-live="polite">
+          <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 text-sm font-semibold text-accent">🧑‍🏫 Mr Ken is showing you</p>
+          <div className="rounded-2xl bg-surface p-3 text-ink">
+            <FractionShow value={teach} readOnly />
+          </div>
+        </section>
+      ) : null}
 
       {wvsNote && !wvs ? (
         <p role="status" className="mb-3 rounded-xl bg-accent-soft p-3 text-sm text-accent">

@@ -5,6 +5,7 @@ import { ensureRoomToken, resetRoomToken, setGamesOpen, setStudentSlides } from 
 import { WatchScreen } from "./WatchScreen";
 import { SmartSlides } from "./SmartSlides";
 import { WolfOnlineTutor } from "./games/WolfOnline";
+import { TeachTogetherTutor } from "./TeachTogether";
 
 type S = { id: string; first_name: string; room_token: string | null; games_open: boolean; slides_url: string | null; slides_label: string | null; board_id?: string | null };
 
@@ -164,6 +165,7 @@ export function RoomControls({ students, showGames = true, lessonId, bare = fals
           ) : null}
           <SmartSlides studentId={s.id} name={s.first_name} currentId={s.board_id ?? null} lessonId={lessonId} />
           <SlidesField student={s} />
+          {tokens[s.id] ? <TeachTogetherTutor token={tokens[s.id]!} name={s.first_name} /> : null}
           {tokens[s.id] ? <WolfOnlineTutor token={tokens[s.id]!} name={s.first_name} /> : null}
         </div>
       ))}

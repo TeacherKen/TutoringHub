@@ -323,7 +323,9 @@ export function needsNote(l: Lesson, since?: string | null, ask: boolean = ASK_F
 /** A finished class whose parent message hasn't been sent (and wasn't marked "no feedback needed"). */
 export function needsFeedback(l: Lesson, today: string, bkkDateKey: (iso: string) => string = dateKeyOf, since?: string | null): boolean {
   const day = bkkDateKey(l.start_at);
-  return l.status === "done" && !l.sent_at && !l.note_skipped && !l.feedback_skipped && day <= today && (!since || day >= since);
+  // Also lessons that have ended but were never marked done (easy to forget after an online class).
+  const finished = l.status === "done" || (l.status === "scheduled" && l.lesson_students.length > 0 && new Date(l.end_at).getTime() < Date.now());
+  return finished && !l.sent_at && !l.note_skipped && !l.feedback_skipped && day <= today && (!since || day >= since);
 }
 
 /** Topic progress for these students (lesson topics + what Mr Ken marked). */
