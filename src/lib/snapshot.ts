@@ -91,8 +91,31 @@ export function snapshotDocument(doc: Document, baseHref: string): string {
 }
 
 /** Picture of one part of this page (for the built-in games), styled with this page's CSS. */
+/**
+ * Moving things (falling coins, shaking monsters) are CSS animations. In a copy they would start again
+ * from the beginning every time, so on Mr Ken's screen coins kept jumping back to the top.
+ * Instead, copy where each moving thing is right now, and stop it there.
+ */
+function freezeAnimations(el: Element, clone: Element) {
+  const live = [el, ...el.querySelectorAll("*")];
+  const copy = [clone, ...clone.querySelectorAll("*")];
+  if (live.length !== copy.length) return;
+  live.forEach((n, i) => {
+    const anims = typeof (n as HTMLElement).getAnimations === "function" ? (n as HTMLElement).getAnimations() : [];
+    if (!anims.length) return;
+    const cs = getComputedStyle(n);
+    const st = (copy[i] as HTMLElement).style;
+    if (!st) return;
+    st.animation = "none";
+    st.transition = "none";
+    if (cs.transform && cs.transform !== "none") st.transform = cs.transform;
+    st.opacity = cs.opacity;
+  });
+}
+
 export function snapshotElement(el: Element): string {
   const clone = el.cloneNode(true) as HTMLElement;
+  freezeAnimations(el, clone);
   copyFormState(el, clone);
   clean(clone);
   const styles = [...document.querySelectorAll('link[rel="stylesheet"]')]
