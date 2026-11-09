@@ -35,6 +35,7 @@ function clean(root: Element) {
 /** Picture of a whole same-site game page shown in an iframe. */
 export function snapshotDocument(doc: Document, baseHref: string): string {
   const clone = doc.documentElement.cloneNode(true) as HTMLElement;
+  freezeAnimations(doc.documentElement, clone);
   copyFormState(doc.documentElement, clone);
   // Mark inner scroll boxes (e.g. a scrolling game board) before cleaning, while both trees still match.
   const orig = doc.documentElement.querySelectorAll("*");
@@ -103,13 +104,18 @@ function freezeAnimations(el: Element, clone: Element) {
   live.forEach((n, i) => {
     const anims = typeof (n as HTMLElement).getAnimations === "function" ? (n as HTMLElement).getAnimations() : [];
     if (!anims.length) return;
-    const cs = getComputedStyle(n);
+    const cs = (n.ownerDocument.defaultView ?? window).getComputedStyle(n);
     const st = (copy[i] as HTMLElement).style;
     if (!st) return;
     st.animation = "none";
     st.transition = "none";
     if (cs.transform && cs.transform !== "none") st.transform = cs.transform;
     st.opacity = cs.opacity;
+    // Things moved by script animations (e.g. villagers walking across a bridge): where they are now.
+    if (cs.position === "absolute" || cs.position === "relative" || cs.position === "fixed") {
+      if (cs.left !== "auto") st.left = cs.left;
+      if (cs.top !== "auto") st.top = cs.top;
+    }
   });
 }
 

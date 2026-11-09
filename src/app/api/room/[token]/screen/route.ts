@@ -6,7 +6,7 @@ import { BUILT_IN } from "@/lib/games";
 export const dynamic = "force-dynamic";
 
 const MAX_CHARS = 400_000;
-const GAMES = new Set<string>([...BUILT_IN, "magic-square", "wolf-vs-sheep"]);
+const GAMES = new Set<string>([...BUILT_IN, "magic-square", "wolf-vs-sheep", "bridge-torch"]);
 
 /** The student's room sends a picture (HTML copy, no scripts) of the game screen every few seconds. */
 export async function POST(req: Request, ctx: RouteContext<"/api/room/[token]/screen">) {

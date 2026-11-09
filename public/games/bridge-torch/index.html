@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bridge and Torch Puzzle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1119; --panel:#141d29; --panel2:#1b2635; --line:#263345; --text:#eef2f6; --muted:#8fa0b3;
+    --gold:#ffc94a; --gold2:#ff9f1c; --good:#46c37b; --bad:#ef5b4f; --water:#2b6e95;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#1a2a40 0,var(--bg) 60%);color:var(--text);
+    font-family:Nunito,system-ui,sans-serif;min-height:100vh}
+  .wrap{max-width:1040px;margin:0 auto;padding:16px 14px 40px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--gold),var(--gold2));display:grid;place-items:center;
+    box-shadow:0 6px 18px rgba(255,170,40,.3)}
+  h1{font-family:"Baloo 2",Nunito,sans-serif;font-weight:800;font-size:1.55rem;margin:0;line-height:1}
+  .tag{color:var(--muted);font-size:.88rem;margin-top:3px}
+
+  /* ---------- stage ---------- */
+  .stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:20px;overflow:hidden;
+    box-shadow:0 20px 50px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06);user-select:none;background:#0d1724}
+  
+  .layer{position:absolute;inset:0;width:100%;height:100%}
+  .river{position:absolute;left:22%;right:22%;bottom:0;top:var(--water,66%);
+    background:
+      repeating-linear-gradient(170deg,rgba(255,255,255,.07) 0 2px,transparent 2px 22px),
+      linear-gradient(#3b86b0,#1c4a69 60%,#12324a);
+    background-size:120px 100%,100% 100%;animation:flow 2.2s linear infinite;transition:top .25s linear}
+  .river::before{content:"";position:absolute;left:0;right:0;top:-6px;height:12px;
+    background:radial-gradient(ellipse 14px 6px at 50% 100%,#8fd0ef 0 45%,transparent 50%) 0 0/28px 12px repeat-x;opacity:.7;animation:wave 1.2s linear infinite}
+  @keyframes flow{to{background-position:120px 0,0 0}}
+  @keyframes wave{to{background-position:28px 0}}
+  .flood{position:absolute;inset:0;background:linear-gradient(transparent 30%,rgba(40,120,170,.75));opacity:0;transition:opacity 1.2s;pointer-events:none}
+  .flood.on{opacity:1}
+  canvas.fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+  /* ---------- villagers ---------- */
+  .char{position:absolute;width:5.6%;transform:translate(-50%,-100%);cursor:pointer;z-index:5}
+  .char svg.body{width:100%;display:block;overflow:visible;filter:drop-shadow(0 3px 3px rgba(0,0,0,.5))}
+  .badge{position:absolute;left:50%;top:-34%;transform:translateX(-50%);min-width:1.9em;height:1.9em;padding:0 .3em;border-radius:999px;
+    display:grid;place-items:center;font-family:"Baloo 2",sans-serif;font-weight:800;color:#fff;font-size:clamp(10px,1.35vw,16px);
+    border:2px solid rgba(255,255,255,.9);box-shadow:0 2px 6px rgba(0,0,0,.4);transition:transform .2s}
+  .name{position:absolute;left:50%;top:104%;transform:translateX(-50%);white-space:nowrap;text-align:center;line-height:1.1;
+    font-size:clamp(8px,1.05vw,12.5px);font-weight:800;color:#fff;text-shadow:0 1px 3px #000}
+  .name i{display:block;font-style:normal;font-weight:700;color:#ffe3a1}
+  .ring{position:absolute;left:50%;bottom:-5%;width:150%;height:22%;transform:translateX(-50%);border-radius:50%;
+    border:3px solid var(--gold);opacity:0;box-shadow:0 0 14px var(--gold);transition:opacity .2s}
+  .char.picked .ring{opacity:1;animation:pulse 1s ease-in-out infinite}
+  .char.picked .badge{transform:translateX(-50%) translateY(-6px) scale(1.12)}
+  .char.idle-off{cursor:default}
+  .char.idle-off svg.body{filter:drop-shadow(0 3px 3px rgba(0,0,0,.5)) brightness(.8)}
+  @keyframes pulse{50%{transform:translateX(-50%) scale(1.08)}}
+  .glow{position:absolute;left:85%;top:20%;width:420%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;
+    background:radial-gradient(circle,rgba(255,206,110,.38) 0,rgba(255,180,60,.14) 35%,transparent 68%);opacity:0;pointer-events:none;transition:opacity .3s;
+    animation:flicker 1.6s ease-in-out infinite}
+  .char.torch .glow{opacity:1}
+  .torchG{opacity:0;transition:opacity .2s}.char.torch .torchG{opacity:1}
+  .flame{transform-box:fill-box;transform-origin:50% 100%;animation:flame .35s ease-in-out infinite alternate}
+  @keyframes flame{to{transform:scale(.85,1.12) skewX(4deg)}}
+  @keyframes flicker{50%{opacity:.82}}
+  .leg{transform-box:fill-box;transform-origin:50% 0}
+  .char.walk .legL{animation:stepA .5s ease-in-out infinite alternate}
+  .char.walk .legR{animation:stepA .5s ease-in-out infinite alternate-reverse}
+  .char.walk svg.body{animation:bob .25s ease-in-out infinite alternate}
+  .char.slow .legL,.char.slow .legR{animation-duration:.9s}
+  @keyframes stepA{from{transform:rotate(18deg)}to{transform:rotate(-18deg)}}
+  @keyframes bob{to{transform:translateY(-2.5%)}}
+  .char.flip svg.body{transform:scaleX(-1)}
+  .char.flip.walk svg.body{animation:bobF .25s ease-in-out infinite alternate}
+  @keyframes bobF{from{transform:scaleX(-1)}to{transform:scaleX(-1) translateY(-2.5%)}}
+
+  /* ---------- HUD ---------- */
+  .hud{position:absolute;top:2.5%;left:2%;right:2%;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:8}
+  .pill{background:rgba(9,14,22,.72);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:6px 12px}
+  .clockLbl{font-size:clamp(9px,1.1vw,12px);color:var(--muted);font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .clock{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:clamp(18px,3vw,34px);line-height:1;color:var(--gold);font-variant-numeric:tabular-nums}
+  .clock.warn{color:#ff8a4a}.clock.over{color:var(--bad)}
+  .meter{height:6px;border-radius:9px;background:rgba(255,255,255,.12);margin-top:5px;overflow:hidden;width:clamp(90px,16vw,170px)}
+  .meter b{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold),#ff7a3d);transition:width .2s linear}
+  .stat{text-align:right}
+  .stat .v{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:clamp(15px,2.2vw,24px);line-height:1}
+
+  /* ---------- overlays ---------- */
+  .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,9,15,.6);backdrop-filter:blur(3px);z-index:20;padding:12px}
+  .overlay.show{display:flex;animation:fade .3s}
+  @keyframes fade{from{opacity:0}}
+  .card{background:linear-gradient(#1b2737,#131c28);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:clamp(14px,3vw,26px);
+    max-width:420px;width:100%;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.5);animation:pop .35s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{from{transform:scale(.85)}}
+  .card h2{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:clamp(20px,3.4vw,30px);margin:0 0 4px;line-height:1.1}
+  .card p{margin:0 0 14px;color:#b9c6d4;font-size:clamp(12px,1.6vw,15px);line-height:1.45}
+  .stars{font-size:clamp(28px,5vw,44px);letter-spacing:6px;margin:4px 0 6px}
+  .stars span{color:#3a4658}.stars span.on{color:var(--gold);text-shadow:0 0 14px rgba(255,201,74,.6)}
+  .mini{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+  .mini div{background:var(--panel2);border-radius:10px;padding:5px 9px;font-size:clamp(11px,1.4vw,13px);color:#c9d4e0}
+
+  /* ---------- controls ---------- */
+  .dock{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px;margin-top:12px}
+  .sel{display:flex;gap:6px;align-items:center;flex:1;min-width:200px;font-size:.92rem;color:var(--muted)}
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 10px 4px 4px;background:var(--panel2);color:var(--text);font-weight:800}
+  .chip i{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-style:normal;color:#fff;font-size:.8rem}
+  button{font:inherit;font-weight:800;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px 14px;cursor:pointer;transition:transform .1s,filter .2s}
+  button:active{transform:scale(.96)}
+  button:disabled{opacity:.38;cursor:not-allowed}
+  .go{background:linear-gradient(135deg,var(--gold),var(--gold2));border:0;color:#2a1700;padding:12px 20px;font-size:1rem;box-shadow:0 6px 16px rgba(255,160,30,.3)}
+  .go:not(:disabled):hover{filter:brightness(1.07)}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .tools .sp{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--muted);font-size:.85rem}
+  select{font:inherit;font-weight:700;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px}
+
+  .cols{display:grid;grid-template-columns:1.1fr 1fr;gap:12px;margin-top:12px}
+  @media (max-width:700px){.cols{grid-template-columns:1fr}}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+  .box h3{margin:0 0 10px;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .steps{display:flex;flex-direction:column;gap:6px}
+  .step{display:flex;align-items:center;gap:8px;background:var(--panel2);border-radius:10px;padding:7px 10px;font-size:.92rem;animation:fade .3s}
+  .step .arrow{font-weight:800;width:22px;text-align:center}
+  .step .t{margin-left:auto;color:var(--muted);font-size:.85rem;white-space:nowrap}
+  .step.back .arrow{color:#7fb6ff}.step.fwd .arrow{color:var(--good)}
+  .empty{color:var(--muted);font-size:.9rem}
+  .hint{font-size:.94rem;line-height:1.5;background:var(--panel2);border-radius:10px;padding:10px 12px}
+  details{margin-top:12px}
+  summary{cursor:pointer;font-weight:800;color:var(--muted);font-size:.85rem}
+  .settings{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:10px}
+  .settings label{font-size:.75rem;color:var(--muted);display:flex;flex-direction:column;gap:3px;font-weight:700}
+  .settings input{width:62px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-weight:700}
+  .best{color:var(--muted);font-size:.85rem;margin-top:8px}
+  @media (max-width:640px){
+    .stage{aspect-ratio:1/1;border-radius:14px}
+    .char{width:9.5%}
+    .badge{top:-28%;font-size:11px}
+    .name{display:none}
+    .hud .pill{padding:5px 9px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 2c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z" fill="#2a1700"/></svg></div>
+    <div><h1>Flood Escape: Bridge &amp; Torch</h1><div class="tag">Get all 4 villagers across before the flood arrives.</div></div>
+  </header>
+
+  <div class="stage" id="stage">
+    <!-- sky, mountains, village -->
+    <svg class="layer" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a1322"/><stop offset=".6" stop-color="#1b2c45"/><stop offset="1" stop-color="#22344d"/></linearGradient>
+        <radialGradient id="win"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#ffb84a"/></radialGradient>
+      </defs>
+      <rect width="100" height="100" fill="url(#sky)"/>
+      <path d="M0 46 L10 30 L18 38 L29 22 L41 36 L52 26 L63 37 L74 24 L86 35 L94 28 L100 33 L100 60 L0 60Z" fill="#15233a"/>
+      <path d="M0 52 L8 42 L16 47 L26 38 L37 47 L48 41 L60 48 L71 40 L83 47 L92 42 L100 46 L100 62 L0 62Z" fill="#111c2e"/>
+      <g fill="#0c1626">
+        <path d="M3 58 L6 44 L9 58Z"/><path d="M60 58 L63 46 L66 58Z" opacity=".6"/><path d="M95 58 L97.5 45 L100 58Z"/><path d="M86 58 L88.5 47 L91 58Z"/>
+      </g>
+      <!-- house -->
+      <g>
+        <rect x="6" y="45" width="9" height="13" fill="#3a2c22"/>
+        <path d="M5 46 L10.5 39 L16 46Z" fill="#26190f"/>
+        <rect x="8" y="48" width="2.6" height="3.2" fill="url(#win)"/>
+        <rect x="12" y="51" width="2" height="7" fill="#1c130c"/>
+      </g>
+    </svg>
+
+    <div class="river" id="river"></div>
+
+    <!-- banks -->
+    <svg class="layer" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="earth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a3a28"/><stop offset="1" stop-color="#241b12"/></linearGradient>
+      </defs>
+      <path d="M0 58 L22.5 58 L24.5 100 L0 100Z" fill="url(#earth)"/>
+      <path d="M77.5 58 L100 58 L100 100 L75.5 100Z" fill="url(#earth)"/>
+      <rect x="0" y="57.2" width="22.8" height="1.6" fill="#3f6b3a"/>
+      <rect x="77.2" y="57.2" width="22.8" height="1.6" fill="#3f6b3a"/>
+      <g fill="#2c2117" opacity=".8"><ellipse cx="6" cy="78" rx="2.5" ry="1.2"/><ellipse cx="15" cy="88" rx="3" ry="1.4"/><ellipse cx="90" cy="82" rx="3" ry="1.3"/><ellipse cx="83" cy="93" rx="2" ry="1"/></g>
+      <text x="11" y="97" text-anchor="middle" font-size="2.6" fill="#c7b394" font-family="Nunito" font-weight="800" letter-spacing=".3">VILLAGE</text>
+      <text x="88.5" y="97" text-anchor="middle" font-size="2.6" fill="#a9d9a2" font-family="Nunito" font-weight="800" letter-spacing=".3">SAFE SIDE</text>
+    </svg>
+
+    <!-- bridge -->
+    <svg class="layer" viewBox="0 0 100 100" preserveAspectRatio="none" style="pointer-events:none">
+      <g fill="#3b2a1b">
+        <rect x="35" y="59" width=".9" height="41"/><rect x="50" y="59" width=".9" height="41"/><rect x="65" y="59" width=".9" height="41"/>
+      </g>
+      <rect x="21.5" y="57.3" width="57" height="2.4" fill="#7a5634"/>
+      <g stroke="#4a331f" stroke-width="1" vector-effect="non-scaling-stroke" id="planks"></g>
+      <rect x="21.5" y="59.7" width="57" height=".6" fill="#3b2a1b"/>
+      <g fill="#5a3f27"><rect x="21.6" y="44" width="1.1" height="16"/><rect x="77.3" y="44" width="1.1" height="16"/></g>
+      <path d="M22.2 45 Q50 51 77.8 45" stroke="#c8a774" stroke-width="2" fill="none" vector-effect="non-scaling-stroke"/>
+      <g stroke="#a48555" stroke-width="1" vector-effect="non-scaling-stroke" id="hangers"></g>
+    </svg>
+
+    <div class="flood" id="flood"></div>
+    <canvas class="fx" id="rain"></canvas>
+    <canvas class="fx" id="confetti" style="z-index:15"></canvas>
+
+    <div class="hud">
+      <div class="pill">
+        <div class="clockLbl">Flood arrives in</div>
+        <div class="clock" id="clock">20:00</div>
+        <div class="meter"><b id="meter"></b></div>
+      </div>
+      <div class="pill stat">
+        <div class="clockLbl">Time used</div>
+        <div class="v" id="used">0 min</div>
+      </div>
+    </div>
+
+    <div class="overlay show" id="overlay">
+      <div class="card" id="card">
+        <h2>The flood is coming! 🌊</h2>
+        <p>Four villagers are trapped by the river at night. The rope bridge is weak and dark.</p>
+        <div class="mini"><div>👥 Max 2 on the bridge</div><div>🔦 1 torch — must be carried</div><div>🐢 Pairs walk at the slower speed</div></div>
+        <button class="go" id="startBtn">Start the rescue</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dock">
+    <div class="sel" id="selBox"></div>
+    <button class="go" id="go" disabled>Cross</button>
+  </div>
+  <div class="tools">
+    <button id="undo" disabled>↶ Undo</button>
+    <button id="reset">↻ Restart</button>
+    <button id="hintBtn">💡 Hint</button>
+    <button id="solve">▶ Show best answer</button>
+    <label class="sp">Speed
+      <select id="speed"><option value="420">Slow</option><option value="240" selected>Normal</option><option value="100">Fast</option></select>
+    </label>
+  </div>
+
+  <div class="cols">
+    <div class="box"><h3>Your moves</h3><div class="steps" id="log"></div><div class="empty" id="logEmpty">No moves yet. Tap villagers on the side with the torch.</div></div>
+    <div class="box">
+      <h3>Hints</h3><div class="hint" id="hint">Stuck? Tap <b>💡 Hint</b> for a clue.</div>
+      <details>
+        <summary>Change the puzzle</summary>
+        <div class="settings">
+          <label>Mia<input type="number" min="1" max="60" id="s0" value="1"></label>
+          <label>Leo<input type="number" min="1" max="60" id="s1" value="2"></label>
+          <label>Uncle<input type="number" min="1" max="60" id="s2" value="7"></label>
+          <label>Grandpa<input type="number" min="1" max="60" id="s3" value="10"></label>
+          <label>Limit<input type="number" min="1" max="200" id="lim" value="20"></label>
+          <button id="apply">Apply</button>
+        </div>
+        <div class="best" id="best"></div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- villagers ----------
+const PEOPLE=[
+  {name:'Mia',   coat:'#ff8a2b', hair:'#2a1a12', skin:'#f3c9a2', kind:'kid'},
+  {name:'Leo',   coat:'#3c7be0', hair:'#1b1410', skin:'#e9bb92', kind:'young'},
+  {name:'Uncle', coat:'#3f9a5c', hair:'#cfd3d8', skin:'#e4b48c', kind:'old'},
+  {name:'Grandpa',coat:'#c23b33', hair:'#f2f2f2', skin:'#e7b994', kind:'cane'}
+];
+let speeds=[1,2,7,10], limit=20;
+let side,holder,time,selected,history,moves,busy=false,hintStep=0,started=false;
+const stage=document.getElementById('stage');
+let els=[];
+
+function figure(p){
+  const short=p.kind==='kid';
+  const top=short?12:4;           // kid is shorter
+  const cane=p.kind==='cane'?'<path d="M31 46 L35 80" stroke="#7a5634" stroke-width="2.4" stroke-linecap="round"/><path d="M31 46 q2-3 4 0" stroke="#7a5634" stroke-width="2.4" fill="none"/>':'';
+  const hairPath=p.kind==='old'||p.kind==='cane'
+    ? `<path d="M11 ${top+12} q9 -10 18 0 q-2 -4 -9 -4 q-7 0 -9 4z" fill="${p.hair}"/><path d="M10.5 ${top+14} q-1 4 1.5 6 M29.5 ${top+14} q1 4 -1.5 6" stroke="${p.hair}" stroke-width="2.4" fill="none"/>`
+    : `<path d="M10.5 ${top+14} q0 -11 9.5 -11 q9.5 0 9.5 11 q-4 -5 -9.5 -5 q-5.5 0 -9.5 5z" fill="${p.hair}"/>`;
+  const beard=p.kind==='cane'?`<path d="M15 ${top+20} q5 7 10 0" fill="${p.hair}"/>`:'';
+  return `<svg class="body" viewBox="0 0 40 80">
+    <ellipse cx="20" cy="79" rx="11" ry="2.2" fill="rgba(0,0,0,.35)"/>
+    <rect class="leg legL" x="13.5" y="56" width="5" height="22" rx="2.2" fill="#2b3240"/>
+    <rect class="leg legR" x="21.5" y="56" width="5" height="22" rx="2.2" fill="#232a36"/>
+    <path d="M10 ${top+26} q10 -5 20 0 l2 ${32-top} q-12 4 -24 0z" fill="${p.coat}"/>
+    <path d="M20 ${top+24} v${34-top}" stroke="rgba(0,0,0,.18)" stroke-width="1.2"/>
+    <rect x="7" y="${top+27}" width="5" height="${20-top/3}" rx="2.4" fill="${p.coat}" transform="rotate(8 9 ${top+27})"/>
+    <g>
+      <rect x="28" y="${top+27}" width="5" height="${18-top/3}" rx="2.4" fill="${p.coat}" transform="rotate(-25 30 ${top+27})"/>
+      <g class="torchG" transform="translate(${short?35:36} ${top+20})">
+        <rect x="-1.2" y="0" width="2.4" height="12" rx="1" fill="#6b4a2c"/>
+        <path class="flame" d="M0 -9 C4 -4 3 0 0 1 C-3 0 -4 -4 0 -9z" fill="#ffb02e"/>
+        <path class="flame" d="M0 -5 C2 -2 1.5 0 0 .6 C-1.5 0 -2 -2 0 -5z" fill="#fff2b0"/>
+      </g>
+    </g>
+    <circle cx="20" cy="${top+15}" r="8.5" fill="${p.skin}"/>
+    ${hairPath}${beard}
+    <circle cx="17" cy="${top+16}" r="1" fill="#2a1a12"/><circle cx="23" cy="${top+16}" r="1" fill="#2a1a12"/>
+    <path d="M17.5 ${top+19.5} q2.5 1.8 5 0" stroke="#7a3b2a" stroke-width="1" fill="none"/>
+    ${cane}
+  </svg>`;
+}
+
+// ---------- positions (percent of stage) ----------
+const FEET=58;
+const small=()=>stage.clientWidth<560;
+function slot(i,s){
+  if(small()){const x=s==='L'?[6,16.5][i%2]:[83.5,94][i%2];return [x,i<2?FEET:FEET+27];}
+  return [s==='L'?[4.5,10,15.5,21][i]:[79,84.5,90,95.5][i],FEET];
+}
+function place(el,x,y){el.style.left=x+'%';el.style.top=y+'%';}
+
+// ---------- bridge details ----------
+(function(){
+  let pl='',hg='';
+  for(let x=23;x<78;x+=1.6) pl+=`<line x1="${x}" y1="57.4" x2="${x}" y2="59.6"/>`;
+  for(let x=25;x<77;x+=3){const t=(x-22.2)/55.6; hg+=`<line x1="${x}" y1="${45+4*t*(1-t)*3}" x2="${x}" y2="57.4"/>`;}
+  document.getElementById('planks').innerHTML=pl;document.getElementById('hangers').innerHTML=hg;
+})();
+
+// ---------- solver: fastest plan ----------
+function solve(sp){
+  const n=sp.length,full=(1<<n)-1,dist={},prev={},K=(m,t)=>m+'|'+t;
+  dist[K(0,'L')]=0;const pq=[[0,0,'L']];
+  while(pq.length){
+    pq.sort((a,b)=>a[0]-b[0]);const [d,m,t]=pq.shift();
+    if(d>dist[K(m,t)])continue; if(m===full&&t==='R')break;
+    const here=[];for(let i=0;i<n;i++){if(((m>>i)&1)===(t==='R'?1:0))here.push(i);}
+    const gs=[];here.forEach((a,ia)=>{gs.push([a]);here.slice(ia+1).forEach(b=>gs.push([a,b]));});
+    for(const g of gs){let nm=m;g.forEach(i=>nm^=1<<i);const nt=t==='L'?'R':'L',nd=d+Math.max(...g.map(i=>sp[i])),k=K(nm,nt);
+      if(dist[k]===undefined||nd<dist[k]){dist[k]=nd;prev[k]=[K(m,t),g];pq.push([nd,nm,nt]);}}
+  }
+  const path=[];let k=K(full,'R');const best=dist[k];while(prev[k]){path.unshift(prev[k][1]);k=prev[k][0];}
+  return {best,path};
+}
+
+// ---------- build / reset ----------
+function build(){
+  els.forEach(e=>e.remove());els=[];
+  PEOPLE.forEach((p,i)=>{
+    const d=document.createElement('div');d.className='char';
+    d.innerHTML=`<div class="glow"></div><div class="ring"></div>${figure(p)}
+      <div class="badge" style="background:${p.coat}">${speeds[i]}</div>
+      <div class="name">${p.name}<i>${speeds[i]} min</i></div>`;
+    d.onclick=()=>toggle(i);stage.insertBefore(d,document.getElementById('flood'));els.push(d);
+  });
+  ['s0','s1','s2','s3'].forEach((id,i)=>document.getElementById(id).value=speeds[i]);
+  reset(true);
+  document.getElementById('best').textContent='Fastest possible with these times: '+solve(speeds).best+' min.';
+}
+function reset(keepIntro){
+  side=speeds.map(()=>'L');holder=0;time=0;selected=[];history=[];moves=[];hintStep=0;
+  els.forEach((e,i)=>{e.getAnimations().forEach(a=>a.cancel());place(e,...slot(i,'L'));e.classList.remove('walk','flip','slow');});
+  document.getElementById('flood').classList.remove('on');
+  if(!keepIntro)document.getElementById('overlay').classList.remove('show');
+  document.getElementById('hint').innerHTML='Stuck? Tap <b>💡 Hint</b> for a clue.';
+  setClock(0);render();
+}
+const torchSide=()=>side[holder];
+
+// ---------- interaction ----------
+function toggle(i){
+  if(busy||side[i]!==torchSide())return;
+  const k=selected.indexOf(i);
+  if(k>=0)selected.splice(k,1);else{if(selected.length===2)selected.shift();selected.push(i);}
+  render();
+}
+function chip(i){return `<span class="chip"><i style="background:${PEOPLE[i].coat}">${speeds[i]}</i>${PEOPLE[i].name}</span>`;}
+function render(){
+  els.forEach((e,i)=>{e.classList.toggle('picked',selected.includes(i));e.classList.toggle('idle-off',busy||side[i]!==torchSide());e.classList.toggle('torch',i===holder);});
+  const go=document.getElementById('go');go.disabled=busy||!selected.length;
+  document.getElementById('undo').disabled=busy||!history.length;
+  ['reset','solve','hintBtn','apply'].forEach(id=>document.getElementById(id).disabled=busy);
+  const sb=document.getElementById('selBox');
+  if(busy){sb.innerHTML='Crossing…';go.textContent='Cross';}
+  else if(!selected.length){sb.innerHTML='🔦 Torch is on the <b style="color:var(--text);margin:0 3px">'+(torchSide()==='L'?'village':'safe')+'</b> side — tap 1 or 2 villagers there.';go.textContent='Cross';}
+  else{const c=Math.max(...selected.map(i=>speeds[i]));sb.innerHTML=selected.map(chip).join('<span>+</span>');
+    go.textContent=(torchSide()==='L'?'Cross over':'Go back')+' · '+c+' min';}
+  const log=document.getElementById('log');
+  log.innerHTML=moves.map((m,n)=>`<div class="step ${m.dir==='R'?'fwd':'back'}"><span class="arrow">${m.dir==='R'?'→':'←'}</span>
+    <span>${m.who.map(chip).join(' ')}</span><span class="t">+${m.cost} · ${m.total} min</span></div>`).join('');
+  document.getElementById('logEmpty').style.display=moves.length?'none':'block';
+}
+
+function setClock(t){
+  const left=limit-t,over=left<0,a=Math.abs(left),mm=Math.floor(a),ss=Math.floor((a-mm)*60);
+  const c=document.getElementById('clock');
+  c.textContent=(over?'-':'')+String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');
+  c.className='clock'+(over?' over':left<=limit*0.25?' warn':'');
+  document.getElementById('meter').style.width=Math.min(100,t/limit*100)+'%';
+  document.getElementById('used').textContent=(Math.round(t*10)/10)+' min';
+  const r=Math.min(1,t/limit);stage.querySelector('.river').style.setProperty('--water',(66-r*8)+'%');
+  document.getElementById('river').style.top=(66-r*8)+'%';
+}
+
+function cross(group){
+  return new Promise(res=>{
+    busy=true;
+    const from=torchSide(),to=from==='L'?'R':'L';
+    if(!group.includes(holder))holder=group[0];
+    selected=[];render();
+    const cost=Math.max(...group.map(i=>speeds[i]));
+    const ms=Math.max(900,cost*+document.getElementById('speed').value);
+    history.push({side:[...side],holder,time,moves:moves.length});
+    const sorted=[...group].sort((a,b)=>speeds[a]-speeds[b]);
+    group.forEach(i=>{
+      const off=group.length===2?(i===sorted[0]?1:-1)*(small()?4:2.4)*(to==='R'?1:-1):0;
+      const a=slot(i,from),b=slot(i,to);
+      const e1=from==='L'?24:76,e2=from==='L'?76:24;
+      const e=els[i];e.classList.add('walk');e.classList.toggle('flip',to==='L');e.classList.toggle('slow',cost>=7);
+      const an=e.animate([{left:a[0]+'%',top:a[1]+'%'},{left:(e1+off)+'%',top:FEET+'%',offset:.1},{left:(e2+off)+'%',top:FEET+'%',offset:.9},{left:b[0]+'%',top:b[1]+'%'}],{duration:ms,easing:'linear',fill:'forwards'});
+      an.onfinish=()=>{place(e,...b);an.cancel();e.classList.remove('walk','slow');if(to==='R')e.classList.remove('flip');};
+    });
+    const start=time,t0=performance.now();
+    (function tick(now){
+      const p=Math.min(1,(now-t0)/ms);setClock(start+cost*p);
+      if(p<1)requestAnimationFrame(tick);
+      else{
+        group.forEach(i=>side[i]=to);time=start+cost;
+        moves.push({who:sorted,dir:to,cost,total:time});
+        busy=false;render();check();res();
+      }
+    })(t0);
+  });
+}
+
+function check(){
+  const done=side.every(s=>s==='R');
+  if(time>limit)document.getElementById('flood').classList.add('on');
+  if(!done&&time<=limit)return;
+  const {best}=solve(speeds);
+  let stars=0,title,text;
+  if(done&&time<=limit){stars=time===best?3:(time<=limit?2:1);
+    title=time===best?'Perfect rescue! 🎉':'Everyone is safe! 🙌';
+    text=time===best?`All 4 villagers crossed in <b>${time} minutes</b> — the fastest possible!`:`You made it in <b>${time} minutes</b>. Can you find the ${best}-minute plan for 3 stars?`;
+    confetti();}
+  else if(done){stars=1;title='Too slow… 🌊';text=`Everyone crossed, but it took <b>${time} minutes</b>. The flood came at ${limit}. The best is ${best} minutes.`;}
+  else{title='The flood arrived! 🌊';text=`More than ${limit} minutes have passed and some villagers are still on the village side.`;}
+  setTimeout(()=>showCard(`<h2>${title}</h2><div class="stars">${[0,1,2].map(k=>`<span class="${k<stars?'on':''}">★</span>`).join('')}</div>
+    <p>${text}</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    <button class="go" onclick="reset()">Play again</button>${stars<3?'<button onclick="hideCard()">Look at my moves</button>':''}</div>`),500);
+}
+function showCard(html){document.getElementById('card').innerHTML=html;document.getElementById('overlay').classList.add('show');}
+function hideCard(){document.getElementById('overlay').classList.remove('show');}
+
+// ---------- hints ----------
+const HINTS=[
+  'Every trip across (except the last) needs someone to bring the torch <b>back</b>. Who is the best person for that job?',
+  'Grandpa and Uncle are the slowest. What if they cross <b>together</b>, so you only pay for the slower one once?',
+  'Send Mia and Leo first. Mia comes back. Then Uncle and Grandpa cross together, and Leo (already on the safe side) brings the torch back.'
+];
+document.getElementById('hintBtn').onclick=()=>{
+  document.getElementById('hint').innerHTML='<b>Hint '+(hintStep+1)+' of 3:</b> '+HINTS[hintStep];hintStep=Math.min(hintStep+1,2);
+};
+
+// ---------- buttons ----------
+document.getElementById('startBtn').onclick=()=>{started=true;hideCard();};
+document.getElementById('go').onclick=()=>{if(selected.length)cross([...selected]);};
+document.getElementById('undo').onclick=()=>{
+  const h=history.pop();if(!h)return;
+  side=h.side;holder=h.holder;time=h.time;moves.length=h.moves;selected=[];
+  els.forEach((e,i)=>{place(e,...slot(i,side[i]));e.classList.remove('flip');});
+  document.getElementById('flood').classList.toggle('on',time>limit);hideCard();setClock(time);render();
+};
+document.getElementById('reset').onclick=()=>reset();
+document.getElementById('solve').onclick=async()=>{
+  reset();const {path}=solve(speeds);
+  for(const g of path){selected=[...g];render();await new Promise(r=>setTimeout(r,700));await cross(g);await new Promise(r=>setTimeout(r,250));}
+};
+document.getElementById('apply').onclick=()=>{
+  speeds=[0,1,2,3].map(i=>Math.max(1,Math.min(60,parseInt(document.getElementById('s'+i).value)||1)));
+  limit=Math.max(1,parseInt(document.getElementById('lim').value)||20);build();hideCard();
+};
+
+// ---------- rain ----------
+const rc=document.getElementById('rain'),rx=rc.getContext('2d');let drops=[];
+function sizeCanvas(c){const r=stage.getBoundingClientRect();c.width=r.width*devicePixelRatio;c.height=r.height*devicePixelRatio;}
+function initRain(){sizeCanvas(rc);drops=Array.from({length:Math.round(rc.width/9)},()=>({x:Math.random()*rc.width,y:Math.random()*rc.height,s:6+Math.random()*6,l:8+Math.random()*12}));}
+function rain(){
+  rx.clearRect(0,0,rc.width,rc.height);rx.strokeStyle='rgba(180,210,240,.35)';rx.lineWidth=1*devicePixelRatio;rx.beginPath();
+  const k=devicePixelRatio;
+  for(const d of drops){rx.moveTo(d.x,d.y);rx.lineTo(d.x-d.l*.25*k,d.y+d.l*k);d.y+=d.s*k;d.x-=d.s*.25*k;
+    if(d.y>rc.height){d.y=-20;d.x=Math.random()*rc.width*1.2;}}
+  rx.stroke();requestAnimationFrame(rain);
+}
+// ---------- confetti ----------
+const cc=document.getElementById('confetti'),cx=cc.getContext('2d');
+function confetti(){
+  sizeCanvas(cc);const cols=['#ffc94a','#ff8a2b','#46c37b','#3c7be0','#ef5b4f','#fff'];
+  let ps=Array.from({length:140},()=>({x:cc.width/2,y:cc.height*.45,vx:(Math.random()-.5)*16,vy:-Math.random()*16-4,r:Math.random()*6+3,c:cols[Math.random()*6|0],a:Math.random()*6}));
+  let f=0;(function draw(){cx.clearRect(0,0,cc.width,cc.height);
+    ps.forEach(p=>{p.vy+=.45;p.x+=p.vx;p.y+=p.vy;p.a+=.2;cx.save();cx.translate(p.x,p.y);cx.rotate(p.a);cx.fillStyle=p.c;cx.fillRect(-p.r,-p.r/2,p.r*2,p.r);cx.restore();});
+    if(++f<150)requestAnimationFrame(draw);else cx.clearRect(0,0,cc.width,cc.height);})();
+}
+window.addEventListener('resize',()=>{initRain();if(!busy)els.forEach((e,i)=>place(e,...slot(i,side[i])));});
+initRain();rain();
+build();
+</script>
+</body>
+</html>

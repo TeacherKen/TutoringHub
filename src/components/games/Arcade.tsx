@@ -95,6 +95,12 @@ export function Glyph({ id }: { id: GameInfo["id"] }) {
         🐺<span className="-ml-3">🐑</span>
       </span>
     );
+  if (id === "bridge-torch")
+    return (
+      <span aria-hidden className="relative flex items-end gap-0.5 text-5xl leading-none drop-shadow-lg">
+        <span className="text-4xl">🔦</span>🌉<span className="text-3xl">🌊</span>
+      </span>
+    );
   if (id === "magic-square")
     return (
       <span aria-hidden className="font-sport grid grid-cols-3 gap-1 text-2xl font-bold sm:text-3xl">
