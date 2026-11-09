@@ -130,6 +130,21 @@
   .settings label{font-size:.75rem;color:var(--muted);display:flex;flex-direction:column;gap:3px;font-weight:700}
   .settings input{width:62px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-weight:700}
   .best{color:var(--muted);font-size:.85rem;margin-top:8px}
+  .levels{display:flex;align-items:center;gap:8px;margin:0 0 10px;flex-wrap:wrap}
+  .levels .lt{font-weight:800;font-size:.95rem;margin-right:4px}
+  .levels .lt small{display:block;color:var(--muted);font-weight:700;font-size:.78rem}
+  .lv{min-width:44px;padding:6px 8px;border-radius:12px;font-size:.85rem;line-height:1.1;text-align:center}
+  .lv b{display:block;font-size:1rem}
+  .lv .st{font-size:.7rem;letter-spacing:1px;color:var(--gold)}
+  .lv.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#2a1700;border:0}
+  .lv.on .st{color:#2a1700}
+  .lv.lock{opacity:.4}
+  .howto{text-align:left;margin:0 0 14px;padding:0;list-style:none;counter-reset:s}
+  .howto li{position:relative;padding:6px 0 6px 34px;color:#d5dfea;font-size:clamp(12px,1.6vw,15px);line-height:1.4}
+  .howto li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:5px;width:24px;height:24px;border-radius:50%;
+    background:linear-gradient(135deg,var(--gold),var(--gold2));color:#2a1700;font-weight:800;display:grid;place-items:center;font-size:.8rem}
+  .goal{background:var(--panel2);border-radius:12px;padding:8px 10px;margin:0 0 12px;font-size:clamp(12px,1.6vw,14px);color:#e9eef4}
+  .goal b{color:var(--gold)}
   @media (max-width:640px){
     .stage{aspect-ratio:1/1;border-radius:14px}
     .char{width:9.5%}
@@ -145,6 +160,8 @@
     <div class="logo"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 2c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z" fill="#2a1700"/></svg></div>
     <div><h1>Flood Escape: Bridge &amp; Torch</h1><div class="tag">Get all 4 villagers across before the flood arrives.</div></div>
   </header>
+
+  <div class="levels" id="levels"></div>
 
   <div class="stage" id="stage">
     <!-- sky, mountains, village -->
@@ -216,8 +233,14 @@
     <div class="overlay show" id="overlay">
       <div class="card" id="card">
         <h2>The flood is coming! 🌊</h2>
-        <p>Four villagers are trapped by the river at night. The rope bridge is weak and dark.</p>
-        <div class="mini"><div>👥 Max 2 on the bridge</div><div>🔦 1 torch — must be carried</div><div>🐢 Pairs walk at the slower speed</div></div>
+        <p>Four villagers are trapped by the river at night. Help them all cross the old rope bridge to the safe side.</p>
+        <ol class="howto">
+          <li><b>Tap 1 or 2 villagers</b> on the side where the torch is, then tap <b>Cross</b>.</li>
+          <li>The bridge only holds <b>2 people</b> at a time.</li>
+          <li>It's dark, so the group <b>must carry the torch</b>. Someone has to bring it back for the others.</li>
+          <li>Two people walk together at the <b>slower</b> person's speed (the number on their head).</li>
+          <li>Get everyone across <b>before the flood clock runs out</b>. The fastest answer gets ⭐⭐⭐.</li>
+        </ol>
         <button class="go" id="startBtn">Start the rescue</button>
       </div>
     </div>
@@ -231,6 +254,7 @@
     <button id="undo" disabled>↶ Undo</button>
     <button id="reset">↻ Restart</button>
     <button id="hintBtn">💡 Hint</button>
+    <button id="howBtn">❓ How to play</button>
     <button id="solve">▶ Show best answer</button>
     <label class="sp">Speed
       <select id="speed"><option value="420">Slow</option><option value="240" selected>Normal</option><option value="100">Fast</option></select>
@@ -349,6 +373,7 @@ function build(){
   document.getElementById('best').textContent='Fastest possible with these times: '+solve(speeds).best+' min.';
 }
 function reset(keepIntro){
+  watched=false;
   side=speeds.map(()=>'L');holder=0;time=0;selected=[];history=[];moves=[];hintStep=0;
   els.forEach((e,i)=>{e.getAnimations().forEach(a=>a.cancel());place(e,...slot(i,'L'));e.classList.remove('walk','flip','slow');});
   document.getElementById('flood').classList.remove('on');
@@ -436,25 +461,82 @@ function check(){
     confetti();}
   else if(done){stars=1;title='Too slow… 🌊';text=`Everyone crossed, but it took <b>${time} minutes</b>. The flood came at ${limit}. The best is ${best} minutes.`;}
   else{title='The flood arrived! 🌊';text=`More than ${limit} minutes have passed and some villagers are still on the village side.`;}
+  if(watched&&done&&time<=limit){stars=0;title='That\'s the best answer! 👀';text=`Now it's your turn: tap <b>Play again</b> and do it yourself to earn the stars.`;}
+  if(!custom&&!watched&&stars>(progress[level]||0)){progress[level]=stars;saveProgress();}
+  drawLevels();
+  const canNext=!custom&&!watched&&stars>=2&&level<LEVELS.length-1;
+  const allDone=!custom&&!watched&&stars>=2&&level===LEVELS.length-1;
   setTimeout(()=>showCard(`<h2>${title}</h2><div class="stars">${[0,1,2].map(k=>`<span class="${k<stars?'on':''}">★</span>`).join('')}</div>
-    <p>${text}</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-    <button class="go" onclick="reset()">Play again</button>${stars<3?'<button onclick="hideCard()">Look at my moves</button>':''}</div>`),500);
+    <p>${text}${allDone?'<br><br>🏆 <b>You finished every challenge!</b> Try "Change the puzzle" to make your own.':''}</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    ${canNext?`<button class="go" onclick="loadLevel(${level+1})">Next challenge ▶</button><button onclick="reset()">Try again</button>`:'<button class="go" onclick="reset()">Play again</button>'}
+    ${stars<3?'<button onclick="hideCard()">Look at my moves</button>':''}</div>`),500);
 }
 function showCard(html){document.getElementById('card').innerHTML=html;document.getElementById('overlay').classList.add('show');}
 function hideCard(){document.getElementById('overlay').classList.remove('show');}
 
-// ---------- hints ----------
-const HINTS=[
-  'Every trip across (except the last) needs someone to bring the torch <b>back</b>. Who is the best person for that job?',
-  'Grandpa and Uncle are the slowest. What if they cross <b>together</b>, so you only pay for the slower one once?',
-  'Send Mia and Leo first. Mia comes back. Then Uncle and Grandpa cross together, and Leo (already on the safe side) brings the torch back.'
-];
+// ---------- hints (worked out from the fastest answer for these times) ----------
+function hints(){
+  const {path}=solve(speeds);
+  const nm=g=>g.map(i=>PEOPLE[i].name).join(' and ');
+  const order=[0,1,2,3].sort((a,b)=>speeds[a]-speeds[b]);
+  const slowPair=path.some(g=>g.length===2&&g.includes(order[2])&&g.includes(order[3]));
+  const say=(g,k)=>(k%2===0?nm(g)+(g.length>1?' cross':' crosses'):nm(g)+' comes back');
+  return [
+    'Every trip across (except the last) needs someone to bring the torch <b>back</b>. Who is the best person for that job?',
+    slowPair
+      ? `${PEOPLE[order[3]].name} and ${PEOPLE[order[2]].name} are the slowest. What if they cross <b>together</b>, so you only pay for the slower one once?`
+      : `This time the slow ones are not very slow. Try letting <b>${PEOPLE[order[0]].name}</b>, the fastest, walk each person across and run back with the torch.`,
+    'The first moves: '+path.slice(0,3).map(say).join(', then ')+'.'
+  ];
+}
 document.getElementById('hintBtn').onclick=()=>{
-  document.getElementById('hint').innerHTML='<b>Hint '+(hintStep+1)+' of 3:</b> '+HINTS[hintStep];hintStep=Math.min(hintStep+1,2);
+  const H=hints();
+  document.getElementById('hint').innerHTML='<b>Hint '+(hintStep+1)+' of 3:</b> '+H[hintStep];hintStep=Math.min(hintStep+1,2);
 };
 
+// ---------- challenges ----------
+const LEVELS=[
+  {name:'Warm-up',      sp:[1,2,3,4],  lim:15, tip:'A gentle start. The flood is far away.'},
+  {name:'Flood night',  sp:[1,2,7,10], lim:20, tip:'Uncle and Grandpa are very slow…'},
+  {name:'No time to waste', sp:[1,2,5,10], lim:17, tip:'The clock is tight: only the fastest plan works!'},
+  {name:'A new trick',  sp:[1,3,4,5],  lim:14, tip:'Careful! The trick from before is <b>not</b> the fastest here.'},
+  {name:'Two slow walkers', sp:[2,3,8,9], lim:20, tip:'Nobody is very fast this time.'},
+  {name:'Mia leads the way', sp:[1,4,5,6], lim:17, tip:'Mia is much faster than everyone else.'},
+  {name:'Stormy night', sp:[1,2,10,15], lim:22, tip:'Grandpa needs 15 minutes. Plan carefully!'},
+  {name:'Master rescue', sp:[3,4,9,12], lim:27, tip:'The hardest one. Only a perfect plan saves everyone.'}
+];
+let level=0,custom=false,progress={},watched=false;
+try{progress=JSON.parse(localStorage.getItem('bt-progress')||'{}')||{};}catch(e){progress={};}
+const saveProgress=()=>{try{localStorage.setItem('bt-progress',JSON.stringify(progress));}catch(e){}};
+const unlocked=i=>i===0||(progress[i-1]||0)>=2;
+function drawLevels(){
+  const el=document.getElementById('levels');
+  el.innerHTML='<div class="lt">'+(custom?'Your own puzzle':'Challenge '+(level+1)+' of '+LEVELS.length+': '+LEVELS[level].name)+'<small>Flood comes at '+limit+' min</small></div>'+
+    LEVELS.map((L,i)=>`<button class="lv ${!custom&&i===level?'on':''} ${unlocked(i)?'':'lock'}" data-i="${i}" ${unlocked(i)?'':'disabled'} aria-label="Challenge ${i+1}">
+      <b>${unlocked(i)?i+1:'🔒'}</b><span class="st">${'★'.repeat(progress[i]||0)}${'☆'.repeat(3-(progress[i]||0))}</span></button>`).join('');
+  el.querySelectorAll('.lv').forEach(b=>b.onclick=()=>{if(!busy)loadLevel(+b.dataset.i);});
+}
+function loadLevel(i,intro=true){
+  level=i;custom=false;speeds=[...LEVELS[i].sp];limit=LEVELS[i].lim;
+  document.getElementById('lim').value=limit;build();drawLevels();
+  if(intro)showCard(`<h2>Challenge ${i+1}: ${LEVELS[i].name}</h2><p>${LEVELS[i].tip}</p>
+    <div class="mini">${PEOPLE.map((p,k)=>`<div>${p.name} · <b>${speeds[k]} min</b></div>`).join('')}</div>
+    <div class="goal">Get everyone across in <b>${limit} minutes</b> or less.</div>
+    <button class="go" onclick="hideCard()">Let's go!</button>`);
+}
+function howTo(){showCard(`<h2>How to play 🔦</h2><ol class="howto">
+  <li><b>Tap 1 or 2 villagers</b> on the side where the torch is, then tap <b>Cross</b>.</li>
+  <li>The bridge only holds <b>2 people</b> at a time.</li>
+  <li>It's dark, so the group <b>must carry the torch</b>. Someone has to bring it back for the others.</li>
+  <li>Two people walk together at the <b>slower</b> person's speed.</li>
+  <li>Get everyone across before the flood clock runs out. The fastest answer gets ⭐⭐⭐.</li></ol>
+  <p>Made a mistake? Tap <b>↶ Undo</b>. Stuck? Tap <b>💡 Hint</b>.</p>
+  <button class="go" onclick="hideCard()">Got it!</button>`);}
+document.getElementById('howBtn').onclick=howTo;
+
 // ---------- buttons ----------
-document.getElementById('startBtn').onclick=()=>{started=true;hideCard();};
+document.getElementById('startBtn').onclick=()=>{started=true;
+  let i=0;while(i<LEVELS.length-1&&(progress[i]||0)>=2)i++;loadLevel(i);};
 document.getElementById('go').onclick=()=>{if(selected.length)cross([...selected]);};
 document.getElementById('undo').onclick=()=>{
   const h=history.pop();if(!h)return;
@@ -464,12 +546,12 @@ document.getElementById('undo').onclick=()=>{
 };
 document.getElementById('reset').onclick=()=>reset();
 document.getElementById('solve').onclick=async()=>{
-  reset();const {path}=solve(speeds);
+  reset();watched=true;const {path}=solve(speeds);
   for(const g of path){selected=[...g];render();await new Promise(r=>setTimeout(r,700));await cross(g);await new Promise(r=>setTimeout(r,250));}
 };
 document.getElementById('apply').onclick=()=>{
   speeds=[0,1,2,3].map(i=>Math.max(1,Math.min(60,parseInt(document.getElementById('s'+i).value)||1)));
-  limit=Math.max(1,parseInt(document.getElementById('lim').value)||20);build();hideCard();
+  limit=Math.max(1,parseInt(document.getElementById('lim').value)||20);custom=true;build();drawLevels();hideCard();
 };
 
 // ---------- rain ----------
@@ -494,7 +576,8 @@ function confetti(){
 }
 window.addEventListener('resize',()=>{initRain();if(!busy)els.forEach((e,i)=>place(e,...slot(i,side[i])));});
 initRain();rain();
-build();
+speeds=[...LEVELS[0].sp];limit=LEVELS[0].lim;
+build();drawLevels();
 </script>
 </body>
 </html>
