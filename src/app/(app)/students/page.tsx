@@ -17,7 +17,14 @@ import { addDays, bkkStartOfDay, todayKey } from "@/lib/time";
 export default async function StudentsPage() {
   await requireTutor();
   const today = todayKey();
-  const [money, settings, coming] = await Promise.all([getMoneyData(), getSettings(), getLessons(new Date().toISOString(), bkkStartOfDay(addDays(today, 29)).toISOString())]);
+  const supabase = await createClient();
+  // Each family's private page (made yet, and opened by the parent? database update 0015) is fetched at the same time.
+  const [money, settings, coming, { data: pages }] = await Promise.all([
+    getMoneyData(),
+    getSettings(),
+    getLessons(new Date().toISOString(), bkkStartOfDay(addDays(today, 29)).toISOString()),
+    supabase.from("hour_accounts").select("id, family_token, family_consent_at"),
+  ]);
   const students = money.students as unknown as Student[];
   const colours = colourSlots({ students, packages: money.packages, accountNames: new Map(money.accounts.map((a) => [a.id, a.name])) });
   const renewWeeks = Number((settings as { renew_weeks?: number }).renew_weeks ?? 2);
@@ -33,9 +40,6 @@ export default async function StudentsPage() {
   const monthStart = `${today.slice(0, 7)}-01`;
   const thisMonth = (ids: string[]) => money.lessons.filter((l) => l.date >= monthStart && l.studentIds.some((id) => ids.includes(id)));
 
-  // Each family's private page: made yet, and opened by the parent? (database update 0015)
-  const supabase = await createClient();
-  const { data: pages } = await supabase.from("hour_accounts").select("id, family_token, family_consent_at");
   const pageOf = new Map(((pages ?? []) as { id: string; family_token: string | null; family_consent_at: string | null }[]).map((p) => [p.id, p]));
 
   const families: Family[] = [];

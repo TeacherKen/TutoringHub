@@ -39,7 +39,7 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
     const ch = sb.channel(watchChannel(token), { config: { broadcast: { self: false, ack: false } } });
     let alive = true;
     const ping = () => {
-      if (!alive) return;
+      if (!alive || document.hidden) return; // Mr Ken isn't looking: the child's screen stops sending after a few seconds
       const v = viewRef.current;
       const need = !v || (v.tab === "games" && !!v.game && !v.html); // ask for the full picture
       void ch.send({ type: "broadcast", event: "watch", payload: { on: true, need } });
@@ -58,6 +58,8 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
       if (status === "SUBSCRIBED") ping();
     });
     const id = setInterval(ping, 4000);
+    const onVisible = () => document.visibilityState === "visible" && ping();
+    document.addEventListener("visibilitychange", onVisible);
     // Closing the page: the student's "Mr Ken is watching" goes away straight away.
     const stop = () => void ch.send({ type: "broadcast", event: "watch", payload: { on: false } });
     window.addEventListener("pagehide", stop);
@@ -65,6 +67,7 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
       alive = false;
       clearInterval(id);
       window.removeEventListener("pagehide", stop);
+      document.removeEventListener("visibilitychange", onVisible);
       stop();
       void sb.removeChannel(ch);
     };
@@ -74,6 +77,7 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
   useEffect(() => {
     let alive = true;
     const load = async () => {
+      if (document.hidden) return;
       if (alive) setNow(Date.now());
       if (Date.now() - seenRef.current < FRESH_MS) return; // live is working
       try {

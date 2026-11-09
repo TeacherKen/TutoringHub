@@ -14,8 +14,7 @@ function validKey(s: unknown): string | null {
 }
 
 export default async function WeekPage({ searchParams }: PageProps<"/week">) {
-  await requireTutor();
-  const { start } = await searchParams;
+  const [, { start }] = await Promise.all([requireTutor(), searchParams]);
   const monday = mondayOf(validKey(start) ?? todayKey());
   const [all, settings, students, colourInputs] = await Promise.all([
     getLessons(bkkStartOfDay(monday).toISOString(), bkkStartOfDay(addDays(monday, 7)).toISOString()),

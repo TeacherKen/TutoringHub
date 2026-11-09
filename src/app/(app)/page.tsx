@@ -55,13 +55,14 @@ export default async function Home() {
   const accountName = new Map(money.accounts.map((a) => [a.id, a.name]));
 
   // ✅ Before class (today's lessons) and ready or not (every lesson still to come in the next 7 days).
-  const [prep, ready] = await Promise.all([
+  const [prep, ready, family] = await Promise.all([
     loadPrep(
       todays,
       students,
       money.accounts.map((a) => ({ studentIds: a.studentIds, leftHours: a.leftHours, low: renewSoon(a, today, lowHours, renewWeeks) })),
     ),
     loadReady([...todays, ...rest], students),
+    familyActivity(students),
   ]);
   // In To do: lessons in the next 2 days that aren't ready yet.
   const soon = [...todays, ...rest].filter((l) => ready.get(l.id) && !ready.get(l.id)!.ready && Date.parse(l.start_at) < now + 2 * 86_400_000);
@@ -85,7 +86,6 @@ export default async function Home() {
   const colours = colourSlots({ students, packages: money.packages, accountNames: accountName });
   const slotOf = (l: Lesson) => (l.lesson_students[0] ? colours.slotOfStudent(l.lesson_students[0].student_id) : 8);
   const shown = current ?? next;
-  const family = await familyActivity(students);
   // 📸 Just finished: a big button to add the worksheet photo and send the update (fewest taps on the phone).
   const justDone = matched
     .filter((l) => {

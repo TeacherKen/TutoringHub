@@ -107,7 +107,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
     const tick = setInterval(() => {
       if (Date.now() > watchedUntil.current) return setWatched(false);
       const { tab: t, game: g } = viewRef.current;
-      if (t !== "games" || !g) return;
+      if (t !== "games" || !g || document.hidden) return; // nothing to show while the app is in the background
       const html = snapGame();
       if (html && html !== lastLiveHtml.current) sendView(false, html);
     }, 1000);
@@ -180,6 +180,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
     if (!room.gamesOpen || !game) return;
     let last = "";
     const send = async () => {
+      if (document.hidden) return; // the app is in the background: save battery and data
       try {
         const html = snapGame();
         if (!html || html === last || html.length > 400_000) return;
@@ -206,6 +207,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   useEffect(() => {
     let alive = true;
     const load = async () => {
+      if (document.hidden) return; // checked again as soon as the app is opened
       try {
         const res = await fetch(`/api/room/${token}`, { cache: "no-store" });
         if (!res.ok) return;

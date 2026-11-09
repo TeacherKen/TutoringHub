@@ -45,24 +45,32 @@ const fmtSeen = (iso: string) => {
 const thb = (n: number) => `฿${Number(n).toLocaleString("en-US")}`;
 
 export default async function StudentPage({ params }: PageProps<"/students/[id]">) {
-  await requireTutor();
-  const { id } = await params;
-  const [students, settings, progress, money, tt] = await Promise.all([
+  const [, { id }, supabase] = await Promise.all([requireTutor(), params, createClient()]);
+  // Two waits instead of seven: everything that only needs the student's id first...
+  const [students, settings, progress, money, tt, { data: links }, { data: recent }] = await Promise.all([
     getStudents(),
     getSettings(),
     getProgress([id]),
     getMoneyData(),
     getTimesTables(id),
+    supabase
+      .from("lesson_students")
+      .select("lessons(id, start_at, end_at, status, length_hours, learned, next_time, homework, topics, how_it_went, ignored, in_calendar, sent_at)")
+      .eq("student_id", id),
+    supabase.from("lessons").select("topics").neq("topics", "{}").order("start_at", { ascending: false }).limit(80),
   ]);
   const student = students.find((s) => s.id === id);
   if (!student) notFound();
-  const account = student.hour_account_id ? (await getAccountSummaries(student.hour_account_id))[0] : undefined;
-
-  const supabase = await createClient();
-  const { data: links } = await supabase
-    .from("lesson_students")
-    .select("lessons(id, start_at, end_at, status, length_hours, learned, next_time, homework, topics, how_it_went, ignored, in_calendar, sent_at)")
-    .eq("student_id", id);
+  // ...then everything about the student's family (hours account) at once.
+  const acctId = student.hour_account_id;
+  const [summaries, { data: noteRows }, { data: seenRow }] = acctId
+    ? await Promise.all([
+        getAccountSummaries(acctId),
+        supabase.from("family_notes").select("id, lesson_id, author, body, created_at, read_at").eq("hour_account_id", acctId).order("created_at", { ascending: false }).limit(40),
+        supabase.from("hour_accounts").select("family_seen_at, family_token").eq("id", acctId).maybeSingle(),
+      ])
+    : [[], { data: null }, { data: null }];
+  const account = summaries[0];
   const lessons = ((links ?? []).map((l) => l.lessons) as unknown as Lesson[])
     .filter((l) => l && !l.ignored && (l.in_calendar || l.status !== "scheduled"))
     .sort((a, b) => b.start_at.localeCompare(a.start_at));
@@ -73,18 +81,11 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
   const sharingWith = account?.students.filter((s) => s.id !== id) ?? [];
   const bal = account?.balance;
   // 💬 Messages with this family (none before database update 0028), and when they last opened their page.
-  const [{ data: noteRows }, { data: seenRow }] = account
-    ? await Promise.all([
-        supabase.from("family_notes").select("id, lesson_id, author, body, created_at, read_at").eq("hour_account_id", account.id).order("created_at", { ascending: false }).limit(40),
-        supabase.from("hour_accounts").select("family_seen_at").eq("id", account.id).maybeSingle(),
-      ])
-    : [{ data: null }, { data: null }];
   const notes = ((noteRows ?? []) as { id: string; lesson_id: string | null; author: "parent" | "tutor"; body: string; created_at: string; read_at: string | null }[])
     .reverse()
     .map((n) => ({ id: n.id, lessonId: n.lesson_id, author: n.author, body: n.body, created_at: n.created_at, unread: n.author === "parent" && !n.read_at }));
   const unreadNotes = notes.filter((n) => n.unread).length;
   const familySeen = (seenRow as { family_seen_at?: string | null } | null)?.family_seen_at ?? null;
-  const { data: recent } = await supabase.from("lessons").select("topics").neq("topics", "{}").order("start_at", { ascending: false }).limit(80);
   const topicIdeas = [...new Set((recent ?? []).flatMap((r) => r.topics as string[]))].slice(0, 40);
   const monthOf = (iso: string) => bkkDateKey(iso).slice(0, 7);
   const months = groupByMonth(
@@ -101,8 +102,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
       })),
   );
   const acctMoney = money.accounts.find((a) => a.id === student.hour_account_id);
-  const { data: fam } = account ? await supabase.from("hour_accounts").select("family_token").eq("id", account.id).maybeSingle() : { data: null };
-  const familyToken = (fam as { family_token?: string | null } | null)?.family_token ?? null;
+  const familyToken = account ? ((seenRow as { family_token?: string | null } | null)?.family_token ?? null) : null;
   const curPkg = acctMoney?.packages.find((p) => p.state === "current");
   const low = bal && account.packages.length > 0 && (bal.left <= Number(settings.low_hours_threshold ?? 2) || (acctMoney ? renewSoon(acctMoney, money.today, Number(settings.low_hours_threshold ?? 2), Number(settings.renew_weeks ?? 2)) : false));
 

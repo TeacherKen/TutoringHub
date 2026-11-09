@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -24,15 +23,13 @@ import { ReadyPill } from "@/components/glass/ReadyPill";
 import { SoundLink } from "@/components/glass/SoundLink";
 import { colourSlots } from "@/lib/studentColours";
 import { FamilyLinkProvider } from "@/components/FamilyLinkContext";
+import { LessonTabs } from "@/components/LessonTabs";
 
 export default async function LessonPage({ params, searchParams }: PageProps<"/lessons/[id]">) {
-  const sp = await searchParams;
-  await requireTutor();
-  const { id } = await params;
+  const [sp, , { id }, supabase] = await Promise.all([searchParams, requireTutor(), params, createClient()]);
   const lesson = await getLesson(id);
   if (!lesson) notFound();
 
-  const supabase = await createClient();
   const studentIds = lesson.lesson_students.map((ls) => ls.student_id);
   // Everything that doesn't depend on anything else is asked for at the same time (one wait, not ten).
   const [students, settings, { data: mats }, { data: recentTopics }, prev, progress, money, { data: kidBoards }, savedRes, { data: sheetRows }] =
@@ -62,7 +59,9 @@ export default async function LessonPage({ params, searchParams }: PageProps<"/l
   const win = lessonWindow(lesson.start_at, lesson.end_at);
   const fileRows = (mats ?? []).filter((m) => m.storage_path);
   const boardIds = ((kidBoards ?? []) as { id: string; student_id: string }[]).map((b) => b.id);
-  const [{ data: signed }, { data: active }] = await Promise.all([
+  const parentOf = students.find((s) => s.id === lesson.lesson_students[0]?.student_id);
+  const accountId = parentOf?.hour_account_id ?? null;
+  const [{ data: signed }, { data: active }, readyMap, { data: famRow }] = await Promise.all([
     fileRows.length
       ? supabase.storage.from(MATERIALS_BUCKET).createSignedUrls(
           fileRows.map((m) => m.storage_path as string),
@@ -72,6 +71,10 @@ export default async function LessonPage({ params, searchParams }: PageProps<"/l
     boardIds.length
       ? supabase.from("board_marks").select("board_id").in("board_id", boardIds).gte("created_at", win.from).lte("created_at", win.to).limit(2000)
       : Promise.resolve({ data: [] }),
+    // A lesson still to come: is it ready? (Upload smart slides below, or tick it after printing the worksheet.)
+    loadReady([lesson], students),
+    // The family page link for this lesson's family (for the tick box on "Send on WhatsApp / LINE").
+    accountId ? supabase.from("hour_accounts").select("family_token").eq("id", accountId).maybeSingle() : Promise.resolve({ data: null }),
   ]);
   const urlFor = new Map(fileRows.map((m, i) => [m.id as string, signed?.[i]?.signedUrl ?? null]));
   const materials: MaterialView[] = (mats ?? []).map((m) => ({
@@ -99,14 +102,12 @@ export default async function LessonPage({ params, searchParams }: PageProps<"/l
   const lastPlan = prevPlans[0]?.next_time ?? null;
 
   const inLesson = lesson.lesson_students;
-  // A lesson still to come: is it ready? (Upload smart slides below, or tick it after printing the worksheet.)
-  const ready = (await loadReady([lesson], students)).get(lesson.id) ?? null;
+  const ready = readyMap.get(lesson.id) ?? null;
   // The family colour, the same as on Home, Week, Students and Money.
   const colours = colourSlots({ students, packages: money.packages, accountNames: new Map(money.accounts.map((a) => [a.id, a.name])) });
   const slot = inLesson[0] ? colours.slotOfStudent(inLesson[0].student_id) : 8;
   const notIn = students.filter((s) => !studentIds.includes(s.id));
   const firstStudent = inLesson[0]?.students;
-  const parentOf = students.find((s) => s.id === inLesson[0]?.student_id);
   const progressText =
     inLesson
       .map((ls) => {
@@ -116,12 +117,7 @@ export default async function LessonPage({ params, searchParams }: PageProps<"/l
       .filter(Boolean)
       .join(". ") || null;
 
-  // The family page link for this lesson's family (for the tick box on "Send on WhatsApp / LINE").
-  const accountId = parentOf?.hour_account_id ?? null;
-  const famToken = accountId
-    ? (((await supabase.from("hour_accounts").select("family_token").eq("id", accountId).maybeSingle()).data as { family_token?: string | null } | null)
-        ?.family_token ?? null)
-    : null;
+  const famToken = (famRow as { family_token?: string | null } | null)?.family_token ?? null;
   const famNames = students
     .filter((s) => accountId && s.hour_account_id === accountId)
     .map((s) => s.first_name)
@@ -159,17 +155,10 @@ export default async function LessonPage({ params, searchParams }: PageProps<"/l
         </div>
       </header>
 
-      {/* Two jobs, two tabs: teaching the class, and the update afterwards. Picked by the time, switchable. */}
-      <nav aria-label="Lesson page" className="glass flex gap-1 self-start rounded-[22px] p-1.5">
-        <Link href={`/lessons/${lesson.id}?view=teach`} replace scroll={false} className={`tab press ${view === "teach" ? "is-on" : ""}`} aria-current={view === "teach" ? "page" : undefined}>
-          🧑‍🏫 Teach
-        </Link>
-        <Link href={`/lessons/${lesson.id}?view=after`} replace scroll={false} className={`tab press ${view === "after" ? "is-on" : ""}`} aria-current={view === "after" ? "page" : undefined}>
-          📮 After class{lesson.sent_at ? " ✓" : ""}
-        </Link>
-      </nav>
-
-      {view === "teach" ? (
+      <LessonTabs
+        initial={view}
+        sent={Boolean(lesson.sent_at)}
+        teach={
         <>
           {lastPlan ? (
             <section
@@ -196,7 +185,8 @@ export default async function LessonPage({ params, searchParams }: PageProps<"/l
             <Materials lessonId={lesson.id} items={materials} bare />
           </Fold>
         </>
-      ) : (
+        }
+        after={
         <>
           <StepLabel id="send-update" n={1} text="Add worksheet photos, then let ✨ write the note and message" />
           <LessonAISummary
@@ -251,7 +241,8 @@ export default async function LessonPage({ params, searchParams }: PageProps<"/l
             kids={inLesson.map((ls) => ({ id: ls.student_id, name: ls.students?.first_name ?? "Student", topics: ls.topics ?? null }))}
           />
         </>
-      )}
+        }
+      />
 
       {/* Things about the booking, not the teaching: who's in it, hours, price. Closed, at the bottom. */}
       <Fold

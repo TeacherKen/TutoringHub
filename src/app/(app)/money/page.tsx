@@ -10,7 +10,7 @@ import { markPastDone } from "@/app/actions/lessons";
 import { markPackagePaid } from "@/app/actions/students";
 import { SoundLink } from "@/components/glass/SoundLink";
 import { PromptPayQR } from "@/components/PromptPayQR";
-import { addDays, bkkDateKey, fmtDay, fmtHours, fmtTime, mondayOf } from "@/lib/time";
+import { addDays, bkkDateKey, fmtDay, fmtHours, fmtTime, mondayOf, todayKey } from "@/lib/time";
 import { createClient } from "@/lib/supabase/server";
 import { colourSlots } from "@/lib/studentColours";
 import { summarise, type PreplyStats } from "@/lib/preply";
@@ -22,11 +22,18 @@ const VIEWS = { week: "This week", month: "This month", last: "Last month" } as 
 type View = keyof typeof VIEWS;
 
 export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
-  await requireTutor();
-  const sp = await searchParams;
-  await autoMarkDone();
+  const [, sp] = await Promise.all([requireTutor(), searchParams]);
   const view: View = sp.view === "month" || sp.view === "last" ? sp.view : "week";
-  const [money, settings] = await Promise.all([getMoneyData(), getSettings()]);
+  // Three waits instead of seven. First: tick off finished classes, and fetch what doesn't depend on that.
+  const [, settings, allStudents, fx] = await Promise.all([autoMarkDone(), getSettings(), getStudents(), usdToThb()]);
+  const todayNow = todayKey();
+  // Past classes not marked yet don't count, so say how many there are (the same ones Home lists).
+  const [money, unmarkedIds, preply] = await Promise.all([
+    getMoneyData(),
+    unmarkedPastLessonIds({ before: new Date(), from: reminderSince(settings.track_from, todayNow) }),
+    loadPreply(allStudents),
+  ]);
+  const unmarked = unmarkedIds.length;
   const { today } = money;
   const renewWeeks = Number((settings as { renew_weeks?: number }).renew_weeks ?? 2);
 
@@ -48,8 +55,6 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
     .filter((p) => p.paid_on && p.paid_on >= monthStart && p.paid_on < nextMonth)
     .reduce((s, p) => s + Number(p.price_thb ?? 0), 0);
 
-  // Past classes not marked yet don't count, so say how many there are (the same ones Home lists).
-  const unmarked = (await unmarkedPastLessonIds({ before: new Date(), from: reminderSince(settings.track_from, today) })).length;
 
   const name = new Map(money.students.map((s) => [s.id, s.first_name]));
   const names = (ids: string[]) => [...new Set(ids.map((id) => name.get(id)).filter(Boolean))].join(" & ") || "—";
@@ -73,8 +78,6 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
   const shown = money.lessons.filter((l) => l.date >= from && l.date < to).reverse();
   const byDay = new Map<string, LessonEarning[]>();
   for (const l of shown) byDay.set(l.date, [...(byDay.get(l.date) ?? []), l]);
-  const allStudents = await getStudents();
-  const preply = await loadPreply(allStudents);
   const colours = colourSlots({ students: allStudents, packages: money.packages, accountNames: accountName });
   const preplyStudents = allStudents.filter((s) => s.source === "preply" && s.active !== false).map((s) => ({ id: s.id, name: s.first_name }));
   const monthName = (key: string) => new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(new Date(`${key}T00:00:00Z`));
@@ -118,7 +121,7 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
       />
 
       {preply && (preply.rows.length || preplyStudents.length) ? (
-        <PreplyCard p={preply} slotOf={colours.slotOfStudent} today={today} students={preplyStudents} fx={await usdToThb()} />
+        <PreplyCard p={preply} slotOf={colours.slotOfStudent} today={today} students={preplyStudents} fx={fx} />
       ) : null}
 
       {unpaid.length ? (

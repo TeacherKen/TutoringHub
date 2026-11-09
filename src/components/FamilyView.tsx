@@ -1,4 +1,3 @@
-import { PromptPayQR } from "@/components/PromptPayQR";
 import { MasteryGrid } from "@/components/MasteryGrid";
 import { parseFact } from "@/lib/facts";
 import { TrophyShelf } from "@/components/Trophies";
@@ -6,7 +5,6 @@ import type { FamilyNote, FamilyPage } from "@/lib/family";
 import { NoteForm, NoteThread } from "@/components/FamilyNotes";
 import { bkkDateKey, fmtDay, fmtTime } from "@/lib/time";
 
-const thb = (n: number) => `฿${Math.round(n).toLocaleString("en-US")}`;
 const hrs = (h: number) => `${Math.round(h * 100) / 100} ${Math.abs(h) === 1 ? "hour" : "hours"}`;
 
 /** What a family sees on their private page. */
@@ -59,18 +57,6 @@ export function FamilyView({ f, tutor, token }: { f: FamilyPage; tutor: string; 
           ) : (
             <p>The current package has been used up.</p>
           )}
-          {f.unpaid.map((u) => (
-            <div key={`${u.hours}-${u.price}`} className="space-y-2 rounded-xl bg-warn-soft p-3">
-              <p className="text-warn">
-                Next package: {hrs(u.hours)} · <strong>{thb(u.price)}</strong> — waiting for payment
-              </p>
-              {f.promptpayId ? (
-                <div className="max-w-xs">
-                  <PromptPayQR promptpayId={f.promptpayId} amount={u.price} label={`PromptPay · ${thb(u.price)}`} forParent={tutor} />
-                </div>
-              ) : null}
-            </div>
-          ))}
         </section>
       ) : null}
 

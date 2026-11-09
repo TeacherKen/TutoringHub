@@ -91,10 +91,14 @@ export async function getRoom(token: string): Promise<RoomData | null> {
       .eq("lesson_id", picked.l.id)
       .in("kind", ["canva", "link", "pdf"])
       .order("created_at");
+    // All the worksheet file links in one go (not one trip per file).
+    const pdfPaths = (mats ?? []).filter((m) => m.kind === "pdf" && m.storage_path).map((m) => m.storage_path as string);
+    const { data: signed } = pdfPaths.length ? await admin.storage.from(MATERIALS_BUCKET).createSignedUrls(pdfPaths, 60 * 60 * 2) : { data: [] };
+    const linkFor = new Map((signed ?? []).map((x) => [x.path, x.signedUrl]));
     for (const m of mats ?? []) {
       if (m.kind === "pdf" && m.storage_path) {
-        const { data } = await admin.storage.from(MATERIALS_BUCKET).createSignedUrl(m.storage_path, 60 * 60 * 2);
-        if (data?.signedUrl) materials.push({ kind: "pdf", label: m.label || "Worksheet", href: data.signedUrl, embed: null });
+        const href = linkFor.get(m.storage_path);
+        if (href) materials.push({ kind: "pdf", label: m.label || "Worksheet", href, embed: null });
       } else if (m.url) {
         materials.push({
           kind: m.kind === "canva" ? "canva" : "link",

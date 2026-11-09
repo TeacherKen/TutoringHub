@@ -11,7 +11,7 @@ import { statsFrom, trophies, type Trophy } from "@/lib/trophies";
 
 // A family's private page (opened with a link, no sign-in). It shows only:
 // first names, upcoming lesson times, lesson updates Mr Ken marked as sent (his message, the lesson's
-// topics, homework and work pictures), topic progress, and hours left. No prices per class, private notes
+// topics, homework and work pictures), topic progress, and hours left. No prices or payment details, private notes
 // ("learned" / "next time" stay Mr Ken's) or other families.
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{24,64}$/;
@@ -31,8 +31,6 @@ export type FamilyPage = {
   messages: { lessonId: string; date: string; names: string[]; text: string; topics: string[]; homework: string | null; photos: { label: string; url: string }[] }[];
   work: { label: string; url: string; date: string }[];
   hours: { left: number; bought: number; lessonsLeft: number; endDate: string | null } | null;
-  unpaid: { hours: number; price: number }[];
-  promptpayId: string | null;
 };
 
 export type FamilyNote = { id: string; lessonId: string | null; author: "parent" | "tutor"; body: string; created_at: string };
@@ -74,7 +72,7 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   const firstPackage = ((pk ?? []) as { start_date: string }[])[0]?.start_date;
   const since = new Date(Math.min(Date.now() - 400 * 86_400_000, firstPackage ? bkkStartOfDay(firstPackage).getTime() : Infinity)).toISOString();
 
-  const [{ data: links }, { data: adj }, { data: saved }, { data: settings }, { data: factRows }] = await Promise.all([
+  const [{ data: links }, { data: adj }, { data: saved }, { data: factRows }] = await Promise.all([
     admin
       .from("lesson_students")
       .select("lessons!inner(id, start_at, end_at, status, length_hours, final_message, sent_at, homework, topics, ignored, in_calendar, lesson_students(student_id, uses_hours, topics))")
@@ -82,7 +80,6 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
       .gte("lessons.start_at", since),
     admin.from("hour_adjustments").select("hours").eq("hour_account_id", acct.id),
     admin.from("student_topics").select("student_id, name, status, updated_at").in("student_id", ids),
-    admin.from("settings").select("*").eq("id", 1).maybeSingle(),
     admin.from("fact_progress").select("student_id, fact, box, correct, wrong, avg_ms, due_at, last_seen").in("student_id", ids), // empty until update 0016
   ]);
 
@@ -193,7 +190,6 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
     const f = forecast(bal.left, accountIds, past, next, today);
     hours = { left: bal.left, bought: bal.bought + bal.adjusted, lessonsLeft: f.lessonsLeft, endDate: bal.left > 0 ? f.endDate : null };
   }
-  const unpaid = packages.filter((p) => !p.paid_on && p.price_thb != null && Number(p.price_thb) > 0).map((p) => ({ hours: Number(p.hours), price: Number(p.price_thb) }));
 
   // Messages with Mr Ken (the last 60; none before database update 0028).
   const { data: noteRows } = await admin
@@ -217,8 +213,6 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
     messages,
     work,
     hours,
-    unpaid,
-    promptpayId: ((settings as { promptpay_id?: string | null } | null)?.promptpay_id ?? null) || null,
   };
 }
 
