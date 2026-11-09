@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { play } from "@/lib/sounds";
 
 /**
@@ -8,6 +8,9 @@ import { play } from "@/lib/sounds";
  */
 export function Fold({ id, open = false, summary, children }: { id?: string; open?: boolean; summary: React.ReactNode; children: React.ReactNode }) {
   const ref = useRef<HTMLDetailsElement>(null);
+  // Only how it starts. When the page refreshes its data (e.g. messages just got marked read) the fold
+  // must not snap shut while Mr Ken is reading it.
+  const [startOpen] = useState(open);
   useEffect(() => {
     if (id && window.location.hash === `#${id}` && ref.current) {
       ref.current.open = true;
@@ -15,7 +18,7 @@ export function Fold({ id, open = false, summary, children }: { id?: string; ope
     }
   }, [id]);
   return (
-    <details ref={ref} id={id} open={open} className="glass group scroll-mt-24 rounded-[24px]" onToggle={() => play("flip")}>
+    <details ref={ref} id={id} open={startOpen} className="glass group scroll-mt-24 rounded-[24px]" onToggle={() => play("flip")}>
       <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
         <span className="min-w-0 flex-1">{summary}</span>
         <span aria-hidden className="text-accent transition-transform group-open:rotate-90">

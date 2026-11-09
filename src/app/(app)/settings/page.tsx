@@ -1,3 +1,4 @@
+import { ConfirmButton } from "@/components/ConfirmButton";
 import Link from "next/link";
 import { PushToggle } from "@/components/PushToggle";
 import { requireTutor } from "@/lib/auth";
@@ -84,7 +85,9 @@ export default async function SettingsPage() {
                   </form>
                   <form action={removeCalendar}>
                     <input type="hidden" name="id" value={c.id} />
-                    <button className="text-xs text-muted underline">Remove</button>
+                    <ConfirmButton className="min-h-10 px-2 text-xs text-muted underline" message="Remove this calendar? Lessons from it will stop syncing.">
+                      Remove
+                    </ConfirmButton>
                   </form>
                 </div>
               </li>
@@ -141,7 +144,9 @@ export default async function SettingsPage() {
               {p.email !== me.email ? (
                 <form action={removePerson}>
                   <input type="hidden" name="email" value={p.email} />
-                  <button className="text-xs text-muted underline">Remove</button>
+                  <ConfirmButton className="min-h-10 px-2 text-xs text-muted underline" message={`Remove ${p.email}? They won't be able to sign in any more.`}>
+                    Remove
+                  </ConfirmButton>
                 </form>
               ) : null}
             </li>

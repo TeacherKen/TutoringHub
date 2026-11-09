@@ -104,7 +104,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
   const { data: fam } = account ? await supabase.from("hour_accounts").select("family_token").eq("id", account.id).maybeSingle() : { data: null };
   const familyToken = (fam as { family_token?: string | null } | null)?.family_token ?? null;
   const curPkg = acctMoney?.packages.find((p) => p.state === "current");
-  const low = bal && account.packages.length > 0 && (bal.left <= Number(settings.low_hours_threshold) || (acctMoney ? renewSoon(acctMoney, money.today, Number(settings.low_hours_threshold), Number(settings.renew_weeks ?? 2)) : false));
+  const low = bal && account.packages.length > 0 && (bal.left <= Number(settings.low_hours_threshold ?? 2) || (acctMoney ? renewSoon(acctMoney, money.today, Number(settings.low_hours_threshold ?? 2), Number(settings.renew_weeks ?? 2)) : false));
 
   // The family colour (the same on every page), brothers and sisters, and the hours for the header.
   const colours = colourSlots({ students, packages: money.packages, accountNames: new Map(money.accounts.map((a) => [a.id, a.name])) });
@@ -493,7 +493,9 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         </p>
         <form action={deleteStudent} className="mt-3">
           <input type="hidden" name="id" value={student.id} />
-          <button className="btn-danger">Yes, delete {student.first_name}</button>
+          <ConfirmButton className="btn-danger" message={`Delete ${student.first_name} for good? Their lessons, notes and packages go too. This can't be undone.`}>
+            Yes, delete {student.first_name}
+          </ConfirmButton>
         </form>
       </details>
     </div>

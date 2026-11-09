@@ -21,7 +21,7 @@ export default async function StudentsPage() {
   const students = money.students as unknown as Student[];
   const colours = colourSlots({ students, packages: money.packages, accountNames: new Map(money.accounts.map((a) => [a.id, a.name])) });
   const renewWeeks = Number((settings as { renew_weeks?: number }).renew_weeks ?? 2);
-  const low = Number(settings.low_hours_threshold);
+  const low = Number(settings.low_hours_threshold ?? 2);
 
   // Each student's next lesson in the coming four weeks, and whether it's ready.
   const upcoming = coming.filter((l) => l.status === "scheduled" && l.lesson_students.length);

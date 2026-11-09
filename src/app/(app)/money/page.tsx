@@ -58,8 +58,8 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
     .filter((a) => a.packages.length)
     .sort(
       (a, b) =>
-        Number(renewSoon(b, today, Number(settings.low_hours_threshold), renewWeeks)) -
-          Number(renewSoon(a, today, Number(settings.low_hours_threshold), renewWeeks)) || a.name.localeCompare(b.name),
+        Number(renewSoon(b, today, Number(settings.low_hours_threshold ?? 2), renewWeeks)) -
+          Number(renewSoon(a, today, Number(settings.low_hours_threshold ?? 2), renewWeeks)) || a.name.localeCompare(b.name),
     );
 
   const accountName = new Map(money.accounts.map((a) => [a.id, a.name]));
@@ -169,7 +169,7 @@ export default async function MoneyPage({ searchParams }: PageProps<"/money">) {
           <h2 className="font-display px-1.5 text-[26px] font-semibold">Packages</h2>
           <div className="grid gap-[18px] [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
             {withPackages.map((a) => (
-              <PackageCard key={a.id} a={a} today={today} soon={renewSoon(a, today, Number(settings.low_hours_threshold), renewWeeks)} />
+              <PackageCard key={a.id} a={a} today={today} soon={renewSoon(a, today, Number(settings.low_hours_threshold ?? 2), renewWeeks)} />
             ))}
           </div>
         </section>

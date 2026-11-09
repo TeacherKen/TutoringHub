@@ -4,6 +4,7 @@ import { PromptPayQR } from "./PromptPayQR";
 import { SendButton } from "./SendButton";
 import { FamilyLinkTick, useWithFamily } from "./FamilyLinkContext";
 import { addUnpaidPackage } from "@/app/actions/students";
+import { netFail } from "@/lib/netFail";
 import type { ChatApp } from "@/lib/chat";
 import type { PriceOption } from "@/lib/prices";
 
@@ -72,6 +73,8 @@ export function RenewalMessage(
   const [edited, setEdited] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [addErr, setAddErr] = useState<string | null>(null);
   const draft = renewalText({ ...props, offers });
   const text = edited ?? draft;
 
@@ -160,17 +163,22 @@ export function RenewalMessage(
                     key={key}
                     type="button"
                     className={added === key ? "btn-primary min-h-10 text-sm" : "btn-secondary min-h-10 text-sm"}
-                    disabled={added === key}
+                    disabled={added === key || adding != null}
                     onClick={async () => {
-                      const r = await addUnpaidPackage(props.accountId!, o.hours, o.price!, o.label && o.label !== "Same as last time" ? o.label : "Renewal");
+                      setAdding(key);
+                      setAddErr(null);
+                      const r = await addUnpaidPackage(props.accountId!, o.hours, o.price!, o.label && o.label !== "Same as last time" ? o.label : "Renewal").catch(netFail);
                       if (r.ok) setAdded(key);
+                      else setAddErr(r.error ?? "Couldn't add the package.");
+                      setAdding(null);
                     }}
                   >
-                    {added === key ? `✓ Added — waiting for payment` : `+ Add ${hrs(o.hours)} · ${thb(o.price!)} (not paid yet)`}
+                    {added === key ? `✓ Added — waiting for payment` : adding === key ? "Adding…" : `+ Add ${hrs(o.hours)} · ${thb(o.price!)} (not paid yet)`}
                   </button>
                 );
               })}
           </div>
+          {addErr ? <p className="text-sm text-danger">{addErr}</p> : null}
         </div>
       ) : null}
     </div>

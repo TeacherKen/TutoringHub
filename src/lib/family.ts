@@ -169,7 +169,9 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
         // A child's own topics in a shared lesson (update 0024), otherwise the lesson's.
         .map((l) => {
           const own = l.lesson_students.find((x) => x.student_id === c.id)?.topics;
-          return own?.length ? { ...l, topics: own } : l;
+          if (own?.length) return { ...l, topics: own };
+          // Shared with a child from another family: never borrow that lesson's general topics.
+          return ownLesson(l) ? l : { ...l, topics: [] };
         }),
     ),
     };

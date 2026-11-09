@@ -45,7 +45,7 @@ export default async function Home() {
   const missing = recent.filter((l) => needsNote(l, since));
   const unmarked = recent.filter((l) => isUnmarked(l, now, since));
   const unsent = recent.filter((l) => needsFeedback(l, today, bkkDateKey, since));
-  const lowHours = Number(settings.low_hours_threshold);
+  const lowHours = Number(settings.low_hours_threshold ?? 2);
   const renewWeeks = Number(settings.renew_weeks ?? 2);
   const low = money.accounts.filter((a) => renewSoon(a, today, lowHours, renewWeeks));
   const unmatched = lessons.filter(

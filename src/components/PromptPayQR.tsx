@@ -4,7 +4,7 @@ import generatePayload from "promptpay-qr";
 import QRCode from "qrcode";
 
 /** PromptPay QR for an exact amount — the parent scans it in their banking app. */
-export function PromptPayQR({ promptpayId, amount, label }: { promptpayId: string; amount: number; label: string }) {
+export function PromptPayQR({ promptpayId, amount, label, forParent }: { promptpayId: string; amount: number; label: string; forParent?: string }) {
   const [src, setSrc] = useState<string | null>(null);
   const payload = useMemo(() => {
     try {
@@ -13,7 +13,8 @@ export function PromptPayQR({ promptpayId, amount, label }: { promptpayId: strin
       return null;
     }
   }, [promptpayId, amount]);
-  const msg = payload ? null : "This PromptPay number doesn't look right — check it in Settings.";
+  // Parents shouldn't be told to "check Settings" — that's Mr Ken's job.
+  const msg = payload ? null : forParent ? `The payment QR isn't available right now — please ask ${forParent}.` : "This PromptPay number doesn't look right — check it in Settings.";
 
   useEffect(() => {
     if (!payload) return;

@@ -66,7 +66,7 @@ export function FamilyView({ f, tutor, token }: { f: FamilyPage; tutor: string; 
               </p>
               {f.promptpayId ? (
                 <div className="max-w-xs">
-                  <PromptPayQR promptpayId={f.promptpayId} amount={u.price} label={`PromptPay · ${thb(u.price)}`} />
+                  <PromptPayQR promptpayId={f.promptpayId} amount={u.price} label={`PromptPay · ${thb(u.price)}`} forParent={tutor} />
                 </div>
               ) : null}
             </div>
@@ -79,7 +79,7 @@ export function FamilyView({ f, tutor, token }: { f: FamilyPage; tutor: string; 
           <h2 className="h2">Next lessons</h2>
           <ul className="card divide-y divide-line p-0">
             {f.upcoming.map((l) => (
-              <li key={l.start_at} className="flex justify-between gap-3 px-4 py-3 text-sm">
+              <li key={`${l.start_at}-${l.names.join("+")}`} className="flex justify-between gap-3 px-4 py-3 text-sm">
                 <span>
                   {fmtDay(bkkDateKey(l.start_at))}
                   {f.children.length > 1 ? <span className="text-muted"> · {l.names.join(" & ")}</span> : null}

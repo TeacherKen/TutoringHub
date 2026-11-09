@@ -280,7 +280,8 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
       return setFlash("Couldn't send — check the internet and try again.");
     }
     setUpdating(false);
-    if (r.ok) setSentAt(r.sent_at);
+    if (!r.ok) return setFlash("Couldn't mark the update as sent — try again before sending the link.");
+    setSentAt(r.sent_at);
     if (!token) return setFlash("Couldn't make the family link. Try again.");
     const hello = promptContext.parentName?.trim() ? `Hi ${promptContext.parentName.trim()}` : "Hi";
     const msg = `${hello}, ${family.names}'s lesson update${promptContext.date ? ` for ${promptContext.date}` : ""} is ready — my feedback, what we worked on, homework and pictures of their work: ${window.location.origin}/family/${token}`;
