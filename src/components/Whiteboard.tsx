@@ -325,6 +325,16 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   }, [page, tool, color, follow, hlColor]);
 
   const bump = () => setVersion((v) => v + 1);
+  // The other person's live stroke, read by render() (a ref, so render() stays the same function and the
+  // canvas isn't resized on every live packet).
+  const otherRef = useRef<Live | null>(null);
+  useLayoutEffect(() => {
+    otherRef.current = other;
+  }, [other]);
+  // ⚡ Finished writing is drawn once into a hidden picture and reused. While someone writes, only the new
+  // stroke is drawn on top, instead of every line on the page again for each tiny pen movement.
+  const inkCache = useRef<{ c: HTMLCanvasElement; list: Mark[]; w: number; h: number; dpr: number; pg: number } | null>(null);
+  const inkStale = useRef(false);
 
   // ---- Drawing on the canvas -------------------------------------------------
   const render = useCallback(() => {
@@ -333,17 +343,45 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     if (!c || !W) return;
     const ctx = c.getContext("2d");
     if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
     const pg = stateRef.current.page;
     const d = drag.current;
     // While dragging, things being moved or resized are drawn where they're going.
     const shown = (m: Mark): MarkData =>
       d?.mode === "handle" && d.id === m.id && d.preview ? d.preview : d?.mode === "move" || d?.mode === "scale" ? (d.previews?.get(m.id) ?? m.data) : m.data;
-    for (const m of marks.current.values()) {
-      if (m.page !== pg) continue;
-      drawMark(ctx, shown(m), W, H, 1, picture);
+    const list: Mark[] = [];
+    for (const m of marks.current.values()) if (m.page === pg) list.push(m);
+    const moving = d?.mode === "handle" || d?.mode === "move" || d?.mode === "scale";
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, c.width, c.height);
+    if (moving) {
+      // Moving or resizing: draw everything directly (it's changing anyway).
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (const m of list) drawMark(ctx, shown(m), W, H, 1, picture);
+    } else {
+      let cache = inkCache.current;
+      const same =
+        cache && !inkStale.current && cache.pg === pg && cache.w === c.width && cache.h === c.height && cache.dpr === dpr && cache.list.length === list.length && cache.list.every((m, i) => m === list[i]);
+      if (!same) {
+        if (!cache) cache = { c: document.createElement("canvas"), list: [], w: 0, h: 0, dpr: 0, pg: -1 };
+        if (cache.c.width !== c.width || cache.c.height !== c.height) {
+          cache.c.width = c.width;
+          cache.c.height = c.height;
+        }
+        const ic = cache.c.getContext("2d");
+        if (ic) {
+          ic.setTransform(1, 0, 0, 1, 0, 0);
+          ic.clearRect(0, 0, cache.c.width, cache.c.height);
+          ic.setTransform(dpr, 0, 0, dpr, 0, 0);
+          for (const m of list) drawMark(ic, m.data, W, H, 1, picture);
+        }
+        Object.assign(cache, { list, w: c.width, h: c.height, dpr, pg });
+        inkCache.current = cache;
+        inkStale.current = false;
+      }
+      ctx.drawImage(inkCache.current!.c, 0, 0);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
+    const other = otherRef.current;
     if (other?.stroke && other.page === pg) drawMark(ctx, other.stroke, W, H, 0.6);
     if (drawing.current) drawMark(ctx, currentStroke(drawing.current), W, H);
     if (stateRef.current.tool === "select") {
@@ -409,8 +447,9 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       }
       ctx.restore();
     }
+    // (Changes only with the pen size, which the stroke being drawn needs.)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [other]);
+  }, [size]);
 
   /** Address of a pasted picture (through this app, so only people on this board can see it). */
   function imageSrc(key: string) {
@@ -423,7 +462,10 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     if (!img) {
       img = new Image();
       img.crossOrigin = "anonymous";
-      img.onload = () => render();
+      img.onload = () => {
+        inkStale.current = true; // the saved picture of the writing doesn't have this image yet
+        render();
+      };
       img.src = imageSrc(key);
       pictures.current.set(key, img);
     }
