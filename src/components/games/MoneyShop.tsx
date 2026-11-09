@@ -32,7 +32,7 @@ const USD_COLOURS: Record<number, [string, string]> = {
 export function Cash({ m, c, small = false }: { m: Money; c: Currency; small?: boolean }) {
   const label = face(m, c);
   if (m.kind === "note") {
-    const bg = c === "THB" ? THB_COLOURS[m.value][0] : "#5f8a64";
+    const bg = c === "THB" ? (THB_COLOURS[m.value]?.[0] ?? "#888") : "#5f8a64";
     return (
       <span
         className={`grid place-items-center rounded-md font-bold text-white shadow ${small ? "h-9 w-[4.2rem] text-sm" : "h-12 w-[5.6rem] text-lg"}`}
@@ -42,7 +42,7 @@ export function Cash({ m, c, small = false }: { m: Money; c: Currency; small?: b
       </span>
     );
   }
-  const [fill, ring] = (c === "THB" ? THB_COLOURS : USD_COLOURS)[m.value];
+  const [fill, ring] = (c === "THB" ? THB_COLOURS : USD_COLOURS)[m.value] ?? ["#ddd", "#999"];
   const order = c === "THB" ? [1, 2, 5, 10] : [10, 1, 5, 25];
   const d = (small ? 30 : 42) + order.indexOf(m.value) * (small ? 3 : 5);
   // Thai 10 baht: gold middle, silver ring.

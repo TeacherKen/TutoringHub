@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { clockHint, hhmm, ampm, same, STEP, type Time } from "@/lib/clock";
 import { HEARTS, HEROES, HITS, longHint, newQuest, questQ, stageKey, stageOpen, STAGES, starsFor, story, totalStars, TOWNS, townDone, townOpen, type QuestQ, type QuestSave } from "@/lib/games/clockQuest";
 import { Choices, ClockFace } from "./ClockRescue";
@@ -27,6 +27,11 @@ function Hearts({ n, max = HEARTS }: { n: number; max?: number }) {
 }
 
 export function ClockQuest() {
+  const winTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (winTimer.current) clearTimeout(winTimer.current);
+  }, []);
+
   const { all, save, remove } = useSaves<Save>("clock-quest");
   const [player, setPlayer] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
@@ -104,6 +109,7 @@ export function ClockQuest() {
   const pets = TOWNS.filter((_, i) => townDone(s, i)).map((t) => t.pet);
 
   function begin(town: number, stage: number) {
+    if (winTimer.current) clearTimeout(winTimer.current);
     const q = questQ(TOWNS[town].level);
     setResult(null);
     setFight({ town, stage, q, story: story(q, TOWNS[town]), hits: 0, hearts: HEARTS, set: { h: 12, m: 0 }, answer: "", wrong: false, wrongPick: null, hit: null });
@@ -120,7 +126,7 @@ export function ClockQuest() {
       const newlyDone = !townDone(s!, f.town) && townDone(next, f.town);
       save(player!, next);
       setFight({ ...f, hits, hit: "foe" });
-      setTimeout(() => {
+      winTimer.current = setTimeout(() => {
         setFight(null);
         setResult({ won: true, stars, coins, pet: newlyDone ? `${TOWNS[f.town].pet} ${TOWNS[f.town].petName}` : undefined });
       }, 700);
@@ -254,7 +260,7 @@ export function ClockQuest() {
               <p className="text-xl font-bold">Monster beaten! 🎉</p>
               <p className="text-3xl">
                 {"⭐".repeat(result.stars)}
-                <span className="opacity-25">{"⭐".repeat(3 - result.stars)}</span>
+                <span className="opacity-25">{"⭐".repeat(Math.max(0, 3 - result.stars))}</span>
               </p>
               <p className="text-sm">+{result.coins} coins</p>
               {result.pet ? <p className="mt-1 font-semibold">Town saved! {result.pet} joined your team!</p> : null}
@@ -288,7 +294,7 @@ export function ClockQuest() {
               {open ? (
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {Array.from({ length: STAGES }, (_, si) => {
-                    const st = s.stars[stageKey(ti, si)] ?? 0;
+                    const st = Math.min(3, Math.max(0, Number(s.stars?.[stageKey(ti, si)]) || 0));
                     const can = stageOpen(s, ti, si);
                     return (
                       <button key={si} type="button" disabled={!can} onClick={() => begin(ti, si)} className={`min-h-16 rounded-xl border-2 px-2 text-center ${st ? "border-accent/40 bg-accent-soft" : can ? "border-accent bg-surface hover:bg-accent-soft" : "border-line bg-surface-2"}`}>
@@ -299,7 +305,7 @@ export function ClockQuest() {
                           {st ? (
                             <>
                               {"⭐".repeat(st)}
-                              <span className="opacity-25">{"⭐".repeat(3 - st)}</span>
+                              <span className="opacity-25">{"⭐".repeat(Math.max(0, 3 - st))}</span>
                             </>
                           ) : can ? (
                             "Fight!"

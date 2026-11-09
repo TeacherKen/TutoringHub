@@ -69,7 +69,7 @@ export function nameOptions(f: Frac, rnd: Rand): Frac[] {
     { n: f.n, d: f.d + 1 },
     { n: f.n + 1, d: f.d + 1 },
   ];
-  const ok = (x: Frac) => x.n >= 1 && x.d >= 2 && x.n <= 12 && x.d <= 12 && !sameAmount(x, f);
+  const ok = (x: Frac) => x.n >= 1 && x.n < x.d && x.d >= 2 && x.n <= 12 && x.d <= 12 && !sameAmount(x, f);
   const wrong: Frac[] = [];
   for (const x of ideas) if (ok(x) && !wrong.some((w) => sameAmount(w, x))) wrong.push(x);
   return shuffle([f, ...shuffle(wrong.slice(0, 4), rnd).slice(0, 3)], rnd);

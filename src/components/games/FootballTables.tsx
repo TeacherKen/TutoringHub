@@ -501,7 +501,8 @@ async function sendPendingNow(api: string) {
 
 function readPending(api: string): unknown[] {
   try {
-    return JSON.parse(localStorage.getItem(`${PENDING_KEY}:${api}`) ?? "[]") as unknown[];
+    const p: unknown = JSON.parse(localStorage.getItem(`${PENDING_KEY}:${api}`) ?? "[]");
+    return Array.isArray(p) ? p : [];
   } catch {
     return [];
   }

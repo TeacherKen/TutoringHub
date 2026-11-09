@@ -36,7 +36,8 @@ export function Pie({ parts, shaded, onTap, size = 240, label }: { parts: number
         const [x1, y1] = at(a1);
         const mid = (a0 + a1) / 2;
         const filled = on.has(i);
-        const d = `M50 50 L${x0} ${y0} A${R} ${R} 0 ${360 / parts > 180 ? 1 : 0} 1 ${x1} ${y1} Z`;
+        // One slice = the whole pizza (an arc that starts and ends at the same point draws nothing).
+        const d = parts === 1 ? `M50 ${50 - R} A${R} ${R} 0 1 1 50 ${50 + R} A${R} ${R} 0 1 1 50 ${50 - R} Z` : `M50 50 L${x0} ${y0} A${R} ${R} 0 ${360 / parts > 180 ? 1 : 0} 1 ${x1} ${y1} Z`;
         const dots = parts <= 4 ? [18, 32] : parts <= 8 ? [30] : [32];
         return (
           <g

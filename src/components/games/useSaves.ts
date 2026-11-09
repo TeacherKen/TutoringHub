@@ -25,7 +25,8 @@ export function useSaves<T>(game: string) {
   const all = useMemo<Record<string, T>>(() => {
     if (mem) return mem;
     try {
-      return raw ? (JSON.parse(raw) as Record<string, T>) : {};
+      const p: unknown = raw ? JSON.parse(raw) : {};
+      return p && typeof p === "object" && !Array.isArray(p) ? (p as Record<string, T>) : {};
     } catch {
       return {};
     }
