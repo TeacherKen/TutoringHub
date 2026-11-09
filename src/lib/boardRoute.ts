@@ -16,6 +16,7 @@ export async function boardGet(req: Request, board: BoardRow | null, me: "studen
 
 export async function boardPost(req: Request, board: BoardRow | null, me: "student" | "tutor") {
   if (!board) return NextResponse.json({ ok: false }, { status: 404 });
+  if (Number(req.headers.get("content-length")) > MAX_BODY) return NextResponse.json({ ok: false }, { status: 413 });
   const text = await req.text();
   if (text.length > MAX_BODY) return NextResponse.json({ ok: false }, { status: 413 });
   let body: unknown;

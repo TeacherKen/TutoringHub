@@ -12,6 +12,7 @@ const GAMES = new Set<string>([...BUILT_IN, "magic-square", "wolf-vs-sheep"]);
 export async function POST(req: Request, ctx: RouteContext<"/api/room/[token]/screen">) {
   const { token } = await ctx.params;
   if (!isValidToken(token)) return NextResponse.json({ ok: false }, { status: 404 });
+  if (Number(req.headers.get("content-length")) > 450_000) return NextResponse.json({ ok: false }, { status: 413 });
 
   let body: { game?: unknown; html?: unknown };
   try {

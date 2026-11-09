@@ -42,7 +42,8 @@ export async function removeCalendar(form: FormData): Promise<void> {
   await assertTutor();
   const admin = createAdminClient();
   await admin.from("calendar_sources").delete().eq("id", String(form.get("id")));
-  const { count } = await admin.from("calendar_sources").select("id", { count: "exact", head: true });
+  const { count, error: countErr } = await admin.from("calendar_sources").select("id", { count: "exact", head: true });
+  if (countErr) return; // couldn't check: leave the calendar switched on
   if (!count) await admin.from("settings").update({ calendar_connected: false }).eq("id", 1);
   else await syncCalendar();
   revalidatePath("/", "layout");

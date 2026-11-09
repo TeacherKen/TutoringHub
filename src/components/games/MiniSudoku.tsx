@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useBest } from "./useBest";
 
 // 4×4 (numbers 1–4) or 6×6 (numbers 1–6) sudoku.
@@ -63,12 +63,18 @@ function newGame(size: Size): Game {
 }
 
 export function MiniSudoku() {
-  const [game, setGame] = useState<Game>(() => newGame(4));
+  // The puzzle is shuffled only in the browser (not while the page is prepared on the server),
+  // so both sides agree and the board doesn't flash and redraw on load.
+  const [game, setGame] = useState<Game | null>(null);
+  useEffect(() => {
+    const id = setTimeout(() => setGame(newGame(4)), 0);
+    return () => clearTimeout(id);
+  }, []);
   const [sel, setSel] = useState<[number, number] | null>(null);
   const [checked, setChecked] = useState<"no" | "wrong" | "solved">("no");
   const [startedAt, setStartedAt] = useState(now);
   const [time, setTime] = useState<number | null>(null);
-  const { size, grid, start } = game;
+  const { size, grid, start } = game ?? { size: 4 as Size, grid: [] as (number | null)[][], start: [] as (number | null)[][] };
   const { best, offer } = useBest(`sudoku-${size}`, (a, b) => a < b);
   const [br, bc] = BOX[size];
   const isGiven = (r: number, c: number) => start[r][c] != null;
@@ -82,7 +88,7 @@ export function MiniSudoku() {
   }
 
   function place(n: number | null) {
-    if (!sel || checked === "solved") return;
+    if (!game || !sel || checked === "solved") return;
     const [r, c] = sel;
     if (isGiven(r, c)) return;
     const next = grid.map((row) => [...row]);
@@ -100,6 +106,8 @@ export function MiniSudoku() {
       }
     }
   }
+
+  if (!game) return <p className="py-10 text-center text-muted">Shuffling the numbers…</p>;
 
   return (
     <div className="space-y-4">

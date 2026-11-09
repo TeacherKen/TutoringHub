@@ -15,6 +15,8 @@ export async function imageGet(req: Request, b: BoardRow | null) {
 /** POST the picture's bytes → { key }. */
 export async function imagePost(req: Request, b: BoardRow | null) {
   if (!b) return NextResponse.json({ error: "not found" }, { status: 404 });
+  // Say no to oversized uploads before reading them in.
+  if (Number(req.headers.get("content-length")) > 4 * 1024 * 1024) return NextResponse.json({ error: "too big" }, { status: 413 });
   const type = (req.headers.get("content-type") ?? "").split(";")[0].trim();
   const r = await uploadBoardImage(b, await req.arrayBuffer(), type);
   return NextResponse.json(r, { status: r.key ? 200 : 400, headers: { "Cache-Control": "no-store" } });

@@ -33,6 +33,7 @@ export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   if (!signedIn && !PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) {
+    if (path.startsWith("/api/")) return NextResponse.json({ error: "Please sign in." }, { status: 401 });
     const to = request.nextUrl.clone();
     to.pathname = "/login";
     to.search = path === "/" ? "" : `?next=${encodeURIComponent(path)}`; // come back here after signing in

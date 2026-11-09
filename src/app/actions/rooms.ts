@@ -3,18 +3,20 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { assertTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { isUuid } from "@/lib/boardShared";
 
 const newToken = () => randomBytes(24).toString("base64url"); // 32 characters, unguessable
 
 /** Get (or make) a student's room link token. */
 export async function ensureRoomToken(studentId: string): Promise<{ token?: string; error?: string }> {
   await assertTutor();
+  if (!isUuid(studentId)) return { error: "Couldn't make the link." };
   const supabase = await createClient();
-  const { data } = await supabase.from("students").select("room_token").eq("id", studentId).single();
+  const { data } = await supabase.from("students").select("room_token").eq("id", studentId).maybeSingle();
   if (data?.room_token) return { token: data.room_token as string };
   const token = newToken();
-  const { error } = await supabase.from("students").update({ room_token: token }).eq("id", studentId);
-  if (error) return { error: "Couldn't make the link." };
+  const { data: saved, error } = await supabase.from("students").update({ room_token: token }).eq("id", studentId).select("id");
+  if (error || !saved?.length) return { error: "Couldn't make the link." };
   revalidatePath("/", "layout");
   return { token };
 }

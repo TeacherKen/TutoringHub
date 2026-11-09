@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { assertTutor } from "@/lib/auth";
+import { isUuid } from "@/lib/boardShared";
 import { createClient } from "@/lib/supabase/server";
 import { syncCalendar } from "@/lib/calendar/sync";
 import { assignReceipt } from "@/lib/receipts";
@@ -15,7 +16,7 @@ function studentFields(form: FormData) {
   const first = String(form.get("first_name") ?? "").trim().split(/\s+/)[0]?.slice(0, 40) ?? "";
   const keywords = String(form.get("keywords") ?? "")
     .split(",")
-    .map((k) => k.trim())
+    .map((k) => k.trim().slice(0, 60))
     .filter(Boolean)
     .slice(0, 10);
   const contactApp = s(form, "contact_app", 20);
@@ -123,8 +124,11 @@ export async function setHourSharing(form: FormData): Promise<void> {
   if (!me) return;
 
   if (withId && withId !== "own") {
-    const { data: other } = await supabase.from("students").select("hour_account_id").eq("id", withId).single();
-    let target = other?.hour_account_id as string | null;
+    // Only share with a real child: otherwise the hours would be moved onto an empty "Shared" account.
+    if (!isUuid(withId) || withId === id) return;
+    const { data: other } = await supabase.from("students").select("hour_account_id").eq("id", withId).maybeSingle();
+    if (!other) return;
+    let target = other.hour_account_id as string | null;
     if (!target) {
       const { data: a } = await supabase.from("hour_accounts").insert({ name: "Shared" }).select("id").single();
       if (!a) throw new Error("Couldn't share the hours. Please try again.");
@@ -256,7 +260,7 @@ export async function deleteAdjustment(form: FormData): Promise<void> {
 /** From a renewal message: add the chosen package now, marked "not paid yet". */
 export async function addUnpaidPackage(accountId: string, hours: number, price: number, note: string): Promise<{ ok?: boolean; error?: string }> {
   await assertTutor();
-  if (!/^[0-9a-f-]{36}$/.test(accountId) || !(hours > 0 && hours <= 500) || !(price >= 0)) return { error: "Bad package." };
+  if (!/^[0-9a-f-]{36}$/.test(accountId) || !(hours > 0 && hours <= 500) || !(price >= 0 && price <= 10_000_000)) return { error: "Bad package." };
   const supabase = await createClient();
   const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
   const { error } = await supabase

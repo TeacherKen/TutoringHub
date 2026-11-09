@@ -36,8 +36,11 @@ export async function saveFeedbackSettings(_: SettingsState, form: FormData): Pr
   await assertTutor();
   const tone = String(form.get("tone") ?? "warm");
   const template = String(form.get("prompt_template") ?? "").trim();
-  const low = Number(form.get("low_hours_threshold"));
+  const low = form.has("low_hours_threshold") ? Number(form.get("low_hours_threshold")) : NaN;
   const trackFrom = String(form.get("track_from") ?? "");
+  // Check PromptPay before saving anything, so a typo there doesn't leave the form half-saved.
+  const pp = String(form.get("promptpay_id") ?? "").replace(/[\s-]/g, "");
+  if (!(pp === "" || /^(0\d{9}|\d{13}|\d{15})$/.test(pp))) return { error: "PromptPay should be a phone number like 0812345678 (or a 13-digit ID)." };
   const supabase = await createClient();
   const { error } = await supabase
     .from("settings")
@@ -45,18 +48,16 @@ export async function saveFeedbackSettings(_: SettingsState, form: FormData): Pr
       tone: tone in TONES ? tone : "warm",
       allow_emoji: form.get("allow_emoji") === "on",
       prompt_template: !template || template === DEFAULT_TEMPLATE.trim() ? null : template.slice(0, 8000),
-      low_hours_threshold: Number.isFinite(low) && low >= 0 && low <= 50 ? low : 2,
+      ...(Number.isFinite(low) && low >= 0 && low <= 50 ? { low_hours_threshold: low } : {}),
       ...(/^\d{4}-\d{2}-\d{2}$/.test(trackFrom) ? { track_from: trackFrom } : {}),
     })
     .eq("id", 1);
   if (error) return { error: "Couldn't save." };
   // Separate, so saving still works before database update 0011.
-  const weeks = Number(form.get("renew_weeks"));
+  const weeks = form.has("renew_weeks") ? Number(form.get("renew_weeks")) : NaN;
   if (Number.isFinite(weeks) && weeks >= 0 && weeks <= 12) await supabase.from("settings").update({ renew_weeks: weeks }).eq("id", 1);
   await supabase.from("settings").update({ auto_done: form.get("auto_done") === "on" }).eq("id", 1);
-  const pp = String(form.get("promptpay_id") ?? "").replace(/[\s-]/g, "");
-  if (pp === "" || /^(0\d{9}|\d{13}|\d{15})$/.test(pp)) await supabase.from("settings").update({ promptpay_id: pp || null }).eq("id", 1);
-  else return { error: "PromptPay should be a phone number like 0812345678 (or a 13-digit ID)." };
+  if (form.has("promptpay_id")) await supabase.from("settings").update({ promptpay_id: pp || null }).eq("id", 1);
   revalidatePath("/", "layout");
   return { ok: "Saved." };
 }
