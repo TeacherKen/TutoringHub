@@ -85,11 +85,11 @@ export function RoomControls({ students, showGames = true, lessonId, bare = fals
 
   async function reset(s: S) {
     if (!confirm(`Make a new link for ${s.first_name}? The old link will stop working.`)) return;
-    const r = await resetRoomToken(s.id);
+    const r: { token?: string; error?: string } = await resetRoomToken(s.id).catch(netFail);
     if (r.token) {
       setTokens((t) => ({ ...t, [s.id]: r.token! }));
       flash(`New link made for ${s.first_name}. Send it to them again.`);
-    }
+    } else flash(r.error ?? "Couldn't make a new link. Please try again.");
   }
 
   return (
@@ -151,7 +151,7 @@ export function RoomControls({ students, showGames = true, lessonId, bare = fals
                 Preview
               </button>
               {tokens[s.id] ? (
-                <button type="button" className="text-xs text-muted underline" onClick={() => reset(s)}>
+                <button type="button" className="inline-flex min-h-10 items-center px-1 text-xs text-muted underline" onClick={() => reset(s)}>
                   New link
                 </button>
               ) : null}
@@ -189,7 +189,7 @@ function SlidesField({ student }: { student: S }) {
       onSubmit={async (e) => {
         e.preventDefault();
         setState("saving");
-        const r = await setStudentSlides(student.id, url, label);
+        const r: { ok?: boolean; error?: string } = await setStudentSlides(student.id, url, label).catch(netFail);
         setState(r.ok ? "saved" : (r.error ?? "Couldn't save."));
       }}
     >
@@ -218,11 +218,11 @@ function SlidesField({ student }: { student: S }) {
       {url && !changed ? (
         <button
           type="button"
-          className="text-xs text-muted underline"
+          className="inline-flex min-h-10 items-center text-xs text-muted underline"
           onClick={async () => {
             setUrl("");
             setLabel("");
-            const r = await setStudentSlides(student.id, "", "");
+            const r: { ok?: boolean; error?: string } = await setStudentSlides(student.id, "", "").catch(netFail);
             setState(r.ok ? "idle" : (r.error ?? "Couldn't save."));
           }}
         >

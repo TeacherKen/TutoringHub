@@ -8,6 +8,8 @@ const COLOR: Record<ReturnType<typeof level>, string> = {
   good: "mg-good bg-lime-200 text-lime-900",
   mastered: "mg-mastered bg-green-600 text-white",
 };
+// A symbol for each level too, so the chart doesn't rely on colour alone (colour-blind children and parents).
+const MARK: Record<ReturnType<typeof level>, string> = { new: "", weak: "!", learning: "~", good: "✓", mastered: "★" };
 const LABEL: Record<ReturnType<typeof level>, string> = {
   new: "Not tried yet",
   weak: "Needs practice",
@@ -45,10 +47,18 @@ export function MasteryGrid({ progress, tables = [...TABLES], compact = false }:
                   return (
                     <td
                       key={i}
-                      className={`rounded ${compact ? "h-6" : "h-8"} ${COLOR[l]}`}
+                      className={`relative rounded ${compact ? "h-6 text-[10px] font-bold" : "h-8"} ${COLOR[l]}`}
                       title={`${t} × ${i + 1} = ${t * (i + 1)} — ${LABEL[l]}${p ? ` (${p.correct} right, ${p.wrong} wrong)` : ""}`}
+                      aria-label={`${t} × ${i + 1}: ${LABEL[l]}`}
                     >
-                      {compact ? "" : t * (i + 1)}
+                      {compact ? (
+                        MARK[l]
+                      ) : (
+                        <>
+                          {t * (i + 1)}
+                          {MARK[l] ? <span className="absolute right-0.5 top-0 text-[8px] font-bold leading-none opacity-80" aria-hidden>{MARK[l]}</span> : null}
+                        </>
+                      )}
                     </td>
                   );
                 })}
@@ -65,7 +75,7 @@ export function MasteryGrid({ progress, tables = [...TABLES], compact = false }:
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
         {(Object.keys(LABEL) as (keyof typeof LABEL)[]).map((k) => (
           <span key={k} className="flex items-center gap-1">
-            <span className={`inline-block h-3 w-3 rounded ${COLOR[k]}`} /> {LABEL[k]}
+            <span className={`inline-grid h-4 w-4 place-items-center rounded text-[9px] font-bold ${COLOR[k]}`}>{MARK[k]}</span> {LABEL[k]}
           </span>
         ))}
       </div>

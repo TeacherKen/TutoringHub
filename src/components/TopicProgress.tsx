@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { useState, useTransition } from "react";
 import { removeTopic, setTopicStatus } from "@/app/actions/progress";
 import { STATUS_LABEL, TOPIC_STATUSES, type TopicRow, type TopicStatus } from "@/lib/progress";
@@ -15,7 +16,7 @@ export function TopicProgress({ studentId, rows, ready, suggestions }: { student
 
   const run = (fn: () => Promise<{ error?: string } | { ok?: boolean }>) =>
     start(async () => {
-      const r = await fn();
+      const r = await fn().catch(netFail);
       setError("error" in r && r.error ? r.error : null);
       setOpen(null);
     });

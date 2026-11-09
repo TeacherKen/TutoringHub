@@ -3,6 +3,15 @@ import { useEffect, useState } from "react";
 import { PIZZA_LEVELS, pizzaQ, pizzaRight, type PizzaLevel, type PizzaQ } from "@/lib/fractions";
 import { Bar, FracText, Pie } from "./FractionShapes";
 import { useBest } from "./useBest";
+import { BigButton, GameHero, LevelPicker, ResultCard, Runner, THEMES } from "./GameKit";
+
+const T = THEMES.pizza;
+// A red-and-white checked tablecloth, like a pizzeria.
+const CLOTH = {
+  backgroundColor: "#fff7ed",
+  backgroundImage: "linear-gradient(90deg, rgba(220,38,38,.18) 50%, transparent 50%), linear-gradient(rgba(220,38,38,.18) 50%, transparent 50%)",
+  backgroundSize: "36px 36px",
+};
 import { FractionMaker } from "./FractionMaker";
 import { FractionShow } from "./FractionShow";
 
@@ -104,32 +113,20 @@ export function PizzaFractions() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <div className="flex justify-center">
-          <Pie parts={8} shaded={[0, 1, 2]} size={120} label="A pizza with 3 of 8 slices shaded" />
-        </div>
-        <p className="text-muted">{COUNT} questions. Get them all right as fast as you can.</p>
-        <div className="grid gap-2">
-          {(Object.keys(PIZZA_LEVELS) as PizzaLevel[]).map((l) => (
-            <button
-              key={l}
-              type="button"
-              aria-pressed={level === l}
-              onClick={() => setLevel(l)}
-              className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
-            >
-              {PIZZA_LEVELS[l]}
-            </button>
-          ))}
-        </div>
-        {best != null ? <p className="text-sm text-muted">Your fastest: {secs(best)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
+        <GameHero theme={T} art={<Pie parts={8} shaded={[0, 1, 2]} size={70} label="" />} title="PIZZA FRACTIONS">
+          {COUNT} questions. Get them all right as fast as you can!
+        </GameHero>
+        <LevelPicker theme={T} levels={Object.entries(PIZZA_LEVELS) as [PizzaLevel, string][]} value={level} onChange={setLevel} />
+        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start
+        </BigButton>
+        <p className="pt-1 text-center text-xs font-semibold uppercase tracking-[0.2em] text-muted">For teaching</p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <button type="button" className="btn-secondary w-full" onClick={() => setPhase("show")}>
+          <button type="button" className="btn-secondary min-h-14 w-full" onClick={() => setPhase("show")}>
             🍕 Show a fraction
           </button>
-          <button type="button" className="btn-secondary w-full" onClick={() => setPhase("maker")}>
+          <button type="button" className="btn-secondary min-h-14 w-full" onClick={() => setPhase("maker")}>
             🧑‍🏫 Compare and add two
           </button>
         </div>
@@ -142,19 +139,7 @@ export function PizzaFractions() {
 
   if (phase === "done") {
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-sm text-muted">All {COUNT} done!</p>
-        <p className="text-5xl font-semibold tabular-nums">{secs(Math.round(elapsed / 100))}</p>
-        <p className={newBest ? "font-medium text-ok" : "text-muted"}>{newBest ? "New fastest time! 🍕" : `Your fastest: ${best != null ? secs(best) : "—"}`}</p>
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change level
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+      <ResultCard theme={T} art="🍕" label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 
@@ -168,11 +153,10 @@ export function PizzaFractions() {
         </span>
         <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-        <div className="h-full bg-accent transition-all" style={{ width: `${(n / COUNT) * 100}%` }} />
-      </div>
+      <Runner theme={T} value={n} max={COUNT} icon="🍕" />
 
-      <h3 className="flex min-h-16 flex-wrap items-center justify-center gap-x-3 text-center text-2xl font-semibold">
+      <div className="space-y-3 rounded-3xl p-4 text-[#3b1a0a] shadow-[0_6px_18px_rgba(0,0,0,.15)] ring-4 ring-[#c2412d]/20" style={CLOTH}>
+      <h3 className="mx-auto flex min-h-16 w-fit flex-wrap items-center justify-center gap-x-3 rounded-2xl bg-white/90 px-4 py-2 text-center text-2xl font-semibold shadow-sm">
         {q.kind === "make" ? (
           <>
             Shade <FracText f={q.target} className="text-4xl" /> of the {thing(q.shape)}
@@ -210,6 +194,7 @@ export function PizzaFractions() {
           </div>
         )}
       </div>
+      </div>
 
       <p aria-live="polite" className={`flex min-h-7 flex-wrap items-center justify-center gap-x-2 text-center ${msg ? (msg.ok ? "font-semibold text-ok" : "text-danger") : ""}`}>
         {msg?.text}
@@ -225,7 +210,7 @@ export function PizzaFractions() {
                 type="button"
                 disabled={no || busy}
                 onClick={() => choose(o)}
-                className={`flex min-h-24 items-center justify-center rounded-2xl border-2 transition active:scale-95 ${no ? "border-danger/40 opacity-40" : "border-line bg-surface-2 hover:border-accent"}`}
+                className={`flex min-h-24 items-center justify-center rounded-2xl border-2 bg-white text-[#3b1a0a] shadow-[0_4px_0_#e7c9a9] transition hover:-translate-y-0.5 active:translate-y-1 active:shadow-none ${no ? "border-danger/40 opacity-40" : "border-[#f3d9bf]"}`}
               >
                 <FracText f={o} className="text-4xl" />
               </button>
@@ -237,9 +222,11 @@ export function PizzaFractions() {
           <button type="button" className="btn-secondary min-h-14" disabled={!shaded.length || busy} onClick={() => setShaded([])}>
             Clear
           </button>
-          <button type="button" className="btn-primary min-h-14 flex-1 text-lg" disabled={!shaded.length || busy} onClick={check}>
-            Check
-          </button>
+          <div className="flex-1">
+            <BigButton theme={T} onClick={check} disabled={!shaded.length || busy}>
+              ✓ Check
+            </BigButton>
+          </div>
         </div>
       )}
     </div>

@@ -43,7 +43,7 @@ export function ChildTopics({ lessonId, kids, lessonTopics }: { lessonId: string
             {all.map((t) => {
               const on = (mine[k.id] ?? []).includes(t);
               return (
-                <button key={t} type="button" aria-pressed={on} onClick={() => toggle(k.id, t)} className={`press min-h-9 ${on ? "chip-accent" : "chip opacity-60 line-through"}`}>
+                <button key={t} type="button" aria-pressed={on} onClick={() => toggle(k.id, t)} className={`press min-h-11 ${on ? "chip-accent" : "chip opacity-60 line-through"}`}>
                   {on ? "✓ " : ""}
                   {t}
                 </button>

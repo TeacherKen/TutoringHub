@@ -57,14 +57,19 @@ export function PushToggle() {
 
   async function turnOff() {
     setState("working");
-    const reg = await navigator.serviceWorker.getRegistration("/");
-    const sub = await reg?.pushManager.getSubscription();
-    if (sub) {
-      await removePushSubscription(sub.endpoint).catch(netFail);
-      await sub.unsubscribe();
+    try {
+      const reg = await navigator.serviceWorker.getRegistration("/");
+      const sub = await reg?.pushManager.getSubscription();
+      if (sub) {
+        await removePushSubscription(sub.endpoint).catch(netFail);
+        await sub.unsubscribe();
+      }
+      setMsg(null);
+      setState("off");
+    } catch {
+      setMsg("Couldn't turn them off on this device. Please try again.");
+      setState("on");
     }
-    setMsg(null);
-    setState("off");
   }
 
   return (

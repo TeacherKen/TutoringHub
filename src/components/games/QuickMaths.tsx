@@ -2,6 +2,9 @@
 import { useEffect, useState } from "react";
 import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
+import { BigButton, Board, GameHero, LevelPicker, ResultCard, Runner, THEMES } from "./GameKit";
+
+const T = THEMES.chalk;
 
 const LEVELS = {
   easy: "Easy · add and take away to 20",
@@ -110,43 +113,21 @@ export function QuickMaths() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <p className="text-muted">Answer {COUNT} questions as fast as you can. Wrong answers just try again.</p>
-        <div className="grid gap-2">
-          {(Object.keys(LEVELS) as Level[]).map((l) => (
-            <button
-              key={l}
-              type="button"
-              aria-pressed={level === l}
-              onClick={() => setLevel(l)}
-              className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
-            >
-              {LEVELS[l]}
-            </button>
-          ))}
-        </div>
-        {best != null ? <p className="text-sm text-muted">Your fastest: {secs(best)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
+        <GameHero theme={T} art="🧮" title="QUICK MATHS">
+          Answer {COUNT} questions as fast as you can. A wrong answer? Just try again.
+        </GameHero>
+        <LevelPicker theme={T} levels={Object.entries(LEVELS) as [Level, string][]} value={level} onChange={setLevel} />
+        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start
+        </BigButton>
       </div>
     );
   }
 
   if (phase === "done") {
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-sm text-muted">All {COUNT} done!</p>
-        <p className="text-5xl font-semibold tabular-nums">{secs(Math.round(elapsed / 100))}</p>
-        <p className={newBest ? "font-medium text-ok" : "text-muted"}>{newBest ? "New fastest time!" : `Your fastest: ${best != null ? secs(best) : "—"}`}</p>
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change level
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+      <ResultCard theme={T} art="🧮" label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 
@@ -158,11 +139,14 @@ export function QuickMaths() {
         </span>
         <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-        <div className="h-full bg-accent transition-all" style={{ width: `${(n / COUNT) * 100}%` }} />
-      </div>
-      <p className="py-4 text-center text-5xl font-semibold tabular-nums sm:text-6xl">{q.text}</p>
-      {wrong ? <p className="-mt-3 text-center text-sm text-danger">Not quite. Try again</p> : null}
+      <Runner theme={T} value={n} max={COUNT} />
+      <Board theme={T}>
+        <p key={q.text + n} className={`pz-anim py-3 text-center font-[cursive,ui-rounded] text-5xl font-bold tabular-nums [text-shadow:0_0_1px_rgba(255,255,255,.6)] sm:text-6xl ${wrong ? "animate-[pz-shake_.35s]" : "animate-[tt-pop_.3s_ease-out]"}`}>
+          {q.text} = ?
+        </p>
+        {wrong ? <p className="text-center text-sm font-semibold text-[#ffb4a8]">Not quite. Try again!</p> : null}
+        <span className="absolute bottom-1.5 right-3 h-1.5 w-8 rounded-full bg-white/70" aria-hidden />
+      </Board>
       <NumberPad
         value={answer}
         onChange={(v) => {

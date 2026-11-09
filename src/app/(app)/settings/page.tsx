@@ -81,7 +81,7 @@ export default async function SettingsPage() {
                   <form action={setCalendarPreply}>
                     <input type="hidden" name="id" value={c.id} />
                     <input type="hidden" name="is_preply" value={c.is_preply ? "false" : "true"} />
-                    <button className="text-xs text-muted underline">{c.is_preply ? "Not Preply" : "Mark as Preply"}</button>
+                    <button className="inline-flex min-h-10 items-center text-xs text-muted underline">{c.is_preply ? "Not Preply" : "Mark as Preply"}</button>
                   </form>
                   <form action={removeCalendar}>
                     <input type="hidden" name="id" value={c.id} />

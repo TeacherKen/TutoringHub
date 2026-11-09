@@ -269,14 +269,14 @@ export default async function LessonPage({ params, searchParams }: PageProps<"/l
                           <input type="hidden" name="lesson_id" value={lesson.id} />
                           <input type="hidden" name="student_id" value={ls.student_id} />
                           <input type="hidden" name="uses_hours" value={ls.uses_hours ? "false" : "true"} />
-                          <button className={`pill press min-h-9 ${ls.uses_hours ? "ok" : ""}`} title="Tap to change">
+                          <button className={`pill press min-h-11 ${ls.uses_hours ? "ok" : ""}`} title="Tap to change">
                             {ls.uses_hours ? "Uses package hours" : "Not using hours"}
                           </button>
                         </form>
                         <form action={removeLessonStudent}>
                           <input type="hidden" name="lesson_id" value={lesson.id} />
                           <input type="hidden" name="student_id" value={ls.student_id} />
-                          <button className="min-h-9 px-2 text-xs text-muted underline">Remove</button>
+                          <button className="min-h-11 px-2 text-xs text-muted underline">Remove</button>
                         </form>
                       </div>
                     </div>

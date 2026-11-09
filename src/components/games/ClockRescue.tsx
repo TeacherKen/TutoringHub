@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { ampm, CLOCK_LEVELS, clockHint, clockQ, DAY, digital, duration, hhmm, hourAngle, timeJumps, toFace, minuteAngle, same, STEP, type ClockLevel, type ClockQ, type Time } from "@/lib/clock";
 import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
+import { BigButton, GameHero, LevelPicker, ResultCard, Runner, THEMES } from "./GameKit";
+
+const T = THEMES.sky;
 
 // ⏰ Clock Rescue: set the clock (drag the hands), read the clock (pick the time), and "how much later?".
 // 10 questions, beat your fastest time. Wrong answers get a kind hint, then try again.
@@ -236,28 +239,15 @@ export function ClockRescue() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <div className="pointer-events-none">
-          <ClockFace time={{ h: 10, m: 10 }} size={150} />
-        </div>
-        <p className="text-muted">{COUNT} questions: set the clock, read the clock, and work out times. Wrong answers get a hint.</p>
-        <div className="grid gap-2">
-          {(Object.keys(CLOCK_LEVELS) as ClockLevel[]).map((l) => (
-            <button
-              key={l}
-              type="button"
-              aria-pressed={level === l}
-              onClick={() => setLevel(l)}
-              className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
-            >
-              {CLOCK_LEVELS[l]}
-            </button>
-          ))}
-        </div>
-        {best != null ? <p className="text-sm text-muted">Your fastest: {secs(best)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
-        <button type="button" className="btn-secondary w-full" onClick={() => setPhase("demo")}>
+        <GameHero theme={T} art={<span className="pointer-events-none block"><ClockFace time={{ h: 10, m: 10 }} size={70} /></span>} title="CLOCK RESCUE">
+          {COUNT} questions: set the clock, read the clock, and work out times. Wrong answers get a hint.
+        </GameHero>
+        <LevelPicker theme={T} levels={Object.entries(CLOCK_LEVELS) as [ClockLevel, string][]} value={level} onChange={setLevel} />
+        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start
+        </BigButton>
+        <button type="button" className="btn-secondary min-h-14 w-full" onClick={() => setPhase("demo")}>
           🧑‍🏫 Teacher demo clock
         </button>
       </div>
@@ -268,19 +258,7 @@ export function ClockRescue() {
 
   if (phase === "done") {
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-sm text-muted">All {COUNT} clocks rescued! ⏰</p>
-        <p className="text-5xl font-semibold tabular-nums">{secs(Math.round(elapsed / 100))}</p>
-        <p className={newBest ? "font-medium text-ok" : "text-muted"}>{newBest ? "New fastest time! 🏆" : `Your fastest: ${best != null ? secs(best) : "—"}`}</p>
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change level
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+      <ResultCard theme={T} art="⏰" label={`All ${COUNT} clocks rescued in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 
@@ -293,20 +271,19 @@ export function ClockRescue() {
         </span>
         <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-        <div className="h-full bg-accent transition-all" style={{ width: `${(n / COUNT) * 100}%` }} />
-      </div>
+      <Runner theme={T} value={n} max={COUNT} icon="⏰" />
 
+      <div className="space-y-4 rounded-3xl p-4 shadow-[0_6px_18px_rgba(0,0,0,.12)] ring-1 ring-black/5" style={{ background: "linear-gradient(#e6f4fb, #f7fbfd)", color: "#0f2a36" }}>
       {q.kind === "set" ? (
         <>
           <p className="text-center text-2xl font-semibold">
             Show <span className="text-accent">{q.say}</span>
           </p>
           <ClockFace time={set} onChange={setSet} step={STEP[level]} />
-          <p className="text-center text-sm text-muted">Drag the hands. Long hand = minutes, short hand = hours.</p>
-          <button type="button" className="btn-primary w-full" onClick={() => (same(set, q.target) ? right() : setWrong(true))}>
-            Check
-          </button>
+          <p className="text-center text-sm text-[#4a6a78]">Turn the long hand (minutes) and the short hand follows, or use + and −.</p>
+          <BigButton theme={T} onClick={() => (same(set, q.target) ? right() : setWrong(true))}>
+            ✓ Check
+          </BigButton>
         </>
       ) : q.kind === "read" ? (
         <>
@@ -371,8 +348,9 @@ export function ClockRescue() {
           />
         </>
       )}
+      </div>
 
-      {wrong ? <p className="rounded-2xl bg-surface-2 p-3 text-center text-danger">Not quite. {clockHint(q)}</p> : null}
+      {wrong ? <p className="pz-anim animate-[pz-shake_.35s] rounded-2xl bg-danger-soft p-3 text-center font-medium text-danger">🤔 Not quite. {clockHint(q)}</p> : null}
     </div>
   );
 }

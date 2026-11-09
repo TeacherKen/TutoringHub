@@ -1578,7 +1578,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
               {brought === page ? `✓ Sent — ${otherName} is going to page ${pos + 1}` : `Bring ${otherName} to page ${pos + 1}`}
             </button>
             {saveLessonId ? (
-              <button type="button" className="btn-primary min-h-9 px-3 text-sm" onClick={saveWork} disabled={saving?.startsWith("Saving")}>
+              <button type="button" className="btn-primary min-h-11 px-3 text-sm" onClick={saveWork} disabled={saving?.startsWith("Saving")}>
                 📸 Save work to lesson
               </button>
             ) : null}

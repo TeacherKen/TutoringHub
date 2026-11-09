@@ -110,7 +110,7 @@ export function LessonAISummary({
 
   async function allowPictures(on: boolean) {
     setReadPics(on);
-    const r = await setAiPictures(on);
+    const r = await setAiPictures(on).catch(netFail);
     if (r.error) {
       setReadPics(!on);
       setError(r.error);
@@ -142,7 +142,7 @@ export function LessonAISummary({
         const path = `${lessonId}/${randomId()}.jpg`;
         const { error: upErr } = await sb.storage.from(MATERIALS_BUCKET).upload(path, blob, { contentType: "image/jpeg" });
         if (upErr) continue;
-        const r = await addMaterialFile(lessonId, path, "photo", label);
+        const r = await addMaterialFile(lessonId, path, "photo", label).catch(netFail);
         if (!r.error) saved++;
       }
     }

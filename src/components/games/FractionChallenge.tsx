@@ -4,6 +4,9 @@ import { CHALLENGE_LEVELS, challengeHint, challengeQ, type ChallengeLevel, type 
 import { FracText } from "./FractionShapes";
 import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
+import { BigButton, Board, GameHero, LevelPicker, ResultCard, Runner, THEMES } from "./GameKit";
+
+const T = THEMES.sun;
 
 // 🏆 Fraction Challenge (older children): fractions of amounts, adding and taking away fractions with the
 // same bottom number, and equivalent fractions. Answers go in on the big number pad. 10 questions.
@@ -97,43 +100,21 @@ export function FractionChallenge() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <p className="text-muted">{COUNT} questions. Wrong answers get a hint, then try again.</p>
-        <div className="grid gap-2">
-          {(Object.keys(CHALLENGE_LEVELS) as ChallengeLevel[]).map((l) => (
-            <button
-              key={l}
-              type="button"
-              aria-pressed={level === l}
-              onClick={() => setLevel(l)}
-              className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
-            >
-              {CHALLENGE_LEVELS[l]}
-            </button>
-          ))}
-        </div>
-        {best != null ? <p className="text-sm text-muted">Your fastest: {secs(best)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
+        <GameHero theme={T} art="🏆" title="FRACTION CHALLENGE">
+          {COUNT} questions. A wrong answer gets a hint, then you try again.
+        </GameHero>
+        <LevelPicker theme={T} levels={Object.entries(CHALLENGE_LEVELS) as [ChallengeLevel, string][]} value={level} onChange={setLevel} />
+        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start
+        </BigButton>
       </div>
     );
   }
 
   if (phase === "done") {
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-sm text-muted">All {COUNT} done!</p>
-        <p className="text-5xl font-semibold tabular-nums">{secs(Math.round(elapsed / 100))}</p>
-        <p className={newBest ? "font-medium text-ok" : "text-muted"}>{newBest ? "New fastest time! 🏆" : `Your fastest: ${best != null ? secs(best) : "—"}`}</p>
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change level
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+      <ResultCard theme={T} art="🏆" label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 
@@ -146,15 +127,15 @@ export function FractionChallenge() {
         </span>
         <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-        <div className="h-full bg-accent transition-all" style={{ width: `${(n / COUNT) * 100}%` }} />
-      </div>
-      <div className="py-3">
-        <Question q={q} />
-      </div>
+      <Runner theme={T} value={n} max={COUNT} icon="🏃" />
+      <Board theme={T}>
+        <div key={n} className="pz-anim animate-[tt-pop_.3s_ease-out] py-2 [text-shadow:0_2px_0_rgba(0,0,0,.2)]">
+          <Question q={q} />
+        </div>
+      </Board>
       {wrong ? (
-        <div className="space-y-3 rounded-2xl bg-surface-2 p-3 text-center">
-          <p className="text-danger">Not quite. {challengeHint(q)}</p>
+        <div className="pz-anim animate-[pz-shake_.35s] space-y-3 rounded-2xl bg-danger-soft p-3 text-center">
+          <p className="font-medium text-danger">🤔 Not quite. {challengeHint(q)}</p>
           {q.kind === "of" ? <Groups q={q} /> : null}
         </div>
       ) : null}

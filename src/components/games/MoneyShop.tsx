@@ -2,6 +2,9 @@
 import { useEffect, useState } from "react";
 import { changeHint, face, fewest, fmt, shopHint, shopQ, SHOP_LEVELS, sum, wallet, type Currency, type Money, type ShopLevel, type ShopQ } from "@/lib/moneyShop";
 import { useBest } from "./useBest";
+import { BigButton, GameHero, LevelPicker, ResultCard, Runner, THEMES } from "./GameKit";
+
+const T = THEMES.shop;
 
 // 🛒 Money Shop: pay the exact price, give the change, and add up a basket — with Thai baht or US dollars.
 // Children tap coins and notes into the tray (tap one in the tray to take it back), then press Pay.
@@ -59,14 +62,16 @@ export function Cash({ m, c, small = false }: { m: Money; c: Currency; small?: b
 
 function Shelf({ q, c, level }: { q: ShopQ; c: Currency; level: ShopLevel }) {
   return (
-    <div className="space-y-3 rounded-2xl bg-surface-2 p-4">
+    <div className="overflow-hidden rounded-3xl shadow-[0_6px_18px_rgba(0,0,0,.15)] ring-1 ring-black/10">
+      <div className="h-6" style={{ background: "repeating-linear-gradient(90deg,#e0504a 0 26px,#fbf3e4 26px 52px)" }} aria-hidden />
+      <div className="space-y-3 p-4 text-[#3b2a12]" style={{ background: "linear-gradient(#fbf1dc, #f3e2c0)" }}>
       <div className="flex flex-wrap justify-center gap-3">
         {q.items.map((it) => (
-          <div key={it.name} className="flex min-w-[6.5rem] flex-col items-center rounded-xl bg-surface px-3 py-2 shadow-sm">
+          <div key={it.name} className="pz-anim flex min-w-[6.5rem] animate-[tt-pop_.3s_ease-out] flex-col items-center rounded-2xl bg-white px-3 py-2 shadow-[0_4px_0_#e2c99a]">
             <span className="text-5xl leading-tight" aria-hidden>
               {it.emoji}
             </span>
-            <span className="text-sm text-muted">{it.name}</span>
+            <span className="text-sm text-[#7a6a55]">{it.name}</span>
             <span className="mt-1 rounded-full bg-[#ffc629] px-2.5 py-0.5 text-lg font-bold tabular-nums text-[#2b1a08]">{fmt(it.price, c)}</span>
           </div>
         ))}
@@ -74,7 +79,7 @@ function Shelf({ q, c, level }: { q: ShopQ; c: Currency; level: ShopLevel }) {
       <p className="text-center text-lg font-semibold">
         {q.paid == null ? (
           <>
-            Pay exactly <span className="text-accent">{fmt(q.total, c)}</span>
+            Pay exactly <span className="rounded-full bg-[#ffd84d] px-2.5 py-0.5 text-[#3b2a00]">{fmt(q.total, c)}</span>
           </>
         ) : (
           <span className="inline-flex flex-wrap items-center justify-center gap-2">
@@ -82,6 +87,8 @@ function Shelf({ q, c, level }: { q: ShopQ; c: Currency; level: ShopLevel }) {
           </span>
         )}
       </p>
+      </div>
+      <div className="h-4" style={{ background: "linear-gradient(#e6b77a, #b98446)" }} aria-hidden />
     </div>
   );
 }
@@ -146,7 +153,9 @@ export function MoneyShop() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <p className="text-muted">{COUNT} shoppers. Tap coins and notes to pay, then press Pay. Wrong? You get a hint.</p>
+        <GameHero theme={T} art="🛒" title="MONEY SHOP">
+          {COUNT} shoppers. Tap coins and notes to pay, then press Pay. Wrong? You get a hint.
+        </GameHero>
         <div className="grid grid-cols-2 gap-2" role="group" aria-label="Money">
           {(
             [
@@ -159,53 +168,30 @@ export function MoneyShop() {
               type="button"
               aria-pressed={currency === c}
               onClick={() => setCurrency(c)}
-              className={`min-h-14 rounded-xl border-2 px-3 text-lg font-semibold ${currency === c ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}
+              className={`min-h-14 rounded-2xl border-2 px-3 text-lg font-semibold transition ${currency === c ? "-translate-y-0.5 border-transparent text-white shadow-[0_4px_0_#1d5235]" : "border-line bg-surface"}`}
+              style={currency === c ? { background: `linear-gradient(${T.from}, ${T.to})` } : undefined}
             >
               {label}
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-2 py-1" aria-hidden>
+        <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl p-3 shadow-inner" style={{ background: "radial-gradient(circle at 50% 30%, #2f7d4f, #1d5235)" }} aria-hidden>
           {wallet(currency, { items: [], total: 0, paid: Infinity, target: 0 }).map((m) => (
             <Cash key={m.value} m={m} c={currency} small />
           ))}
         </div>
-        <div className="grid gap-2">
-          {(Object.keys(SHOP_LEVELS) as ShopLevel[]).map((l) => (
-            <button
-              key={l}
-              type="button"
-              aria-pressed={level === l}
-              onClick={() => setLevel(l)}
-              className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
-            >
-              {SHOP_LEVELS[l]}
-            </button>
-          ))}
-        </div>
-        {best != null ? <p className="text-sm text-muted">Your fastest: {secs(best)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Open the shop
-        </button>
+        <LevelPicker theme={T} levels={Object.entries(SHOP_LEVELS) as [ShopLevel, string][]} value={level} onChange={setLevel} />
+        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          🔔 Open the shop
+        </BigButton>
       </div>
     );
   }
 
   if (phase === "done") {
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-sm text-muted">All {COUNT} shoppers served! 🛒</p>
-        <p className="text-5xl font-semibold tabular-nums">{secs(Math.round(elapsed / 100))}</p>
-        <p className={newBest ? "font-medium text-ok" : "text-muted"}>{newBest ? "New fastest time! 🏆" : `Your fastest: ${best != null ? secs(best) : "—"}`}</p>
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change level
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+      <ResultCard theme={T} art="🛒" label={`All ${COUNT} shoppers served in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 
@@ -219,15 +205,13 @@ export function MoneyShop() {
         </span>
         <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-        <div className="h-full bg-accent transition-all" style={{ width: `${(n / COUNT) * 100}%` }} />
-      </div>
+      <Runner theme={T} value={n} max={COUNT} icon="🛒" />
 
       <Shelf q={q} c={currency} level={level} />
 
       <div>
         <p className="mb-1.5 text-sm font-medium text-muted">{q.paid == null ? "Your tray (tap to take back)" : "Change to give (tap to take back)"}</p>
-        <div className={`flex min-h-[4.5rem] flex-wrap items-center gap-2 rounded-2xl border-2 border-dashed p-2.5 ${hint ? "border-danger/50" : "border-line"}`}>
+        <div className={`flex min-h-[4.5rem] flex-wrap items-center gap-2 rounded-2xl p-2.5 shadow-inner ring-4 ${hint ? "ring-danger/60" : "ring-[#b98446]"}`} style={{ background: "linear-gradient(#5b3a1c, #3f2812)" }}>
           {tray.length ? (
             tray.map((v, i) => (
               <button
@@ -244,14 +228,14 @@ export function MoneyShop() {
               </button>
             ))
           ) : (
-            <span className="px-2 text-muted">Empty</span>
+            <span className="px-2 text-sm text-white/60">Empty — tap money below</span>
           )}
         </div>
       </div>
 
       <div>
         <p className="mb-1.5 text-sm font-medium text-muted">Tap to add</p>
-        <div className="flex flex-wrap items-center justify-center gap-2.5">
+        <div className="flex flex-wrap items-center justify-center gap-2.5 rounded-2xl p-3 shadow-inner" style={{ background: "radial-gradient(circle at 50% 30%, #2f7d4f, #1d5235)" }}>
           {purse.map((m) => (
             <button
               key={m.value}
@@ -269,15 +253,17 @@ export function MoneyShop() {
         </div>
       </div>
 
-      {hint ? <p className="rounded-2xl bg-surface-2 p-3 text-center text-danger">Not quite. {hint}</p> : null}
+      {hint ? <p className="pz-anim animate-[pz-shake_.35s] rounded-2xl bg-danger-soft p-3 text-center font-medium text-danger">🤔 Not quite. {hint}</p> : null}
 
       <div className="flex gap-2">
         <button type="button" className="btn-secondary" disabled={!tray.length} onClick={() => (setTray([]), setHint(null))}>
           Clear
         </button>
-        <button type="button" className="btn-primary flex-1" disabled={!tray.length} onClick={pay}>
-          {q.paid == null ? "Pay" : "Give change"}
-        </button>
+        <div className="flex-1">
+          <BigButton theme={T} onClick={pay} disabled={!tray.length}>
+            {q.paid == null ? "💳 Pay" : "🪙 Give change"}
+          </BigButton>
+        </div>
       </div>
     </div>
   );

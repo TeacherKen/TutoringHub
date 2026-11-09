@@ -58,7 +58,7 @@ export function FamilyShare({
         Family page
         <span className={`pill !py-0.5 !text-xs ${status.cls}`}>{status.text}</span>
       </span>
-      <button type="button" onClick={send} disabled={busy} className="press min-h-9 rounded-full px-3 font-semibold text-accent hover:bg-white/5">
+      <button type="button" onClick={send} disabled={busy} className="press min-h-11 rounded-full px-3 font-semibold text-accent hover:bg-white/5">
         {busy ? "Making…" : `${chatLink(contactApp, contact, "x") ? "Send" : "Copy"} ${token ? "update" : "link"}`}
       </button>
     </div>

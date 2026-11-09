@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { compareFrac, FACE_LEVELS, faceQ, fracText, type FaceLevel, type FaceQ, type Frac } from "@/lib/fractions";
 import { Bar, FracText } from "./FractionShapes";
 import { useBest } from "./useBest";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
+
+const T = THEMES.berry;
 
 // ⚔️ Fraction Face-off: tap the bigger fraction, as many as you can in 60 seconds. A wrong tap shows
 // why (the two bars side by side) and costs a moment, so guessing doesn't pay.
@@ -80,37 +83,24 @@ export function FractionFaceoff() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <p className="text-muted">Tap the bigger fraction. How many can you get in 60 seconds? A wrong tap costs a moment.</p>
-        <div className="grid gap-2">
-          {(Object.keys(FACE_LEVELS) as FaceLevel[]).map((l) => (
-            <button
-              key={l}
-              type="button"
-              aria-pressed={level === l}
-              onClick={() => setLevel(l)}
-              className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
-            >
-              {FACE_LEVELS[l]}
-            </button>
-          ))}
-        </div>
-        {best != null ? <p className="text-sm text-muted">Your best on this level: {best}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
+        <GameHero theme={T} art="⚔️" title="FRACTION FACE-OFF">
+          Tap the bigger fraction. How many can you get in 60 seconds? A wrong tap costs a moment.
+        </GameHero>
+        <LevelPicker theme={T} levels={Object.entries(FACE_LEVELS) as [FaceLevel, string][]} value={level} onChange={setLevel} />
+        {best != null ? <p className="text-center text-sm text-muted">🏅 Your best on this level: {best}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start
+        </BigButton>
       </div>
     );
   }
 
   if (phase === "done") {
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-sm text-muted">Time&apos;s up!</p>
-        <p className="text-5xl font-semibold tabular-nums">{score}</p>
-        <p className={newBest ? "font-medium text-ok" : "text-muted"}>{newBest ? "New personal best!" : `Your best: ${best ?? score}`}</p>
+      <ResultCard theme={T} art="⚔️" label="Time's up! You scored" big={score} newBest={newBest} bestText={`Your best: ${best ?? score}`} onAgain={start} onChange={() => setPhase("setup")}>
         {missed.length ? (
-          <div className="rounded-xl bg-surface-2 p-3 text-left">
-            <p className="text-sm font-medium">Tricky ones:</p>
+          <div className="rounded-2xl border-2 border-dashed border-line bg-surface-2 p-3 text-left">
+            <p className="text-sm font-semibold">📝 Tricky ones:</p>
             <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-3">
               {missed.map((m) => {
                 const c = compareFrac(m.left, m.right);
@@ -125,15 +115,7 @@ export function FractionFaceoff() {
             </ul>
           </div>
         ) : null}
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change level
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+      </ResultCard>
     );
   }
 
@@ -147,8 +129,8 @@ export function FractionFaceoff() {
         onClick={() => answer(side)}
         disabled={!!oops}
         aria-label={`${fracText(f)} is bigger`}
-        className={`flex min-h-40 flex-1 flex-col items-center justify-center gap-4 rounded-3xl border-2 p-4 transition active:scale-95 ${
-          flash === side ? "border-ok bg-ok-soft" : winner ? "border-ok" : "border-line bg-surface-2 hover:border-accent"
+        className={`flex min-h-44 flex-1 flex-col items-center justify-center gap-4 rounded-3xl border-4 bg-white p-4 text-[#2b1030] shadow-[0_6px_0_rgba(0,0,0,.25)] transition hover:-translate-y-1 active:translate-y-1 active:shadow-none ${
+          flash === side ? "border-[#30a46c] bg-[#e7f9ee]" : winner ? "border-[#30a46c]" : "border-white"
         }`}
       >
         <FracText f={f} className="text-6xl" />
@@ -158,19 +140,24 @@ export function FractionFaceoff() {
   };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between text-sm text-muted">
-        <span>
-          Score: <strong className="text-ink tabular-nums">{score}</strong>
-        </span>
-        <span className="tabular-nums">{left}s</span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-        <div className="h-full bg-accent transition-all" style={{ width: `${(left / SECONDS) * 100}%` }} />
-      </div>
-      <h3 className="text-center text-xl font-semibold">Tap the bigger one</h3>
-      <div className="flex items-stretch gap-3">
-        {card(q.left, 1)}
-        {card(q.right, -1)}
+      <div className="space-y-3 rounded-3xl p-4 shadow-[0_8px_24px_rgba(0,0,0,.2)]" style={{ background: `radial-gradient(120% 100% at 50% 0%, ${T.from}, ${T.to})`, color: T.ink }}>
+        <div className="flex items-center justify-between">
+          <span className="rounded-xl bg-black/30 px-3 py-1 font-bold">
+            ⭐ <span className="tabular-nums">{score}</span>
+          </span>
+          <span className="text-sm font-bold uppercase tracking-[0.2em]">Tap the bigger one</span>
+          <span className={`rounded-xl px-3 py-1 font-bold tabular-nums ${left <= 10 ? "bg-[#ff6b5e]" : "bg-black/30"}`}>⏱ {left}s</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-black/30">
+          <div className="h-full rounded-full transition-all" style={{ width: `${(left / SECONDS) * 100}%`, background: T.accent }} />
+        </div>
+        <div className="relative flex items-stretch gap-3">
+          {card(q.left, 1)}
+          <span className="absolute left-1/2 top-1/2 z-10 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[#ffd166] font-sport text-xl font-bold text-[#4c1036] shadow-lg ring-4 ring-white" aria-hidden>
+            VS
+          </span>
+          {card(q.right, -1)}
+        </div>
       </div>
       {level === "mixed" ? (
         <button

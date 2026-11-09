@@ -2,6 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
+import { BigButton, Board, GameHero, ResultCard, THEMES } from "./GameKit";
+
+const T = THEMES.arena;
 
 const ALL = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const SECONDS = 60;
@@ -80,7 +83,10 @@ export function TimesTables() {
   if (phase === "setup") {
     return (
       <div className="space-y-5">
-        <p className="text-muted">Pick your times tables, then answer as many as you can in 60 seconds.</p>
+        <GameHero theme={T} art="⏱️" title="TIMES TABLES SPRINT">
+          Pick your times tables, then answer as many as you can in 60 seconds!
+        </GameHero>
+        <p className="text-sm font-semibold">Which tables?</p>
         <div className="flex flex-wrap gap-2">
           {ALL.map((t) => {
             const on = tables.includes(t);
@@ -90,30 +96,28 @@ export function TimesTables() {
                 type="button"
                 aria-pressed={on}
                 onClick={() => setTables((cur) => (on ? (cur.length > 1 ? cur.filter((x) => x !== t) : cur) : [...cur, t]))}
-                className={`h-12 w-14 rounded-xl border text-lg font-semibold ${on ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}
+                className={`h-14 w-16 rounded-2xl border-2 text-xl font-bold transition ${on ? "-translate-y-0.5 border-transparent text-white shadow-[0_4px_0_#0f1e4d]" : "border-line bg-surface"}`}
+                style={on ? { background: `linear-gradient(${T.from}, ${T.to})` } : undefined}
               >
                 ×{t}
               </button>
             );
           })}
         </div>
-        {best != null ? <p className="text-sm text-muted">Your best with these tables: {best}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
+        {best != null ? <p className="text-center text-sm text-muted">🏅 Your best with these tables: {best}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start
+        </BigButton>
       </div>
     );
   }
 
   if (phase === "done") {
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-sm text-muted">Time&apos;s up!</p>
-        <p className="text-5xl font-semibold tabular-nums">{score}</p>
-        <p className={newBest ? "font-medium text-ok" : "text-muted"}>{newBest ? "New personal best!" : `Your best: ${best ?? score}`}</p>
+      <ResultCard theme={T} art="⏱️" label="Time's up! You scored" big={score} newBest={newBest} bestText={`Your best: ${best ?? score}`} onAgain={start} onChange={() => setPhase("setup")} changeLabel="Change tables">
         {missed.length ? (
-          <div className="rounded-xl bg-surface-2 p-3 text-left">
-            <p className="text-sm font-medium">Practise these:</p>
+          <div className="rounded-2xl border-2 border-dashed border-line bg-surface-2 p-3 text-left">
+            <p className="text-sm font-semibold">📝 Practise these:</p>
             <p className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-lg tabular-nums">
               {missed.map((m) => (
                 <span key={`${m.a}x${m.b}`}>{`${m.a} × ${m.b} = ${m.a * m.b}`}</span>
@@ -121,30 +125,30 @@ export function TimesTables() {
             </p>
           </div>
         ) : null}
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change tables
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+      </ResultCard>
     );
   }
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between text-sm text-muted">
-        <span>Score: <strong className="text-ink tabular-nums">{score}</strong></span>
-        <span className="tabular-nums">{left}s</span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-        <div className="h-full bg-accent transition-all" style={{ width: `${(left / SECONDS) * 100}%` }} />
-      </div>
-      <p className={`py-4 text-center text-6xl font-semibold tabular-nums ${shake ? "animate-pulse text-danger" : ""}`}>
-        {q.a} × {q.b}
-      </p>
+      <Board theme={T}>
+        <div className="flex items-center justify-between">
+          <span className="rounded-xl bg-black/30 px-3 py-1.5 text-center">
+            <span className="block text-[10px] font-bold tracking-[0.2em] opacity-70">SCORE</span>
+            <span className="font-sport text-3xl font-bold tabular-nums text-[#ffc629]">{score}</span>
+          </span>
+          <svg viewBox="0 0 44 44" className="h-16 w-16 -rotate-90" aria-label={`${left} seconds left`}>
+            <circle cx="22" cy="22" r="18" fill="rgba(0,0,0,.3)" stroke="rgba(255,255,255,.15)" strokeWidth="5" />
+            <circle cx="22" cy="22" r="18" fill="none" stroke={left <= 10 ? "#ff6b5e" : "#ffc629"} strokeWidth="5" strokeLinecap="round" strokeDasharray={113} strokeDashoffset={113 * (1 - left / SECONDS)} className="transition-all duration-300" />
+            <text x="22" y="22" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="800" fill="#fff" transform="rotate(90 22 22)">
+              {left}
+            </text>
+          </svg>
+        </div>
+        <p key={`${q.a}x${q.b}`} className={`pz-anim py-3 text-center font-sport text-7xl font-bold tabular-nums ${shake ? "animate-[pz-shake_.3s] text-[#ff8a7a]" : "animate-[tt-pop_.25s_ease-out]"}`}>
+          {q.a} × {q.b}
+        </p>
+      </Board>
       <NumberPad value={answer} onChange={setAnswer} onSubmit={submit} max={3} wrong={shake} />
     </div>
   );

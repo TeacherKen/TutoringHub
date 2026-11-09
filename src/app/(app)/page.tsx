@@ -199,7 +199,7 @@ function UnmatchedEvents({ events, students }: { events: Lesson[]; students: { i
             <form action={setIgnored} className="mt-1">
               <input type="hidden" name="lesson_id" value={l.id} />
               <input type="hidden" name="ignored" value="true" />
-              <button className="btn-quiet min-h-9 px-0 text-sm text-muted">Not a lesson, hide it{eventName(l.title) ? " (and others like it)" : ""}</button>
+              <button className="btn-quiet min-h-11 px-0 text-sm text-muted">Not a lesson, hide it{eventName(l.title) ? " (and others like it)" : ""}</button>
             </form>
           </div>
         ))}

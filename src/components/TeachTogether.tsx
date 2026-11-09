@@ -82,7 +82,7 @@ export function TeachTogetherTutor({ token, name }: { token: string; name: strin
     <div className="space-y-2 rounded-2xl border-2 border-accent bg-surface p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-accent">🔴 Live on {name}&apos;s screen</p>
-        <button type="button" className="btn-secondary min-h-9 px-3 text-sm" onClick={stop}>
+        <button type="button" className="btn-secondary min-h-11 px-3 text-sm" onClick={stop}>
           Stop showing
         </button>
       </div>

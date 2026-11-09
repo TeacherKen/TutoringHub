@@ -1,4 +1,5 @@
 "use client";
+import { netFail } from "@/lib/netFail";
 import { createContext, useContext, useEffect, useState } from "react";
 import { ensureFamilyToken } from "@/app/actions/family";
 
@@ -42,7 +43,7 @@ export function FamilyLinkProvider({ accountId, names, initialToken, children }:
     }
     if (next && !token) {
       setBusy(true);
-      const r = await ensureFamilyToken(accountId);
+      const r: { token?: string; error?: string } = await ensureFamilyToken(accountId).catch(netFail);
       setBusy(false);
       if (!r.token) return;
       setToken(r.token);
@@ -51,7 +52,7 @@ export function FamilyLinkProvider({ accountId, names, initialToken, children }:
   }
   async function getToken() {
     if (token) return token;
-    const r = await ensureFamilyToken(accountId);
+    const r: { token?: string; error?: string } = await ensureFamilyToken(accountId).catch(netFail);
     if (r.token) setToken(r.token);
     return r.token ?? null;
   }

@@ -345,7 +345,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
                             <option value="cash">Cash</option>
                             <option value="other">Other</option>
                           </select>
-                          <button className="btn-secondary min-h-9 px-3 text-sm">Mark paid today</button>
+                          <button className="btn-secondary min-h-11 px-3 text-sm">Mark paid today</button>
                         </form>
                       ) : (p as { receipt_no?: string | null }).receipt_no ? (
                         <Link href={`/receipts/${p.id}`} className="mt-1 inline-block text-accent underline">
