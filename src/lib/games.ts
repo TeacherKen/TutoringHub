@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 // Every game in TutoringHub, in one list: the student room's Games tab and the games corner both use it.
 
-export type GameId = "football" | "wolf-vs-sheep" | "magic-square" | "qm" | "tt" | "sd" | "fp" | "ff" | "fc" | "sb" | "ck" | "ms" | "cq" | "pb" | "ls";
+export type GameId = "football" | "wolf-vs-sheep" | "magic-square" | "qm" | "tt" | "sd" | "fp" | "ff" | "fc" | "sb" | "ck" | "ms" | "cq" | "pb" | "ls" | "bp" | "pl" | "mn" | "ns";
 export type GameInfo = {
   id: GameId;
   name: string;
@@ -34,6 +34,10 @@ export const GAMES: GameInfo[] = [
   { id: "pb", name: "Piggy Bank Rain", topic: "Time & money", blurb: "Catch coins to fill the piggy exactly", players: "1 player · ages 5–9", bg: "#e07aa5", fg: "#ffffff" },
   { id: "ls", name: "My Little Shop", topic: "Time & money", blurb: "Run a shop, give change, buy upgrades", players: "1 player · ages 7–12", wide: true, bg: "#c2643c", fg: "#ffffff" },
   { id: "sb", name: "Shape Builder", topic: "Thinking", blurb: "Fit all 12 blocks into the animal", players: "1 player · ages 6–12", wide: true, bg: "#1f6f8b", fg: "#ffffff" },
+  { id: "bp", name: "Balance Puzzles", topic: "Thinking", blurb: "What does each shape weigh?", players: "1 player · ages 7–12", bg: "#8b6d1f", fg: "#ffffff" },
+  { id: "pl", name: "Picture Logic", topic: "Thinking", blurb: "Use the number clues to find the hidden picture", players: "1 player · ages 7–12", wide: true, bg: "#334155", fg: "#ffffff" },
+  { id: "mn", name: "Make the Number", topic: "Thinking", blurb: "Join cards with + − × ÷ to hit the target", players: "1 player · ages 7–12", bg: "#1f2a44", fg: "#ffffff" },
+  { id: "ns", name: "Number Snake", topic: "Thinking", blurb: "Draw the path 1, 2, 3 … through every square", players: "1 player · ages 6–12", bg: "#0f766e", fg: "#ffffff" },
 ];
 
 /** Games built into TutoringHub (not Mr Ken's own pages in /public/games): what a screen picture may show. */

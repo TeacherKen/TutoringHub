@@ -8,6 +8,7 @@ import { GAMES, type GameInfo } from "@/lib/games";
 import { BallIcon } from "./Controls";
 import { ClockFace } from "./ClockRescue";
 import { Cash } from "./MoneyShop";
+import { ShapeIcon } from "./BalancePuzzles";
 import { FracText, Pie } from "./FractionShapes";
 
 // 🎮 The games corner: for children on Mr Ken's iPad in an onsite lesson. Full screen, no
@@ -164,6 +165,40 @@ export function Glyph({ id }: { id: GameInfo["id"] }) {
         <span className="absolute -right-5 -top-6 scale-75">
           <Cash m={{ value: 5, kind: "coin" }} c="THB" small />
         </span>
+      </span>
+    );
+  if (id === "bp")
+    return (
+      <span aria-hidden className="flex items-end gap-2 drop-shadow-lg">
+        <ShapeIcon s="triangle" size={52} />
+        <span className="text-5xl leading-none">⚖️</span>
+        <ShapeIcon s="circle" size={44} />
+      </span>
+    );
+  if (id === "pl")
+    return (
+      <span aria-hidden className="grid grid-cols-5 gap-0.5 rounded-md bg-white p-1">
+        {".#.#.##########.###...#..".split("").map((ch, i) => (
+          <span key={i} className="h-3.5 w-3.5 rounded-[2px] sm:h-4 sm:w-4" style={{ background: ch === "#" ? "#e11d48" : "#f1f5f9" }} />
+        ))}
+      </span>
+    );
+  if (id === "mn")
+    return (
+      <span aria-hidden className="font-sport flex items-center gap-2 text-4xl font-bold drop-shadow-lg sm:text-5xl">
+        <span className="grid h-14 w-11 place-items-center rounded-lg bg-white text-[#1f2a44]">6</span>
+        <span>×</span>
+        <span className="grid h-14 w-11 place-items-center rounded-lg bg-white text-[#1f2a44]">4</span>
+      </span>
+    );
+  if (id === "ns")
+    return (
+      <span aria-hidden className="grid grid-cols-3 gap-1 text-lg font-bold">
+        {[1, 2, 3, 6, 5, 4, 7, 8, 9].map((n) => (
+          <span key={n} className="grid h-9 w-9 place-items-center rounded-md sm:h-10 sm:w-10" style={{ background: `hsl(${150 + n * 8} 65% 45%)` }}>
+            {n}
+          </span>
+        ))}
       </span>
     );
   if (id === "ls")
