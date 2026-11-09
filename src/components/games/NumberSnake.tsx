@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { SNAKE_LEVELS, snakeDone, snakePuzzle, step, type SnakePuzzle, type SnakeSize } from "@/lib/games/numberSnake";
+import { ConfettiBurst, makeConfetti, type Confetti } from "./Controls";
 import { useBest } from "./useBest";
 
 // 🐍 Number Snake: start at 1 and tap (or drag to) the next square to grow the snake 2, 3, 4 …
@@ -11,7 +12,7 @@ const secs = (ms: number) => {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
 };
 // From green to blue along the snake.
-const shade = (i: number, N: number) => `hsl(${150 + (i / Math.max(1, N - 1)) * 70} 65% ${48 - (i / N) * 8}%)`;
+const shade = (i: number, N: number) => `hsl(${95 + (i / Math.max(1, N - 1)) * 75} 62% ${44 - (i / N) * 8}%)`;
 
 export function NumberSnake() {
   const [size, setSize] = useState<SnakeSize>(4);
@@ -22,6 +23,7 @@ export function NumberSnake() {
   const [startedAt, setStartedAt] = useState(0);
   const [took, setTook] = useState(0);
   const [newBest, setNewBest] = useState(false);
+  const [confetti, setConfetti] = useState<Confetti[]>([]);
   const dragging = useRef(false);
   // The latest snake, so quick drags (many moves before the screen updates) build on it.
   const pathRef = useRef<number[]>([]);
@@ -67,6 +69,7 @@ export function NumberSnake() {
       const t = Date.now() - startedAt;
       setTook(t);
       setNewBest(offer(Math.round(t / 1000)));
+      setConfetti(makeConfetti(["#84cc16", "#22c55e", "#14b8a6", "#facc15"], 60, 520));
       setTimeout(() => setPhase("won"), 500);
     }
   }
@@ -79,9 +82,13 @@ export function NumberSnake() {
   if (phase === "setup")
     return (
       <div className="space-y-4">
-        <p className="text-center text-6xl" aria-hidden>
-          🐍
-        </p>
+        <div className="mx-auto grid w-max grid-cols-3 overflow-hidden rounded-2xl ring-4 ring-[#5b9a4f]" aria-hidden>
+          {[1, 2, 3, 6, 5, 4, 7, 8, 9].map((v, i) => (
+            <span key={i} className="grid h-14 w-14 place-items-center text-xl font-black text-white [text-shadow:0_1px_2px_rgba(0,0,0,.4)]" style={{ background: `radial-gradient(circle, ${shade(v - 1, 9)} 52%, ${i % 2 ? "#a6d98c" : "#b7e4a0"} 54%)` }}>
+              {v}
+            </span>
+          ))}
+        </div>
         <p className="text-muted">
           Start at <strong>1</strong>. Tap the square next to it for <strong>2</strong>, then <strong>3</strong>… The snake goes up, down, left or right — not corner to corner. It must go through the numbers already on the board and fill every square!
         </p>
@@ -104,16 +111,97 @@ export function NumberSnake() {
   const N = n * n;
   const at = new Map(path.map((c, i) => [c, i]));
   const next = path.length + 1;
-  const sq = n === 4 ? "h-16 w-16 sm:h-[72px] sm:w-[72px] text-2xl" : n === 5 ? "h-14 w-14 sm:h-16 sm:w-16 text-xl" : "h-12 w-12 sm:h-14 sm:w-14 text-lg";
-  const pts = path.map((c) => `${((c % n) + 0.5) * (100 / n)},${(Math.floor(c / n) + 0.5) * (100 / n)}`).join(" ");
+  const px = n === 4 ? 72 : n === 5 ? 60 : 52; // one square, in pixels
+  const centre = (c: number) => [(c % n) + 0.5, Math.floor(c / n) + 0.5] as const;
+  const head = path[path.length - 1];
+  const prev = path.length > 1 ? path[path.length - 2] : null;
+  const [hx, hy] = centre(head);
+  const dir = prev == null ? [0, 1] : [hx - centre(prev)[0], hy - centre(prev)[1]];
+  const board = (
+      <div
+        className="relative mx-auto touch-none select-none overflow-hidden rounded-3xl shadow-[0_6px_0_#3f7d3a,0_10px_20px_rgba(0,0,0,.18)] ring-4 ring-[#5b9a4f]"
+        style={{ width: px * n, height: px * n }}
+        onPointerDown={(e) => {
+          const c = cellAt(e.clientX, e.clientY);
+          if (c == null) return;
+          e.preventDefault();
+          dragging.current = true;
+          go(c, false);
+        }}
+        onPointerMove={(e) => {
+          if (!dragging.current) return;
+          const c = cellAt(e.clientX, e.clientY);
+          if (c != null) go(c, true);
+        }}
+      >
+        <svg viewBox={`0 0 ${n} ${n}`} className="absolute inset-0 h-full w-full" aria-hidden>
+          {/* grass */}
+          {Array.from({ length: N }, (_, c) => (
+            <rect key={c} x={c % n} y={Math.floor(c / n)} width="1" height="1" fill={((c % n) + Math.floor(c / n)) % 2 === 0 ? "#b7e4a0" : "#a6d98c"} />
+          ))}
+          {/* the snake's body: a fat line from square to square, green at the tail to blue-green at the head */}
+          {path.slice(1).map((c, i) => {
+            const [x1, y1] = centre(path[i]);
+            const [x2, y2] = centre(c);
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={shade(i, N)} strokeWidth="0.62" strokeLinecap="round" />;
+          })}
+          {path.map((c, i) => {
+            const [x, y] = centre(c);
+            return <circle key={c} cx={x} cy={y} r={i === 0 ? 0.27 : 0.31} fill={shade(i, N)} />;
+          })}
+          {/* belly shine */}
+          {path.slice(1).map((c, i) => {
+            const [x1, y1] = centre(path[i]);
+            const [x2, y2] = centre(c);
+            return <line key={i} x1={x1} y1={y1 - 0.1} x2={x2} y2={y2 - 0.1} stroke="#ffffff" strokeOpacity=".18" strokeWidth="0.14" strokeLinecap="round" />;
+          })}
+          {/* head with eyes, looking the way it's going */}
+          {phase === "play" ? (
+            <g transform={`translate(${hx} ${hy}) rotate(${(Math.atan2(dir[1], dir[0]) * 180) / Math.PI - 90})`}>
+              <ellipse cx="0" cy="0.04" rx="0.36" ry="0.4" fill={shade(path.length - 1, N)} stroke="#0f3d2e" strokeOpacity=".25" strokeWidth="0.03" />
+              {path.length < N ? <path d="M0 0.42 L0 0.55 M0 0.55 L-0.06 0.62 M0 0.55 L0.06 0.62" stroke="#e11d48" strokeWidth="0.035" strokeLinecap="round" /> : null}
+              <circle cx="-0.17" cy="0.26" r="0.08" fill="#fff" />
+              <circle cx="0.17" cy="0.26" r="0.08" fill="#fff" />
+              <circle cx="-0.17" cy="0.29" r="0.04" fill="#0f172a" />
+              <circle cx="0.17" cy="0.29" r="0.04" fill="#0f172a" />
+            </g>
+          ) : null}
+        </svg>
+        {/* numbers on top (and the squares you tap) */}
+        <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${n}, 1fr)`, gridTemplateRows: `repeat(${n}, 1fr)` }}>
+          {Array.from({ length: N }, (_, c) => {
+            const i = at.get(c);
+            const given = p.given.get(c);
+            const isHead = i === path.length - 1;
+            return (
+              <span
+                key={c}
+                data-sq={c}
+                role="button"
+                aria-label={i != null ? `Square ${i + 1}` : given != null ? `Square showing ${given}` : "Empty square"}
+                className="grid place-items-center font-black tabular-nums"
+                style={{ fontSize: px * (n === 4 ? 0.34 : 0.36) }}
+              >
+                {i != null ? (
+                  <span className={`text-white [text-shadow:0_1px_2px_rgba(0,0,0,.45)] ${isHead ? "pz-anim animate-[tt-pop_.25s_ease-out]" : ""}`}>{i + 1}</span>
+                ) : given != null ? (
+                  <span className="grid place-items-center rounded-full bg-white text-[#14532d] shadow-[0_3px_0_#d6d3c4]" style={{ width: px * 0.66, height: px * 0.66 }}>
+                    {given}
+                  </span>
+                ) : null}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+  );
 
   if (phase === "won")
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-6xl" aria-hidden>
-          🐍🎉
-        </p>
-        <p className="text-2xl font-semibold">The snake is complete: 1 to {N}!</p>
+      <div className="relative space-y-4 text-center">
+        <ConfettiBurst pieces={confetti} className="left-1/2 top-24" />
+        {board}
+        <p className="text-2xl font-semibold">🎉 The snake is complete: 1 to {N}!</p>
         <p className="text-muted">Done in {secs(took)}</p>
         {newBest ? <p className="font-medium text-ok">New fastest time! 🏆</p> : best != null ? <p className="text-sm text-muted">Your fastest: {secs(best * 1000)}</p> : null}
         <div className="flex gap-2">
@@ -143,45 +231,7 @@ export function NumberSnake() {
           {path.length} of {N} squares
         </span>
       </div>
-      <div className="relative mx-auto w-max select-none">
-        <div
-          className="grid touch-none gap-1 rounded-2xl bg-[#e2e8f0] p-1.5"
-          style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}
-          onPointerDown={(e) => {
-            const c = cellAt(e.clientX, e.clientY);
-            if (c == null) return;
-            e.preventDefault();
-            dragging.current = true;
-            go(c, false);
-          }}
-          onPointerMove={(e) => {
-            if (!dragging.current) return;
-            const c = cellAt(e.clientX, e.clientY);
-            if (c != null) go(c, true);
-          }}
-        >
-          {Array.from({ length: N }, (_, c) => {
-            const i = at.get(c);
-            const given = p.given.get(c);
-            const head = i === path.length - 1;
-            return (
-              <span
-                key={c}
-                data-sq={c}
-                role="button"
-                aria-label={i != null ? `Square ${i + 1}` : given != null ? `Square showing ${given}` : "Empty square"}
-                className={`grid place-items-center rounded-xl font-bold tabular-nums ${sq} ${head ? "ring-4 ring-[#f59e0b]" : ""}`}
-                style={{ background: i != null ? shade(i, N) : "#ffffff", color: i != null ? "#ffffff" : given != null ? "#0f172a" : "#94a3b8" }}
-              >
-                {i != null ? i + 1 : (given ?? "")}
-              </span>
-            );
-          })}
-        </div>
-        <svg className="pointer-events-none absolute inset-1.5" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-          <polyline points={pts} fill="none" stroke="rgba(255,255,255,.55)" strokeWidth={n === 4 ? 2.2 : 1.6} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: 6 }} />
-        </svg>
-      </div>
+      {board}
       <p className={`min-h-12 rounded-xl p-3 text-center font-medium ${why ? "bg-danger-soft text-danger" : "text-muted"}`} role="status">
         {why ?? "Tap the snake to go back a step."}
       </p>

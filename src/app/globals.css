@@ -1030,3 +1030,26 @@ html.board-full .page-enter {
   animation: none !important;
   transform: none !important;
 }
+
+/* Puzzle games: reveal, lift and wobble */
+@keyframes pz-flip {
+  0% { transform: rotateY(90deg) scale(0.6); opacity: 0; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes pz-tip {
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(-4deg); }
+  65% { transform: rotate(2.5deg); }
+}
+@keyframes pz-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+@keyframes pz-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pz-anim { animation: none !important; }
+}

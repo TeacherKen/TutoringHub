@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apply, makeNumber, MN_LEVELS, type MNLevel, type MNPuzzle, type Op } from "@/lib/games/makeNumber";
+import { ConfettiBurst, makeConfetti, type Confetti } from "./Controls";
 import { useBest } from "./useBest";
 
 // 🎯 Make the Number: tap a card, a sign, then another card — they join into a new card.
@@ -10,6 +11,45 @@ const PUZZLES = 5;
 const OPS: Op[] = ["+", "−", "×", "÷"];
 type Card = { id: number; v: number; made?: string };
 const secs = (ms: number) => `${(ms / 1000).toFixed(0)}s`;
+const OP_COLOUR: Record<Op, string> = { "+": "#16a34a", "−": "#2563eb", "×": "#ea580c", "÷": "#9333ea" };
+
+/** The target: an archery board with the number in the middle. */
+function TargetBoard({ n, hit }: { n: number; hit: boolean }) {
+  return (
+    <div className={`pz-anim relative mx-auto grid h-36 w-36 place-items-center ${hit ? "animate-[tt-pop_.5s_ease-out]" : ""}`}>
+      <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full drop-shadow-lg" aria-hidden>
+        <circle cx="50" cy="50" r="49" fill="#f8fafc" />
+        <circle cx="50" cy="50" r="41" fill="#ef4444" />
+        <circle cx="50" cy="50" r="33" fill="#f8fafc" />
+        <circle cx="50" cy="50" r="25" fill="#ef4444" />
+        <circle cx="50" cy="50" r="18" fill="#facc15" />
+      </svg>
+      <span className="relative text-4xl font-black tabular-nums text-[#1f2a44] [text-shadow:0_1px_0_#fff]">{n}</span>
+    </div>
+  );
+}
+
+/** A number card, like a playing card (numbers in the corners). Joined cards are gold. */
+function NumberCard({ v, made, picked, done, onClick }: { v: number; made?: string; picked: boolean; done: boolean; onClick: () => void }) {
+  const face = made ? "linear-gradient(160deg, #fff7d6, #fde68a)" : "linear-gradient(160deg, #ffffff, #eef2ff)";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={picked}
+      aria-label={made ? `${v}, made from ${made}` : `${v}`}
+      className={`pz-anim relative flex h-28 w-20 flex-col items-center justify-center rounded-2xl border-2 text-[42px] font-black tabular-nums text-[#1f2a44] transition duration-150 active:scale-95 sm:h-32 sm:w-24 ${
+        picked ? "-translate-y-2 border-accent shadow-[0_10px_24px_rgba(13,148,136,.45)]" : done ? "border-[#16a34a] shadow-md" : "border-white shadow-[0_4px_10px_rgba(15,23,42,.18)]"
+      } ${made ? "animate-[tt-pop_.35s_ease-out]" : ""}`}
+      style={{ background: face }}
+    >
+      <span className="absolute left-2 top-1 text-xs font-bold opacity-50">{v}</span>
+      <span className="absolute bottom-1 right-2 rotate-180 text-xs font-bold opacity-50">{v}</span>
+      {v}
+      {made ? <span className="mt-0.5 rounded-full bg-white/70 px-1.5 text-[11px] font-semibold text-[#92400e]">{made}</span> : null}
+    </button>
+  );
+}
 
 export function MakeNumber() {
   const [level, setLevel] = useState<MNLevel>("easy");
@@ -25,6 +65,7 @@ export function MakeNumber() {
   const [startedAt, setStartedAt] = useState(0);
   const [took, setTook] = useState(0);
   const [newBest, setNewBest] = useState(false);
+  const [confetti, setConfetti] = useState<Confetti[]>([]);
   const { best, offer } = useBest(`mn-${level}`, (a, b) => a < b);
   const L = MN_LEVELS[level];
 
@@ -79,6 +120,7 @@ export function MakeNumber() {
             const t = Date.now() - startedAt;
             setTook(t);
             setNewBest(offer(Math.round(t / 1000)));
+            setConfetti(makeConfetti(["#ef4444", "#facc15", "#16a34a", "#2563eb"], 60, 520));
             setPhase("done");
           } else load(makeNumber(level));
         }, 1200);
@@ -108,15 +150,15 @@ export function MakeNumber() {
     const k = Math.min(hints, puzzle.steps.length - 1);
     const s = puzzle.steps[k];
     setHints(k + 1);
-    setNote({ ok: false, text: `💡 ${k === 0 ? "Start with" : "Then"} ${s.a} ${s.op} ${s.b} = ${s.r}${k === 0 && cards.length < puzzle.cards.length ? " (tap Start again first)" : ""}` });
+    setNote({ ok: false, text: `💡 ${k === 0 ? "Start with" : "Then"} ${s.a} ${s.op} ${s.b} = ${s.r}${k === 0 && cards.length < puzzle.cards.length ? " (tap ⟲ Restart first)" : ""}` });
   }
 
   if (phase === "setup")
     return (
       <div className="space-y-4">
-        <p className="text-center text-6xl" aria-hidden>
-          🎯
-        </p>
+        <div className="flex items-center justify-center gap-4" aria-hidden>
+          <TargetBoard n={24} hit={false} />
+        </div>
         <p className="text-muted">Join the number cards with + − × ÷ to make the target number. Use every card once! {PUZZLES} puzzles — how fast can you go?</p>
         <div className="grid gap-2">
           {(Object.keys(MN_LEVELS) as MNLevel[]).map((l) => (
@@ -134,10 +176,9 @@ export function MakeNumber() {
 
   if (phase === "done")
     return (
-      <div className="space-y-4 text-center">
-        <p className="text-6xl" aria-hidden>
-          🎯🎉
-        </p>
+      <div className="relative space-y-4 text-center">
+        <ConfettiBurst pieces={confetti} className="left-1/2 top-16" />
+        <TargetBoard n={PUZZLES} hit />
         <p className="text-sm text-muted">All {PUZZLES} targets hit!</p>
         <p className="text-5xl font-semibold tabular-nums">{secs(took)}</p>
         <p className={newBest ? "font-medium text-ok" : "text-muted"}>{newBest ? "New fastest time! 🏆" : `Your fastest: ${best != null ? secs(best * 1000) : "—"}`}</p>
@@ -163,23 +204,14 @@ export function MakeNumber() {
           New numbers ↻
         </button>
       </div>
-      <div className="rounded-2xl bg-[#1f2a44] p-4 text-center text-white">
-        <p className="text-xs font-semibold tracking-[0.2em] text-white/70">MAKE</p>
-        <p className="text-6xl font-bold tabular-nums">{puzzle.target}</p>
-      </div>
-      <div className="flex min-h-28 flex-wrap items-center justify-center gap-3">
-        {cards.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => tapCard(c)}
-            aria-pressed={pickA === c.id}
-            className={`flex h-24 w-20 flex-col items-center justify-center rounded-2xl border-4 bg-white text-4xl font-bold tabular-nums text-[#1f2a44] shadow-md transition active:scale-95 ${pickA === c.id ? "-translate-y-1 border-accent" : note?.ok ? "border-ok" : "border-[#d4d4d8]"}`}
-          >
-            {c.v}
-            {c.made ? <span className="mt-0.5 text-[11px] font-medium text-[#71717a]">{c.made}</span> : null}
-          </button>
-        ))}
+      <div className="rounded-3xl p-4 pb-5 shadow-inner" style={{ background: "radial-gradient(120% 90% at 50% 0%, #2b6b4f 0%, #1d4d39 70%)" }}>
+        <p className="mb-1 text-center text-xs font-bold tracking-[0.25em] text-white/70">MAKE THIS NUMBER</p>
+        <TargetBoard n={puzzle.target} hit={!!note?.ok} />
+        <div className="mt-4 flex min-h-32 flex-wrap items-center justify-center gap-3">
+          {cards.map((c) => (
+            <NumberCard key={c.id} v={c.v} made={c.made} picked={pickA === c.id} done={!!note?.ok} onClick={() => tapCard(c)} />
+          ))}
+        </div>
       </div>
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${L.ops.length}, minmax(0, 1fr))` }}>
         {OPS.filter((o) => L.ops.includes(o)).map((o) => {
@@ -191,14 +223,18 @@ export function MakeNumber() {
               onClick={() => setOp(op === o ? null : o)}
               aria-pressed={op === o}
               aria-label={{ "+": "add", "−": "take away", "×": "times", "÷": "divide" }[o]}
-              className={`h-16 rounded-2xl text-4xl font-bold transition active:scale-95 disabled:opacity-30 ${op === o ? "bg-accent text-accent-text" : "bg-surface-2"}`}
+              className="h-16 rounded-full text-4xl font-black text-white transition active:scale-95 disabled:opacity-35"
+              style={{
+                background: `radial-gradient(circle at 35% 30%, color-mix(in srgb, ${OP_COLOUR[o]}, #fff 30%), ${OP_COLOUR[o]})`,
+                boxShadow: op === o ? `0 0 0 4px #fff, 0 0 0 7px ${OP_COLOUR[o]}` : "inset 0 -4px 0 rgba(0,0,0,.2)",
+              }}
             >
               {o}
             </button>
           );
         })}
       </div>
-      <p className={`min-h-12 rounded-xl p-3 text-center font-medium ${note ? (note.ok ? "bg-ok-soft text-ok" : "bg-accent-soft text-accent") : "text-muted"}`} role="status">
+      <p className={`pz-anim min-h-12 rounded-2xl p-3 text-center font-medium ${note ? (note.ok ? "animate-[tt-pop_.4s_ease-out] bg-ok-soft text-ok" : "bg-accent-soft text-accent") : "text-muted"}`} role="status">
         {note?.text ?? (pickA == null ? "Tap a card." : op == null ? "Now tap a sign." : "Now tap another card.")}
       </p>
       <div className="grid grid-cols-3 gap-2">
@@ -206,7 +242,7 @@ export function MakeNumber() {
           ↩ Undo
         </button>
         <button type="button" className="btn-secondary" onClick={reset} disabled={!history.length || !!note?.ok}>
-          Start again
+          ⟲ Restart
         </button>
         <button type="button" className="btn-secondary" onClick={hint} disabled={!!note?.ok}>
           💡 Hint

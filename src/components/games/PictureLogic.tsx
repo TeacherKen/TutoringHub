@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cluesOf, lineDone, PIC_LEVELS, PICTURES, solved, type Picture, type PicLevel } from "@/lib/games/nonogram";
+import { ConfettiBurst, makeConfetti, type Confetti } from "./Controls";
 import { useBest } from "./useBest";
 
 // 🖼️ Picture Logic: the numbers say how many squares in a row (or column) are coloured, in order.
@@ -26,6 +27,7 @@ export function PictureLogic() {
   const [startedAt, setStartedAt] = useState(0);
   const [took, setTook] = useState(0);
   const [newBest, setNewBest] = useState(false);
+  const [confetti, setConfetti] = useState<Confetti[]>([]);
   const paint = useRef<Cell | null>(null);
   const { best, offer } = useBest(`pl-${level}`, (a, b) => a < b);
 
@@ -68,11 +70,12 @@ export function PictureLogic() {
       const id = setTimeout(() => {
         setTook(t);
         setNewBest(offer(Math.round(t / 1000)));
+        setConfetti(makeConfetti([pic!.color, "#facc15", "#38bdf8", "#ffffff"], 60, 520));
         setPhase("won");
       }, 250);
       return () => clearTimeout(id);
     }
-  }, [grid, phase, clues, startedAt, offer]);
+  }, [grid, phase, clues, startedAt, offer, pic]);
 
   function cellAt(x: number, y: number): [number, number] | null {
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
@@ -102,9 +105,11 @@ export function PictureLogic() {
   if (phase === "setup")
     return (
       <div className="space-y-4">
-        <p className="text-center text-6xl" aria-hidden>
-          🖼️
-        </p>
+        <div className="mx-auto grid w-max grid-cols-5 gap-1 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5" aria-hidden>
+          {".#.#.##########.###...#..".split("").map((ch, i) => (
+            <span key={i} className="h-8 w-8 rounded-md" style={{ background: ch === "#" ? "#e11d48" : "#f1f5f9", boxShadow: ch === "#" ? "inset 0 -3px 0 rgba(0,0,0,.15)" : undefined }} />
+          ))}
+        </div>
         <p className="text-muted">
           The numbers tell you how many squares in a row to colour. <strong>2 1</strong> means: 2 coloured squares together, a gap, then 1 more. Colour the right squares to find the hidden picture!
         </p>
@@ -129,9 +134,22 @@ export function PictureLogic() {
 
   if (phase === "won")
     return (
-      <div className="space-y-4 text-center">
-        <div className="mx-auto inline-grid gap-0.5 rounded-xl bg-white p-2 shadow" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }} aria-hidden>
-          {pic.rows.flatMap((row, r) => [...row].map((ch, c) => <span key={`${r}-${c}`} className={n <= 5 ? "h-9 w-9 rounded-sm" : "h-6 w-6 rounded-sm"} style={{ background: ch === "#" ? pic.color : "#f4f4f5" }} />))}
+      <div className="relative space-y-4 text-center">
+        <ConfettiBurst pieces={confetti} className="left-1/2 top-16" />
+        <div className="mx-auto inline-grid gap-1 rounded-2xl bg-white p-3 shadow-lg ring-1 ring-black/5 [perspective:600px]" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }} aria-hidden>
+          {pic.rows.flatMap((row, r) =>
+            [...row].map((ch, c) => (
+              <span
+                key={`${r}-${c}`}
+                className={`pz-anim animate-[pz-flip_.45s_ease-out_both] ${n <= 5 ? "h-11 w-11 rounded-lg" : "h-7 w-7 rounded-md"}`}
+                style={{
+                  animationDelay: `${(r + c) * 55}ms`,
+                  background: ch === "#" ? `linear-gradient(145deg, color-mix(in srgb, ${pic.color}, #fff 25%), ${pic.color})` : "#f1f5f9",
+                  boxShadow: ch === "#" ? "inset 0 -3px 0 rgba(0,0,0,.18)" : undefined,
+                }}
+              />
+            )),
+          )}
         </div>
         <p className="text-2xl font-semibold">
           It&apos;s a {pic.name}! {pic.emoji}
@@ -161,10 +179,13 @@ export function PictureLogic() {
       </div>
 
       <div className="overflow-x-auto">
-        <div className="mx-auto w-max select-none" style={{ display: "grid", gridTemplateColumns: `auto repeat(${n}, auto)` }}>
+        <div className="mx-auto w-max select-none rounded-3xl bg-[#eef2f7] p-3 shadow-inner" style={{ display: "grid", gridTemplateColumns: `auto repeat(${n}, auto)` }}>
           <span />
           {clues.cols.map((clue, c) => (
-            <span key={c} className={`flex flex-col items-center justify-end pb-1 text-sm font-semibold leading-tight tabular-nums sm:text-base ${lineDone(filled.map((row) => row[c]), clue) ? "text-muted/40" : "text-ink"}`}>
+            <span
+              key={c}
+              className={`mx-px mb-1 flex flex-col items-center justify-end rounded-t-lg py-1 text-sm font-bold leading-tight tabular-nums transition-colors sm:text-base ${lineDone(filled.map((row) => row[c]), clue) ? "bg-[#dcfce7] text-[#16a34a]" : c % 2 ? "bg-white text-[#1e293b]" : "bg-[#f8fafc] text-[#1e293b]"}`}
+            >
               {clue.map((k, i) => (
                 <span key={i}>{k}</span>
               ))}
@@ -172,7 +193,9 @@ export function PictureLogic() {
           ))}
           {grid.map((row, r) => (
             <div key={r} className="contents">
-              <span className={`flex items-center justify-end gap-1.5 pr-2 text-sm font-semibold tabular-nums sm:text-base ${lineDone(filled[r], clues.rows[r]) ? "text-muted/40" : "text-ink"}`}>
+              <span
+                className={`my-px mr-1 flex items-center justify-end gap-1.5 rounded-l-lg px-2 text-sm font-bold tabular-nums transition-colors sm:text-base ${lineDone(filled[r], clues.rows[r]) ? "bg-[#dcfce7] text-[#16a34a]" : r % 2 ? "bg-white text-[#1e293b]" : "bg-[#f8fafc] text-[#1e293b]"}`}
+              >
                 {clues.rows[r].map((k, i) => (
                   <span key={i}>{k}</span>
                 ))}
@@ -187,17 +210,21 @@ export function PictureLogic() {
                   onPointerCancel={up}
                   role="button"
                   aria-label={`Row ${r + 1}, column ${c + 1}: ${v === 1 ? "coloured" : v === 2 ? "marked empty" : "empty"}`}
-                  className={`${cell} grid touch-none place-items-center border border-[#cbd5e1] text-lg font-bold text-[#94a3b8] ${c % group === group - 1 && c < n - 1 ? "border-r-2 border-r-[#64748b]" : ""} ${r % group === group - 1 && r < n - 1 ? "border-b-2 border-b-[#64748b]" : ""}`}
-                  style={{ background: v === 1 ? "#1f2937" : "#ffffff" }}
+                  className={`${cell} grid touch-none place-items-center border border-[#d5dde8] text-lg font-bold text-[#cbd5e1] transition-colors duration-100 ${c % group === group - 1 && c < n - 1 ? "border-r-2 border-r-[#94a3b8]" : ""} ${r % group === group - 1 && r < n - 1 ? "border-b-2 border-b-[#94a3b8]" : ""}`}
+                  style={
+                    v === 1
+                      ? { background: "linear-gradient(145deg, #3b4b66, #1e293b)", boxShadow: "inset 0 -3px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.12)" }
+                      : { background: "#ffffff" }
+                  }
                 >
-                  {v === 2 ? "✕" : ""}
+                  {v === 2 ? <span className="pz-anim animate-[tt-pop_.2s_ease-out] text-[#f87171]">✕</span> : ""}
                 </span>
               ))}
             </div>
           ))}
         </div>
       </div>
-      <p className="text-center text-sm text-muted">Tap or drag across squares. Numbers turn grey when that line is right.</p>
+      <p className="text-center text-sm text-muted">Tap or drag across squares. A clue turns green when that line is right.</p>
       <button type="button" className="btn-secondary w-full" onClick={() => setGrid(grid.map((row) => row.map(() => 0 as Cell)))}>
         Start this picture again
       </button>
