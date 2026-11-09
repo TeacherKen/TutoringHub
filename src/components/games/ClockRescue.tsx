@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ampm, CLOCK_LEVELS, clockHint, clockQ, DAY, digital, duration, hhmm, hourAngle, timeJumps, toFace, hourFromAngle, minuteAngle, minutesFromAngle, same, STEP, type ClockLevel, type ClockQ, type Time } from "@/lib/clock";
+import { ampm, CLOCK_LEVELS, clockHint, clockQ, DAY, digital, duration, hhmm, hourAngle, timeJumps, toFace, minuteAngle, same, STEP, type ClockLevel, type ClockQ, type Time } from "@/lib/clock";
 import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
 
@@ -13,9 +13,26 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 const secs = (tenths: number) => `${(tenths / 10).toFixed(1)}s`;
 
 /** The clock. With `onChange`, both hands can be dragged (the long hand snaps to `step` minutes). */
+/** Minutes past 12:00 (0–719) ↔ a clock time. */
+const toTotal = (t: Time) => ((t.h % 12) * 60 + t.m + 720) % 720;
+const fromTotal = (n: number): Time => {
+  const t = ((n % 720) + 720) % 720;
+  const h = Math.floor(t / 60);
+  return { h: h === 0 ? 12 : h, m: t % 60 };
+};
+
+/**
+ * A clock. With onChange, it works like a real one: turn the long hand and the short hand follows
+ * (going past 12 moves on to the next hour), or turn the short hand and the long hand spins with it.
+ * There are also + and − buttons for the hour and the minutes.
+ */
 export function ClockFace({ time, onChange, step = 5, size = 260 }: { time: Time; onChange?: (t: Time) => void; step?: number; size?: number }) {
   const svg = useRef<SVGSVGElement>(null);
-  const dragging = useRef<"h" | "m" | null>(null);
+  const drag = useRef<{ hand: "h" | "m"; total: number; last: number } | null>(null);
+  const live = useRef(time);
+  useEffect(() => {
+    live.current = time;
+  });
   const R = 100;
 
   const angleAt = (e: React.PointerEvent) => {
@@ -24,63 +41,129 @@ export function ClockFace({ time, onChange, step = 5, size = 260 }: { time: Time
     const y = e.clientY - (box.top + box.height / 2);
     return { deg: ((Math.atan2(x, -y) * 180) / Math.PI + 360) % 360, dist: (Math.hypot(x, y) / (box.width / 2)) * 110 };
   };
+  const set = (total: number) => {
+    const snapped = Math.round(total / step) * step;
+    const next = fromTotal(snapped);
+    if (next.h !== live.current.h || next.m !== live.current.m) {
+      live.current = next;
+      onChange?.(next);
+    }
+  };
+  // Follow the finger: add up how far it has turned (so going round past 12 changes the hour).
+  const follow = (deg: number) => {
+    const d = drag.current;
+    if (!d) return;
+    const perTurn = d.hand === "m" ? 60 : 720; // minutes for one full turn of this hand
+    const now = (deg / 360) * perTurn;
+    let diff = now - d.last;
+    if (diff > perTurn / 2) diff -= perTurn;
+    if (diff < -perTurn / 2) diff += perTurn;
+    d.total += diff;
+    d.last = now;
+    set(d.total);
+  };
   const move = (e: React.PointerEvent) => {
-    if (!onChange || !dragging.current) return;
-    const { deg } = angleAt(e);
-    if (dragging.current === "m") onChange({ h: time.h, m: minutesFromAngle(deg, step) });
-    else onChange({ h: hourFromAngle(deg, time.m), m: time.m });
+    if (!onChange || !drag.current) return;
+    follow(angleAt(e).deg);
   };
   const down = (e: React.PointerEvent) => {
     if (!onChange) return;
     const { deg, dist } = angleAt(e);
+    const t = live.current;
     const gap = (a: number) => Math.min(Math.abs(deg - a), 360 - Math.abs(deg - a));
-    const toM = gap(minuteAngle(time));
-    const toH = gap(hourAngle(time));
-    // Grab whichever hand is nearer the finger; when they overlap, near the middle means the short hand.
-    dragging.current = Math.abs(toM - toH) < 12 ? (dist < 55 ? "h" : "m") : toM < toH ? "m" : "h";
+    const toM = gap(minuteAngle(t));
+    const toH = gap(hourAngle(t));
+    // The nearer hand; when they're close together, near the middle means the short hand.
+    const hand: "h" | "m" = Math.abs(toM - toH) < 20 ? (dist < 50 ? "h" : "m") : toM < toH ? "m" : "h";
+    const total = toTotal(t);
+    drag.current = { hand, total, last: hand === "m" ? (minuteAngle(t) / 360) * 60 : (hourAngle(t) / 360) * 720 };
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    move(e);
+    follow(deg); // the hand jumps to the finger
+  };
+  const nudge = (minutes: number) => {
+    const total = toTotal(live.current) + minutes;
+    const next = fromTotal(Math.round(total / step) * step);
+    live.current = next;
+    onChange?.(next);
   };
 
-  const hand = (deg: number, len: number, width: number, colour: string) => {
+  const hand = (deg: number, len: number, width: number, colour: string, knob: number) => {
     const a = (deg * Math.PI) / 180;
-    return <line x1={0} y1={0} x2={r2(Math.sin(a) * len)} y2={r2(-Math.cos(a) * len)} stroke={colour} strokeWidth={width} strokeLinecap="round" />;
+    const x = r2(Math.sin(a) * len);
+    const y = r2(-Math.cos(a) * len);
+    return (
+      <g>
+        <line x1={0} y1={0} x2={x} y2={y} stroke={colour} strokeWidth={width} strokeLinecap="round" />
+        {onChange ? <circle cx={x} cy={y} r={knob} fill={colour} stroke="#fffaf0" strokeWidth={2} /> : null}
+      </g>
+    );
   };
 
+  const btn = "grid h-12 w-12 place-items-center rounded-full bg-surface-2 text-2xl font-bold transition active:scale-90 hover:bg-line";
   return (
-    <svg
-      ref={svg}
-      viewBox="-110 -110 220 220"
-      width={size}
-      height={size}
-      className={`mx-auto block max-w-full select-none ${onChange ? "cursor-grab touch-none" : ""}`}
-      onPointerDown={down}
-      onPointerMove={move}
-      onPointerUp={() => (dragging.current = null)}
-      onPointerCancel={() => (dragging.current = null)}
-      role="img"
-      aria-label={onChange ? `Clock set to ${digital(time)}` : "A clock"}
-    >
-      <circle r={R + 6} fill="#fffaf0" stroke="#2b3a4a" strokeWidth={6} />
-      {Array.from({ length: 60 }, (_, i) => {
-        const a = (i * 6 * Math.PI) / 180;
-        const big = i % 5 === 0;
-        const r1 = big ? R - 10 : R - 5;
-        return <line key={i} x1={r2(Math.sin(a) * r1)} y1={r2(-Math.cos(a) * r1)} x2={r2(Math.sin(a) * R)} y2={r2(-Math.cos(a) * R)} stroke="#2b3a4a" strokeWidth={big ? 2.5 : 1} opacity={big ? 0.9 : 0.45} />;
-      })}
-      {Array.from({ length: 12 }, (_, i) => {
-        const n = i + 1;
-        const a = (n * 30 * Math.PI) / 180;
-        return (
-          <text key={n} x={r2(Math.sin(a) * (R - 24))} y={r2(-Math.cos(a) * (R - 24))} textAnchor="middle" dominantBaseline="central" fontSize={17} fontWeight={700} fill="#1f2a36">
-            {n}
-          </text>
-        );
-      })}
-      {hand(hourAngle(time), 42, 9, "#1f2a36")}
-      {hand(minuteAngle(time), 64, 5, "#d9622b")}
-      <circle r={7} fill="#1f2a36" />
-    </svg>
+    <div className="space-y-2">
+      <svg
+        ref={svg}
+        viewBox="-110 -110 220 220"
+        width={size}
+        height={size}
+        className={`mx-auto block max-w-full select-none ${onChange ? "cursor-grab touch-none active:cursor-grabbing" : ""}`}
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={() => (drag.current = null)}
+        onPointerCancel={() => (drag.current = null)}
+        role="img"
+        aria-label={onChange ? `Clock set to ${digital(time)}` : "A clock"}
+      >
+        <circle r={R + 6} fill="#fffaf0" stroke="#2b3a4a" strokeWidth={6} />
+        {Array.from({ length: 60 }, (_, i) => {
+          const a = (i * 6 * Math.PI) / 180;
+          const big = i % 5 === 0;
+          const r1 = big ? R - 10 : R - 5;
+          return <line key={i} x1={r2(Math.sin(a) * r1)} y1={r2(-Math.cos(a) * r1)} x2={r2(Math.sin(a) * R)} y2={r2(-Math.cos(a) * R)} stroke="#2b3a4a" strokeWidth={big ? 2.5 : 1} opacity={big ? 0.9 : 0.45} />;
+        })}
+        {Array.from({ length: 12 }, (_, i) => {
+          const n = i + 1;
+          const a = (n * 30 * Math.PI) / 180;
+          return (
+            <text key={n} x={r2(Math.sin(a) * (R - 24))} y={r2(-Math.cos(a) * (R - 24))} textAnchor="middle" dominantBaseline="central" fontSize={17} fontWeight={700} fill="#1f2a36">
+              {n}
+            </text>
+          );
+        })}
+        {hand(hourAngle(time), 46, 10, "#1f2a36", 8)}
+        {hand(minuteAngle(time), 70, 6, "#d9622b", 9)}
+        <circle r={7} fill="#1f2a36" />
+      </svg>
+      {onChange ? (
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          <div className="flex items-center gap-2">
+            <button type="button" className={btn} onClick={() => nudge(-60)} aria-label="Hour back">
+              −
+            </button>
+            <span className="w-16 text-center text-sm font-semibold">
+              <span className="mx-auto mb-0.5 block h-1.5 w-8 rounded-full bg-[#1f2a36]" aria-hidden />
+              Hour
+            </span>
+            <button type="button" className={btn} onClick={() => nudge(60)} aria-label="Hour forward">
+              +
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" className={btn} onClick={() => nudge(-step)} aria-label={`${step} minutes back`}>
+              −
+            </button>
+            <span className="w-16 text-center text-sm font-semibold">
+              <span className="mx-auto mb-0.5 block h-1 w-10 rounded-full bg-[#d9622b]" aria-hidden />
+              Minutes
+            </span>
+            <button type="button" className={btn} onClick={() => nudge(step)} aria-label={`${step} minutes forward`}>
+              +
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
