@@ -105,7 +105,7 @@ export function MoneyShop() {
   const [startedAt, setStartedAt] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [newBest, setNewBest] = useState(false);
-  const { best, offer } = useBest(`ms-${currency}-${level}`, (a, b) => a < b);
+  const { best, offer } = useBest(`ms-${currency}-${level}`, (a, b) => a < b, "ds");
 
   useEffect(() => {
     if (phase !== "play") return;

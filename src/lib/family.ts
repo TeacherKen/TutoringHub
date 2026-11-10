@@ -8,10 +8,12 @@ import { bkkDateKey, bkkStartOfDay, todayKey } from "@/lib/time";
 import type { FactState } from "@/lib/facts";
 import { loadRounds } from "@/lib/practice";
 import { statsFrom, trophies, type Trophy } from "@/lib/trophies";
+import { missionsFor, playsFor } from "@/lib/gameResults";
+import type { GamePlay, MissionView } from "@/lib/gameScore";
 
 // A family's private page (opened with a link, no sign-in). It shows only:
 // first names, upcoming lesson times, lesson updates Mr Ken marked as sent (his message, the lesson's
-// topics, homework and work pictures), topic progress, and hours left. No prices or payment details, private notes
+// topics, homework and work pictures), topic progress, game results and missions, and hours left. No prices or payment details, private notes
 // ("learned" / "next time" stay Mr Ken's) or other families.
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{24,64}$/;
@@ -25,7 +27,19 @@ export type FamilyPage = {
   /** Messages between the family and Mr Ken, oldest first (lessonId: under that lesson update). */
   notes: FamilyNote[];
   consented: boolean;
-  children: { id: string; name: string; progress: TopicRow[]; facts: FactState[]; trophies: Trophy[]; stars: number }[];
+  children: {
+    id: string;
+    name: string;
+    progress: TopicRow[];
+    facts: FactState[];
+    trophies: Trophy[];
+    stars: number;
+    /** 🎯 Homework missions and 🎮 games played in the last 30 days (from the child's room). */
+    missions: MissionView[];
+    plays: GamePlay[];
+    /** The child's room link (missions are played there), or null if Mr Ken hasn't made one. */
+    room: string | null;
+  }[];
   upcoming: { start_at: string; end_at: string; names: string[] }[];
   /** Lesson updates Mr Ken sent, newest first: his message, the topics, homework and that lesson's work pictures. */
   messages: { lessonId: string; date: string; names: string[]; text: string; topics: string[]; homework: string | null; photos: { label: string; url: string }[] }[];
@@ -59,7 +73,7 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   // Every child on the account counts for hours (a paused sibling's lessons still used them, the same as
   // on Mr Ken's pages); only active children are shown.
   const [{ data: kids }, { data: pk }] = await Promise.all([
-    admin.from("students").select("id, first_name, active, parent_name, family_show_tables").eq("hour_account_id", acct.id).order("first_name"),
+    admin.from("students").select("id, first_name, active, parent_name, family_show_tables, room_token").eq("hour_account_id", acct.id).order("first_name"),
     admin.from("packages").select("*").eq("hour_account_id", acct.id).order("start_date"),
   ]);
   const everyone = (kids ?? []) as { id: string; first_name: string; active: boolean; parent_name: string | null }[];
@@ -140,7 +154,11 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
   // Topic progress per child.
   const savedRows = (saved ?? []) as { student_id: string; name: string; status: "next" | "learning" | "got_it"; updated_at: string }[];
   const facts = (factRows ?? []) as (FactState & { student_id: string })[];
-  const rounds = await loadRounds(ids);
+  const [rounds, missionMap, playMap] = await Promise.all([
+    loadRounds(ids),
+    missionsFor(ids).catch(() => new Map<string, MissionView[]>()),
+    playsFor(ids).catch(() => new Map<string, GamePlay[]>()),
+  ]);
   const childRows = children.map((c) => {
     const mine = facts
       .filter((f) => f.student_id === c.id)
@@ -159,6 +177,9 @@ export async function getFamilyPage(token: string): Promise<FamilyPage | null> {
     facts: show ? mine : [],
     trophies: show ? trophies(stats).filter((t) => t.got) : [],
     stars: show ? stats.stars : 0,
+    missions: missionMap.get(c.id) ?? [],
+    plays: playMap.get(c.id) ?? [],
+    room: (c as { room_token?: string | null }).room_token ?? null,
     progress: mergeProgress(
       savedRows.filter((s) => s.student_id === c.id),
       all

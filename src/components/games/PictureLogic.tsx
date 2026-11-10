@@ -29,7 +29,7 @@ export function PictureLogic() {
   const [newBest, setNewBest] = useState(false);
   const [confetti, setConfetti] = useState<Confetti[]>([]);
   const paint = useRef<Cell | null>(null);
-  const { best, offer } = useBest(`pl-${level}`, (a, b) => a < b);
+  const { best, offer } = useBest(`pl-${level}`, (a, b) => a < b, "s");
 
   function start(lv = level) {
     const p = choosePicture(lv, pic?.name ?? null);

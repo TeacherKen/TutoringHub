@@ -1,6 +1,8 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { MATERIALS_BUCKET } from "@/lib/constants";
+import type { MissionView } from "@/lib/gameScore";
+import { missionsFor } from "@/lib/gameResults";
 
 // A student's room is opened with a private link (no sign-in, because they're children).
 // The link only ever shows: the student's first name, one lesson's time, that lesson's
@@ -16,6 +18,8 @@ export type RoomData = {
   materials: RoomMaterial[];
   gamesOpen: boolean;
   hasBoard: boolean;
+  /** 🎯 Homework missions from Mr Ken (they can be played even while break-time games are closed). */
+  missions: MissionView[];
 };
 
 export function isValidToken(token: string): boolean {
@@ -66,6 +70,7 @@ export async function getRoom(token: string): Promise<RoomData | null> {
 
   // Find this student's lesson: happening now, else the next one, else the last one.
   const now = Date.now();
+  const missionsP = missionsFor([s.id]).catch(() => new Map<string, MissionView[]>());
   const { data: rows } = await admin
     .from("lesson_students")
     .select("lessons!inner(id, start_at, end_at, status, ignored, in_calendar)")
@@ -127,5 +132,6 @@ export async function getRoom(token: string): Promise<RoomData | null> {
     materials,
     gamesOpen,
     hasBoard: Boolean(s.board_id),
+    missions: (await missionsP).get(s.id) ?? [],
   };
 }

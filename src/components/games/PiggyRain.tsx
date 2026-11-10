@@ -83,7 +83,7 @@ export function PiggyRain() {
   const [newBest, setNewBest] = useState(false);
   const nextId = useRef(1);
   const left = useRef(0);
-  const { best, offer } = useBest(`pb-${currency}-${level}`, (a, b) => a < b);
+  const { best, offer } = useBest(`pb-${currency}-${level}`, (a, b) => a < b, "ds");
   const money = piggyMoney(currency, level);
 
   useEffect(() => {

@@ -1,5 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { ScoreUnit } from "@/lib/gameScore";
+import { useReport } from "./report";
 
 // Personal best, saved on this device only. Read with useSyncExternalStore so the page drawn on the
 // server (no best yet) and the one in the browser agree, then the saved best appears. Storage can be
@@ -10,14 +12,18 @@ const subscribe = (onChange: () => void) => {
   return () => window.removeEventListener("storage", onChange);
 };
 
-export function useBest(key: string, better: (a: number, b: number) => boolean) {
+/** `unit`: how the score is measured. With it, every finished round is also sent to the child's room (see report.tsx). */
+export function useBest(key: string, better: (a: number, b: number) => boolean, unit?: ScoreUnit) {
   const storageKey = `th-best-${key}`;
   const [memory, setMemory] = useState<Record<string, number>>({});
   // `better` is usually written inline, so it's new on every draw; keep the latest in a ref so `offer`
   // stays the same function (games' timers depend on it, and a changing one restarted them every second).
   const betterRef = useRef(better);
+  const report = useReport();
+  const reportRef = useRef(report);
   useEffect(() => {
     betterRef.current = better;
+    reportRef.current = report;
   });
   const read = useCallback((): string | null => {
     try {
@@ -31,6 +37,7 @@ export function useBest(key: string, better: (a: number, b: number) => boolean) 
 
   const offer = useCallback(
     (score: number): boolean => {
+      if (unit) reportRef.current?.({ variant: key, score, unit });
       const raw = read();
       const current = raw != null && raw !== "" ? Number(raw) : (memory[storageKey] ?? null);
       if (current != null && !betterRef.current(score, current)) return false;
@@ -42,7 +49,7 @@ export function useBest(key: string, better: (a: number, b: number) => boolean) 
       setMemory((m) => ({ ...m, [storageKey]: score })); // also re-draws, so the stored value is read again
       return true;
     },
-    [read, storageKey, memory],
+    [read, storageKey, memory, key, unit],
   );
   return { best, offer };
 }

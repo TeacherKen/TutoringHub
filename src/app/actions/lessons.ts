@@ -183,6 +183,21 @@ export async function markPastDone(form: FormData): Promise<void> {
 
 
 /**
+ * "Sent" on Home: Mr Ken already sent these updates another way (e.g. WhatsApp). They're marked as sent,
+ * so the reminder goes away and a written update shows on the family page. Only lessons not yet marked.
+ */
+export async function markSent(ids: string[]): Promise<{ ok?: boolean; error?: string }> {
+  await assertTutor();
+  const list = (Array.isArray(ids) ? ids : []).filter((id) => typeof id === "string" && /^[0-9a-f-]{36}$/.test(id)).slice(0, 200);
+  if (!list.length) return { ok: true };
+  const supabase = await createClient();
+  const { error } = await supabase.from("lessons").update({ sent_at: new Date().toISOString() }).in("id", list).is("sent_at", null);
+  if (error) return { error: "Couldn't save. Try again." };
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/**
  * "Clear all" / "Skip" on Home: these lessons don't need a note (which also means no feedback),
  * or don't need feedback sent. Needs database update 0021.
  */

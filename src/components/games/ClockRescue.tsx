@@ -200,7 +200,7 @@ export function ClockRescue() {
   const [startedAt, setStartedAt] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [newBest, setNewBest] = useState(false);
-  const { best, offer } = useBest(`ck-${level}`, (a, b) => a < b);
+  const { best, offer } = useBest(`ck-${level}`, (a, b) => a < b, "ds");
 
   useEffect(() => {
     if (phase !== "play") return;

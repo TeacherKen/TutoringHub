@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { PICTURES, PIECES, piecesOf, fits, hintFor, isSolved, normalize, pictureById, pictureCells, pictureSize, rotate, flip, solutionsFor, type Cell, type PieceId, type Picture, type Placement } from "@/lib/pentomino";
 import { useBest } from "./useBest";
+import { useReport } from "./report";
 import { sfx } from "@/lib/gameSound";
 
 // 🧩 Shape Builder: fit all 12 blocks into the picture. Built for the iPad.
@@ -120,7 +121,8 @@ export function ShapeBuilder() {
     const t = setTimeout(() => setTurning(null), 250);
     return () => clearTimeout(t);
   }, [turning]);
-  const { best, offer } = useBest(`sb-${pictureId}-${level}`, (a, b) => a < b);
+  const { best, offer } = useBest(`sb-${pictureId}-${level}`, (a, b) => a < b, "ds");
+  const report = useReport();
   const picture = pictureById(pictureId)!;
   const { rows, cols } = pictureSize(picture);
   const want = useMemo(() => new Set(pictureCells(picture).map((c) => c.join(","))), [picture]);
@@ -213,7 +215,12 @@ export function ShapeBuilder() {
       if (!isSolved(picture, list)) return false;
       const time = Math.round((Date.now() - startedAt) / 100);
       setElapsed(time * 100);
-      setNewBest(hintsUsed === 0 && offer(time)); // a hinted game doesn't count as a best
+      // A hinted game doesn't count as a best, but it still counts as played (for missions).
+      if (hintsUsed === 0) setNewBest(offer(time));
+      else {
+        setNewBest(false);
+        report?.({ variant: `sb-${picture.id}-${level}`, score: time, unit: "ds" });
+      }
       const got = starsFor(hintsUsed);
       setStars(got);
       const all = parse<Record<string, number>>(readKey(STARS_KEY), {});
@@ -224,7 +231,7 @@ export function ShapeBuilder() {
       setPhase("done");
       return true;
     },
-    [picture, startedAt, offer, level],
+    [picture, startedAt, offer, level, report],
   );
 
   /** Change one block, then see if the picture is complete. */

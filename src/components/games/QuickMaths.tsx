@@ -70,7 +70,7 @@ export function QuickMaths() {
   const [wrong, setWrong] = useState(false);
   const [newBest, setNewBest] = useState(false);
   // Best = fastest time (lower is better), in tenths of a second.
-  const { best, offer } = useBest(`qm-${level}`, (a, b) => a < b);
+  const { best, offer } = useBest(`qm-${level}`, (a, b) => a < b, "ds");
 
   useEffect(() => {
     if (phase !== "play") return;

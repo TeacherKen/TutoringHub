@@ -24,7 +24,7 @@ export function FractionFaceoff() {
   const [flash, setFlash] = useState<-1 | 0 | 1 | null>(null);
   const [missed, setMissed] = useState<FaceQ[]>([]);
   const [newBest, setNewBest] = useState(false);
-  const { best, offer } = useBest(`ff-${level}`, (a, b) => a > b);
+  const { best, offer } = useBest(`ff-${level}`, (a, b) => a > b, "pts");
   const scoreRef = useRef(0);
   const hints = level !== "mixed"; // the bars show on the easier levels
 

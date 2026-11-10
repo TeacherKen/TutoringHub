@@ -35,7 +35,7 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/roo
   }
   return (
     <Glass>
-      <Room token={token} initial={room} initialTab={tab === "practice" ? "practice" : undefined} />
+      <Room token={token} initial={room} initialTab={tab === "practice" ? "practice" : tab === "games" ? "games" : undefined} />
     </Glass>
   );
 }

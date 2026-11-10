@@ -66,7 +66,7 @@ export function MakeNumber() {
   const [took, setTook] = useState(0);
   const [newBest, setNewBest] = useState(false);
   const [confetti, setConfetti] = useState<Confetti[]>([]);
-  const { best, offer } = useBest(`mn-${level}`, (a, b) => a < b);
+  const { best, offer } = useBest(`mn-${level}`, (a, b) => a < b, "s");
   const L = MN_LEVELS[level];
 
   function load(p: MNPuzzle) {

@@ -34,7 +34,7 @@ export function PizzaFractions() {
   const [startedAt, setStartedAt] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [newBest, setNewBest] = useState(false);
-  const { best, offer } = useBest(`fp-${level}`, (a, b) => a < b); // fastest time, in tenths of a second
+  const { best, offer } = useBest(`fp-${level}`, (a, b) => a < b, "ds"); // fastest time, in tenths of a second
 
   useEffect(() => {
     if (phase !== "play") return;

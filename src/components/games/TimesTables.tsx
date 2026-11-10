@@ -31,7 +31,7 @@ export function TimesTables() {
   const [shake, setShake] = useState(false);
   const [newBest, setNewBest] = useState(false);
   const key = `tt-${[...tables].sort((x, y) => x - y).join("-")}`;
-  const { best, offer } = useBest(key, (a, b) => a > b);
+  const { best, offer } = useBest(key, (a, b) => a > b, "pts");
 
   const scoreRef = useRef(0);
 

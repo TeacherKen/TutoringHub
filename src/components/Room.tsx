@@ -13,6 +13,9 @@ import { FootballTables } from "./games/FootballTables";
 import { GAMES as ALL_GAMES, type GameInfo } from "@/lib/games";
 import { useWolfLink, WVS_SRC } from "./games/WolfOnline";
 import { SIDE_NAME, type Side } from "@/lib/wvs";
+import { ReportContext } from "./games/report";
+import { MissionList } from "./games/Missions";
+import type { GameResult, MissionView } from "@/lib/gameScore";
 
 // Break-time games (football is the Practice tab). Games with a `src` are Mr Ken's own games.
 const GAMES = ALL_GAMES.filter((g) => g.id !== "football");
@@ -41,6 +44,37 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   const gameBox = useRef<HTMLDivElement>(null);
   const gameFrame = useRef<HTMLIFrameElement>(null);
   const gameInfo = GAMES.find((g) => g.id === game);
+  // 🎯 A homework mission's game can be played even while break-time games are closed.
+  const [missionGame, setMissionGame] = useState<GameId | null>(null);
+  const [missionNote, setMissionNote] = useState<string | null>(null);
+  const recentDone = (m: MissionView) => !m.done || (m.doneAt != null && Date.now() - Date.parse(m.doneAt) < 3 * 86_400_000);
+  const missions = room.missions.filter(recentDone);
+  const openMissions = missions.filter((m) => !m.done).length;
+  const playMission = (id: string) => {
+    setMissionGame(id as GameId);
+    setGame(id as GameId);
+    setTab("games");
+    setMissionNote(null);
+  };
+  /** A finished round: save it to this child (Mr Ken's student page, the family page, missions). */
+  const report = useCallback(
+    (r: GameResult) => {
+      if (!game) return;
+      const before = room.missions;
+      fetch(`/api/room/${token}/games`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ game, ...r }), keepalive: true })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((d: { missions?: MissionView[] } | null) => {
+          if (!d?.missions) return;
+          const justDone = d.missions.find((m) => m.done && !before.find((b) => b.id === m.id)?.done);
+          if (justDone) setMissionNote(`🎉 Mission complete: ${justDone.name}! Well done!`);
+          setRoom((rm) => ({ ...rm, missions: d.missions! }));
+        })
+        .catch(() => {
+          /* offline: this round isn't saved, the game still works */
+        });
+    },
+    [game, token, room.missions],
+  );
 
   /** A picture (HTML copy, no scripts) of the game screen right now, or "" if there's no game. */
   const snapGame = useCallback((): string => {
@@ -242,7 +276,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   const current = onBoard ? undefined : slides[Math.min(Math.max(0, slide), Math.max(0, slides.length - 1))];
 
   return (
-    <div className="page-enter mx-auto flex min-h-dvh max-w-6xl flex-col px-4 pb-8 pt-5">
+    <div className="page-enter mx-auto flex min-h-dvh max-w-6xl flex-col overflow-x-clip px-4 pb-8 pt-5">
       <header className="glass mb-5 flex rounded-[26px] px-5 py-4 flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-[32px] font-semibold leading-tight tracking-tight sm:text-[40px]">Hi {room.firstName}!</h1>
@@ -284,7 +318,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
             onClick={() => setTab("games")}
             className={`tab press ${tab === "games" ? "is-on" : ""}`}
           >
-            Games {room.gamesOpen ? "" : "🔒"}
+            Games {room.gamesOpen ? "" : openMissions ? `🎯${openMissions}` : "🔒"}
           </button>
         </div>
       </header>
@@ -389,13 +423,16 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
         </section>
       ) : tab === "practice" ? (
         <FootballTables api={`/api/room/${token}/practice`} onLive={onPracticeLive} />
-      ) : !room.gamesOpen ? (
-        <section className="card flex flex-1 flex-col items-center justify-center py-16 text-center">
-          <p className="text-4xl" aria-hidden>
-            🔒
-          </p>
-          <h2 className="mt-3 text-xl font-semibold">Games open at break time</h2>
-          <p className="mt-1 text-muted">Mr Ken will unlock them. This page will update by itself.</p>
+      ) : !room.gamesOpen && !(game && game === missionGame) ? (
+        <section className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4">
+          <MissionList missions={missions} onPlay={playMission} title="🎯 Your missions" />
+          <div className="card flex flex-1 flex-col items-center justify-center py-12 text-center">
+            <p className="text-4xl" aria-hidden>
+              🔒
+            </p>
+            <h2 className="mt-3 text-xl font-semibold">Other games open at break time</h2>
+            <p className="mt-1 text-muted">Mr Ken will unlock them. This page will update by itself.</p>
+          </div>
         </section>
       ) : game && gameInfo?.src ? (
         <section className="flex flex-1 flex-col gap-2">
@@ -403,7 +440,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
             <button className="btn-quiet px-0" onClick={() => setGame(null)}>
               ‹ All games
             </button>
-            <span className="text-xs text-muted">Mr Ken can see your game screen.</span>
+            {room.gamesOpen ? <span className="text-xs text-muted">Mr Ken can see your game screen.</span> : null}
           </div>
           <iframe
             ref={gameFrame}
@@ -426,18 +463,38 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
       ) : game ? (
         <section className={`mx-auto w-full space-y-4 ${gameInfo?.wide ? "max-w-5xl" : "max-w-lg"}`}>
           <div className="flex items-center justify-between">
-            <button className="btn-quiet px-0" onClick={() => setGame(null)}>
-              ‹ All games
+            <button className="btn-quiet px-0" onClick={() => {
+              setGame(null);
+              setMissionNote(null);
+            }}>
+              ‹ {room.gamesOpen ? "All games" : "Back"}
             </button>
-            <span className="text-xs text-muted">Mr Ken can see your game screen.</span>
+            {room.gamesOpen ? <span className="text-xs text-muted">Mr Ken can see your game screen.</span> : null}
           </div>
+          {missionNote ? (
+            <p role="status" className="pz-anim animate-[tt-pop_.4s_ease-out] rounded-2xl bg-ok-soft p-3 text-center font-semibold text-ok">
+              {missionNote}
+            </p>
+          ) : (
+            missions
+              .filter((m) => m.game === game && !m.done)
+              .slice(0, 1)
+              .map((m) => (
+                <p key={m.id} className="rounded-2xl bg-accent-soft p-3 text-sm font-medium text-accent">
+                  🎯 Mission: {m.rounds} round{m.rounds === 1 ? "" : "s"} · {m.played} done so far
+                </p>
+              ))
+          )}
           <div ref={gameBox} className="card" onPointerUp={quickPicture} onKeyUp={quickPicture}>
             <h2 className="mb-4 text-xl font-semibold">{gameInfo?.name}</h2>
-            <BuiltInGame id={game} />
+            <ReportContext.Provider value={report}>
+              <BuiltInGame id={game} />
+            </ReportContext.Provider>
           </div>
         </section>
       ) : (
         <section className="mx-auto grid w-full max-w-lg gap-3">
+          <MissionList missions={missions} onPlay={playMission} title="🎯 Your missions" />
           <h2 className="text-xl font-semibold">Break time! Pick a game</h2>
           {GAMES.map((g) => (
             <button key={g.id} onClick={() => setGame(g.id)} className="card flex min-h-20 items-center justify-between text-left hover:border-accent">

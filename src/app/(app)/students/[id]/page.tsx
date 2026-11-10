@@ -5,6 +5,9 @@ import { requireTutor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountSummaries, getMoneyData, getProgress, getSettings, getStudents, getTimesTables, type Lesson } from "@/lib/data";
 import { TimesTablesCard } from "@/components/TimesTablesCard";
+import { GamesCard } from "@/components/GamesCard";
+import { missionsFor, playsFor } from "@/lib/gameResults";
+import type { GamePlay, MissionView } from "@/lib/gameScore";
 import { WorksheetPhotos } from "@/components/WorksheetPhotos";
 import { cleanMode, cleanTables } from "@/lib/facts";
 import { renewSoon, thb as baht } from "@/lib/earnings";
@@ -47,7 +50,7 @@ const thb = (n: number) => `฿${Number(n).toLocaleString("en-US")}`;
 export default async function StudentPage({ params }: PageProps<"/students/[id]">) {
   const [, { id }, supabase] = await Promise.all([requireTutor(), params, createClient()]);
   // Two waits instead of seven: everything that only needs the student's id first...
-  const [students, settings, progress, money, tt, { data: links }, { data: recent }] = await Promise.all([
+  const [students, settings, progress, money, tt, { data: links }, { data: recent }, missionMap, playMap] = await Promise.all([
     getStudents(),
     getSettings(),
     getProgress([id]),
@@ -58,7 +61,11 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
       .select("lessons(id, start_at, end_at, status, length_hours, learned, next_time, homework, topics, how_it_went, ignored, in_calendar, sent_at)")
       .eq("student_id", id),
     supabase.from("lessons").select("topics").neq("topics", "{}").order("start_at", { ascending: false }).limit(80),
+    missionsFor([id]).catch(() => new Map<string, MissionView[]>()),
+    playsFor([id]).catch(() => new Map<string, GamePlay[]>()),
   ]);
+  const missions = missionMap.get(id) ?? [];
+  const plays = playMap.get(id) ?? [];
   const student = students.find((s) => s.id === id);
   if (!student) notFound();
   // ...then everything about the student's family (hours account) at once.
@@ -192,6 +199,21 @@ export default async function StudentPage({ params }: PageProps<"/students/[id]"
         initialMode={cleanMode(student.tt_mode)}
         initialShowFamily={(student as { family_show_tables?: boolean | null }).family_show_tables !== false}
       />
+
+      <Fold
+        id="games"
+        open={missions.some((m) => !m.done)}
+        summary={
+          <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="h2">🎮 Games &amp; missions</span>
+            {missions.some((m) => !m.done) ? <span className="chip">{missions.filter((m) => !m.done).length} mission{missions.filter((m) => !m.done).length === 1 ? "" : "s"} to do</span> : null}
+            {missions.some((m) => m.done) ? <span className="chip-ok">{missions.filter((m) => m.done).length} done</span> : null}
+            <span className="text-sm text-[var(--th-text-3)]">{plays.length ? `${plays.reduce((a, p) => a + p.plays, 0)} rounds in 30 days` : "No games saved yet"}</span>
+          </span>
+        }
+      >
+        <GamesCard studentId={student.id} name={student.first_name} hasRoom={Boolean(student.room_token)} missions={missions} plays={plays} />
+      </Fold>
 
       {past[0] ? (
         <section className="card space-y-2">

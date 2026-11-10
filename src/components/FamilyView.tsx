@@ -1,6 +1,7 @@
 import { MasteryGrid } from "@/components/MasteryGrid";
 import { parseFact } from "@/lib/facts";
 import { TrophyShelf } from "@/components/Trophies";
+import { MissionList } from "@/components/games/Missions";
 import type { FamilyNote, FamilyPage } from "@/lib/family";
 import { NoteForm, NoteThread } from "@/components/FamilyNotes";
 import { bkkDateKey, fmtDay, fmtTime } from "@/lib/time";
@@ -124,6 +125,39 @@ export function FamilyView({ f, tutor, token }: { f: FamilyPage; tutor: string; 
                 </div>
               );
             })}
+        </section>
+      ) : null}
+
+      {f.children.some((c) => c.missions.length || c.plays.length) ? (
+        <section className="space-y-3">
+          <h2 className="h2">🎮 Practice games</h2>
+          <p className="text-sm text-muted">Maths games {f.children.length > 1 ? "your children" : f.children[0].name} played in their lesson room, and missions {tutor} set for home.</p>
+          {f.children
+            .filter((c) => c.missions.length || c.plays.length)
+            .map((c) => (
+              <div key={c.id} className="space-y-3">
+                {f.children.length > 1 ? <h3 className="font-medium">{c.name}</h3> : null}
+                <MissionList missions={c.missions} playHref={c.room ? `/room/${c.room}?tab=games` : undefined} title={`🎯 Missions from ${tutor}`} />
+                {c.plays.length ? (
+                  <div className="card">
+                    <p className="mb-1 text-sm font-medium">Played in the last 30 days</p>
+                    <ul className="divide-y divide-line text-sm">
+                      {c.plays.slice(0, 6).map((p) => (
+                        <li key={`${p.game}-${p.variant}`} className="flex flex-wrap items-baseline justify-between gap-x-3 py-2">
+                          <span className="font-medium">
+                            {p.name}
+                            {p.level ? <span className="font-normal text-muted"> · {p.level}</span> : null}
+                          </span>
+                          <span className="text-muted">
+                            {p.plays}× · best <span className="font-medium text-ink">{p.best}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ))}
         </section>
       ) : null}
 

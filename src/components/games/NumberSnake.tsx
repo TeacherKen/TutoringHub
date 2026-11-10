@@ -30,7 +30,7 @@ export function NumberSnake() {
   useEffect(() => {
     pathRef.current = path;
   }, [path]);
-  const { best, offer } = useBest(`ns-${size}`, (a, b) => a < b);
+  const { best, offer } = useBest(`ns-${size}`, (a, b) => a < b, "s");
 
   function start() {
     const puzzle = snakePuzzle(size);

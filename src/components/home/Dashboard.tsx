@@ -2,7 +2,7 @@ import { lessonMode, lessonNames, lessonPlace, lessonVia, needsNote, type Lesson
 import { bkkDateKey, fmtDay, fmtTime } from "@/lib/time";
 import type { PrepStudent } from "@/lib/prep";
 import { PrepCard } from "@/components/PrepCard";
-import { ClearAll, SkipOne } from "@/components/ReminderButtons";
+import { ClearAll, SentOne, SkipOne } from "@/components/ReminderButtons";
 import { markPastDone, setLessonReady } from "@/app/actions/lessons";
 import type { Ready } from "@/lib/ready";
 import { famTint, initials } from "@/lib/glassTint";
@@ -235,6 +235,7 @@ function TodoGroup({ title, action, rows, skip }: { title: string; action?: Reac
         <span>{r.text}</span>
       </SoundLink>
       {r.extra}
+      {skip === "feedback" ? <SentOne id={r.id} /> : null}
       {skip ? <SkipOne kind={skip} id={r.id} /> : null}
     </li>
   );

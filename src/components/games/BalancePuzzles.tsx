@@ -129,7 +129,7 @@ export function BalancePuzzles() {
   const [took, setTook] = useState(0);
   const [newBest, setNewBest] = useState(false);
   const [confetti, setConfetti] = useState<Confetti[]>([]);
-  const { best, offer } = useBest(`bp-${level}`, (a, b) => a > b);
+  const { best, offer } = useBest(`bp-${level}`, (a, b) => a > b, "stars");
 
   function start() {
     setQ(balanceQ(level));

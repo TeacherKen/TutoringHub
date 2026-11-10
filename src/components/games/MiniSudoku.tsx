@@ -82,7 +82,7 @@ export function MiniSudoku() {
   const [time, setTime] = useState<number | null>(null);
   const [confetti, setConfetti] = useState<Confetti[]>([]);
   const { size, grid, start } = game ?? { size: 4 as Size, grid: [] as (number | null)[][], start: [] as (number | null)[][] };
-  const { best, offer } = useBest(`sudoku-${size}`, (a, b) => a < b);
+  const { best, offer } = useBest(`sudoku-${size}`, (a, b) => a < b, "s");
   const [br, bc] = BOX[size];
   const isGiven = (r: number, c: number) => start[r][c] != null;
 

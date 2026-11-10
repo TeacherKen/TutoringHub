@@ -1,13 +1,17 @@
 "use client";
 import { netFail } from "@/lib/netFail";
 import { useState, useTransition } from "react";
-import { skipReminders } from "@/app/actions/lessons";
+import { markSent, skipReminders } from "@/app/actions/lessons";
 
-/** "Clear all": these lessons don't need a note (or feedback). Asks once before clearing. */
+/**
+ * "Clear all": these lessons don't need a note (or feedback). Asks once before clearing.
+ * For feedback it also offers "Already sent": Mr Ken sent them another way (they count as sent).
+ */
 export function ClearAll({ kind, ids }: { kind: "note" | "feedback"; ids: string[] }) {
   const [ask, setAsk] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [doing, setDoing] = useState<"sent" | "skip" | null>(null);
   if (!ids.length) return null;
   const what = kind === "note" ? "notes" : "feedback";
   if (!ask) {
@@ -19,22 +23,38 @@ export function ClearAll({ kind, ids }: { kind: "note" | "feedback"; ids: string
   }
   return (
     <span className="flex flex-wrap items-center justify-end gap-1.5 text-sm">
-      <span className="text-muted">
-        No {what} needed for these {ids.length}?
-      </span>
+      <span className="text-muted">{kind === "feedback" ? `These ${ids.length}:` : `No ${what} needed for these ${ids.length}?`}</span>
+      {kind === "feedback" ? (
+        <button
+          type="button"
+          disabled={pending}
+          className="rounded-full bg-accent px-3 py-1 font-medium text-accent-text disabled:opacity-60"
+          onClick={() =>
+            start(async () => {
+              setDoing("sent");
+              const r = await markSent(ids).catch(netFail);
+              if (r.error) setError(r.error);
+              else setAsk(false);
+            })
+          }
+        >
+          {pending && doing === "sent" ? "Saving…" : "✓ Already sent"}
+        </button>
+      ) : null}
       <button
         type="button"
         disabled={pending}
-        className="rounded-full bg-accent px-3 py-1 font-medium text-accent-text disabled:opacity-60"
+        className={`rounded-full px-3 py-1 font-medium disabled:opacity-60 ${kind === "feedback" ? "border border-line text-ink" : "bg-accent text-accent-text"}`}
         onClick={() =>
           start(async () => {
+            setDoing("skip");
             const r = await skipReminders(kind, ids).catch(netFail);
             if (r.error) setError(r.error);
             else setAsk(false);
           })
         }
       >
-        {pending ? "Clearing…" : "Yes, clear"}
+        {pending && doing === "skip" ? "Clearing…" : kind === "feedback" ? "No feedback needed" : "Yes, clear"}
       </button>
       <button type="button" className="rounded-full px-2 py-1 text-muted hover:bg-surface-2" onClick={() => setAsk(false)}>
         Cancel
@@ -62,6 +82,28 @@ export function SkipOne({ kind, id }: { kind: "note" | "feedback"; id: string })
       }
     >
       {pending ? "…" : error ? "Try again" : "Skip"}
+    </button>
+  );
+}
+
+/** One lesson: "Sent" — the update was already sent another way (e.g. WhatsApp). */
+export function SentOne({ id }: { id: string }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      title="I already sent this update (e.g. on WhatsApp)"
+      className={`min-h-10 shrink-0 rounded-full px-3 text-sm font-medium hover:bg-surface-2 disabled:opacity-50 ${error ? "text-danger" : "text-accent"}`}
+      onClick={() =>
+        start(async () => {
+          const r = await markSent([id]).catch(netFail);
+          setError(!!r.error);
+        })
+      }
+    >
+      {pending ? "…" : error ? "Try again" : "✓ Sent"}
     </button>
   );
 }
