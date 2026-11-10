@@ -26,7 +26,7 @@ const SHOUT: Record<Weapon, string> = { laser: "LASER!", cannon: "CANNON!", rock
 function Shot({ by, kind }: { by: -1 | 0 | 1; kind: Weapon }) {
   if (by === 0) {
     return (
-      <span className="pz-anim pointer-events-none absolute bottom-8 left-1/2 z-20 -translate-x-1/2 animate-[ff-pow_.6s_ease-out_both]" aria-hidden>
+      <span className="pz-anim pointer-events-none absolute bottom-8 left-1/2 z-20 -translate-x-1/2 animate-[ff-pow_.9s_ease-out_both]" aria-hidden>
         <span className="relative grid h-24 w-24 place-items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`${RB}/boom.png`} alt="" className="absolute inset-0 h-full w-full" />
@@ -48,22 +48,22 @@ function Shot({ by, kind }: { by: -1 | 0 | 1; kind: Weapon }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
       {kind === "laser"
-        ? [0, 0.07, 0.14].map((d) => (
-            <span key={d} className="absolute bottom-[4.2rem] -translate-x-1/2" style={fly(d, 0.22)}>
+        ? [0, 0.12, 0.24].map((d) => (
+            <span key={d} className="absolute bottom-[4.2rem] -translate-x-1/2" style={fly(d, 0.38)}>
               {img(`${RB}/laser_${colour}.png`, "h-4 w-16 drop-shadow-[0_0_8px_rgba(255,255,255,.95)]")}
             </span>
           ))
         : null}
       {kind === "cannon" ? (
-        <span className="absolute bottom-[4rem] -translate-x-1/2" style={fly(0, 0.38)}>
-          <span className="block" style={{ animation: "ff-arc .38s ease-in-out both" }}>
+        <span className="absolute bottom-[4rem] -translate-x-1/2" style={fly(0, 0.6)}>
+          <span className="block" style={{ animation: "ff-arc .6s ease-in-out both" }}>
             {img(`${RB}/shell.png`, "h-6 w-auto")}
           </span>
         </span>
       ) : null}
       {kind === "rocket" ? (
-        <span className="absolute bottom-[4.4rem] -translate-x-1/2" style={fly(0, 0.4)}>
-          <span className="flex items-center" style={{ animation: "ff-wobble .4s linear both" }}>
+        <span className="absolute bottom-[4.4rem] -translate-x-1/2" style={fly(0, 0.65)}>
+          <span className="flex items-center" style={{ animation: "ff-wobble .65s linear both" }}>
             {fromLeft ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={`${RB}/smoke.png`} alt="" className="-mr-2 h-5 w-5 opacity-70" />
@@ -77,7 +77,7 @@ function Shot({ by, kind }: { by: -1 | 0 | 1; kind: Weapon }) {
         </span>
       ) : null}
       {kind === "orb" ? (
-        <span className="absolute bottom-[3.8rem] -translate-x-1/2" style={fly(0, 0.42)}>
+        <span className="absolute bottom-[3.8rem] -translate-x-1/2" style={fly(0, 0.7)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`${RB}/orb_${colour}.png`} alt="" className="h-12 w-12 animate-[spin_.4s_linear_infinite] drop-shadow-[0_0_12px_rgba(255,255,255,.95)]" />
         </span>
@@ -90,16 +90,16 @@ function Shot({ by, kind }: { by: -1 | 0 | 1; kind: Weapon }) {
             right: "24%",
             background: fromLeft ? "linear-gradient(90deg,#fff,#ff9a7a 30%,#ff3d2e)" : "linear-gradient(270deg,#fff,#9ad0ff 30%,#2e7dff)",
             boxShadow: fromLeft ? "0 0 22px 6px #ff6b4d" : "0 0 22px 6px #4d9bff",
-            animation: "ff-beam .55s ease-out both",
+            animation: "ff-beam .9s ease-out both",
           }}
         />
       ) : null}
       {/* the hit */}
       <span className="absolute bottom-[2.6rem] -translate-x-1/2" style={{ left: to }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`${RB}/boom.png`} alt="" className={`${kind === "mega" ? "h-28 w-28" : "h-20 w-20"} opacity-0`} style={{ animation: `ff-boom .45s ease-out ${kind === "laser" ? 0.22 : kind === "mega" ? 0.2 : 0.36}s both` }} />
+        <img src={`${RB}/boom.png`} alt="" className={`${kind === "mega" ? "h-28 w-28" : "h-20 w-20"} opacity-0`} style={{ animation: `ff-boom .6s ease-out ${kind === "laser" ? 0.5 : kind === "mega" ? 0.35 : kind === "cannon" ? 0.58 : 0.65}s both` }} />
       </span>
-      <span className="absolute bottom-[7.5rem] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#16233a]/70 px-3 font-sport text-2xl font-extrabold italic text-white opacity-0 [text-shadow:0_2px_0_#16233a,0_0_8px_#16233a]" style={{ animation: "ff-shout .7s ease-out both" }}>
+      <span className="absolute bottom-[7.5rem] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#16233a]/70 px-3 font-sport text-2xl font-extrabold italic text-white opacity-0 [text-shadow:0_2px_0_#16233a,0_0_8px_#16233a]" style={{ animation: "ff-shout 1.1s ease-out both" }}>
         {SHOUT[kind]}
       </span>
     </div>
@@ -175,13 +175,13 @@ export function FractionFaceoff() {
       setFlash(pick);
       setTimeout(() => setFlash(null), 200);
       streak.current += 1;
-      attack(pick, streak.current % 5 === 0 ? 900 : 750, weaponFor(streak.current));
+      attack(pick, streak.current % 5 === 0 ? 1400 : 1200, weaponFor(streak.current));
       setQ((p) => faceQ(level, Math.random, p ?? undefined));
       return;
     }
     setMissed((m) => (m.some((x) => fracText(x.left) === fracText(q.left) && fracText(x.right) === fracText(q.right)) ? m : [...m, q]));
     streak.current = 0;
-    attack(truth, 900, "laser");
+    attack(truth, 1200, "laser");
     setOops(truth === 0 ? "They're the same amount!" : `${fracText(truth === 1 ? q.left : q.right)} is bigger.`);
     setTimeout(() => {
       setOops(null);
@@ -262,7 +262,7 @@ export function FractionFaceoff() {
             src={`${RB}/${colour}_${pose}.png`}
             alt=""
             aria-hidden
-            className={`pz-anim block h-24 w-auto drop-shadow-[0_6px_4px_rgba(0,0,0,.35)] sm:h-28 ${charging ? (fight?.by === 0 ? "animate-[ff-bump_.6s_ease-in-out]" : "animate-[ff-recoil_.45s_ease-out]") : knocked ? (fight?.kind === "mega" ? "animate-[ff-knock_.9s_ease-out]" : "animate-[ff-knock_.75s_ease-out]") : ""}`}
+            className={`pz-anim block h-24 w-auto drop-shadow-[0_6px_4px_rgba(0,0,0,.35)] sm:h-28 ${charging ? (fight?.by === 0 ? "animate-[ff-bump_.9s_ease-in-out]" : "animate-[ff-recoil_.7s_ease-out]") : knocked ? (fight?.kind === "mega" ? "animate-[ff-knock_1.3s_ease-out]" : "animate-[ff-knock_1.2s_ease-out]") : ""}`}
           />
         </span>
       </button>
