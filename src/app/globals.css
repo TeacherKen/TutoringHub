@@ -1050,6 +1050,29 @@ html.board-full .page-enter {
   0%, 100% { transform: rotate(-2deg) translateY(0); }
   50% { transform: rotate(2deg) translateY(-3px); }
 }
+/* Robot battle: the attacker rushes at the other robot and back; the other is knocked back and spins. */
+@keyframes ff-charge {
+  0% { transform: translateX(0) rotate(0); }
+  15% { transform: translateX(-10px) rotate(-6deg); }
+  45% { transform: translateX(min(24vw, 150px)) rotate(8deg) translateY(-14px); }
+  60% { transform: translateX(min(20vw, 125px)) rotate(0); }
+  100% { transform: translateX(0) rotate(0); }
+}
+@keyframes ff-bump {
+  0%, 100% { transform: translateX(0); }
+  45% { transform: translateX(min(16vw, 100px)) translateY(-10px); }
+}
+@keyframes ff-knock {
+  0%, 40% { transform: translateX(0) rotate(0); }
+  55% { transform: translateX(-46px) rotate(-22deg) translateY(-18px); }
+  75% { transform: translateX(-30px) rotate(-8deg); }
+  100% { transform: translateX(0) rotate(0); }
+}
+@keyframes ff-pow {
+  0%, 35% { opacity: 0; transform: translateX(-50%) scale(0.3); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.15) rotate(-8deg); }
+  100% { opacity: 0; transform: translateX(-50%) scale(1) rotate(4deg); }
+}
 @keyframes ff-hop {
   0%, 100% { transform: translateY(0); }
   45% { transform: translateY(-18px); }

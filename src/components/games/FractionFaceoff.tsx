@@ -23,6 +23,17 @@ export function FractionFaceoff() {
   const [left, setLeft] = useState(SECONDS);
   const [oops, setOops] = useState<string | null>(null);
   const [flash, setFlash] = useState<-1 | 0 | 1 | null>(null);
+  // A fight: which robot attacks (1 left, -1 right, 0 both: a draw), and a count so each one replays.
+  const [fight, setFight] = useState<{ by: -1 | 0 | 1; n: number } | null>(null);
+  const fightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (fightTimer.current) clearTimeout(fightTimer.current);
+  }, []);
+  function attack(by: -1 | 0 | 1, ms = 700) {
+    setFight((f) => ({ by, n: (f?.n ?? 0) + 1 }));
+    if (fightTimer.current) clearTimeout(fightTimer.current);
+    fightTimer.current = setTimeout(() => setFight(null), ms);
+  }
   const [missed, setMissed] = useState<FaceQ[]>([]);
   const [newBest, setNewBest] = useState(false);
   const { best, offer } = useBest(`ff-${level}`, (a, b) => a > b, "pts");
@@ -70,10 +81,12 @@ export function FractionFaceoff() {
       setScore(scoreRef.current);
       setFlash(pick);
       setTimeout(() => setFlash(null), 200);
+      attack(pick);
       setQ((p) => faceQ(level, Math.random, p ?? undefined));
       return;
     }
     setMissed((m) => (m.some((x) => fracText(x.left) === fracText(q.left) && fracText(x.right) === fracText(q.right)) ? m : [...m, q]));
+    attack(truth, 900);
     setOops(truth === 0 ? "They're the same amount!" : `${fracText(truth === 1 ? q.left : q.right)} is bigger.`);
     setTimeout(() => {
       setOops(null);
@@ -125,9 +138,11 @@ export function FractionFaceoff() {
   /** A robot holding up its fraction screen. Tap the screen of the robot with the bigger fraction. */
   const bot = (f: Frac, side: -1 | 1) => {
     const colour = side === 1 ? "red" : "blue";
-    const won = flash === side || (oops != null && truth === side);
-    const lost = (flash != null && flash !== 0 && flash !== side) || (oops != null && truth !== side && truth !== 0);
-    const pose = won ? "jump" : lost ? (oops ? "damage1" : "hurt") : "drive1";
+    const charging = fight != null && (fight.by === side || fight.by === 0);
+    const knocked = fight != null && fight.by !== 0 && fight.by !== side;
+    const won = charging || flash === side;
+    const lost = knocked;
+    const pose = charging ? "jump" : knocked ? (oops ? "damage1" : "hurt") : "drive1";
     return (
       <button
         type="button"
@@ -148,11 +163,11 @@ export function FractionFaceoff() {
         <span className={side === -1 ? "-scale-x-100" : ""}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            key={`${pose}-${score}`}
+            key={`${pose}-${fight?.n ?? 0}`}
             src={`${RB}/${colour}_${pose}.png`}
             alt=""
             aria-hidden
-            className={`pz-anim block h-24 w-auto drop-shadow-[0_6px_4px_rgba(0,0,0,.35)] sm:h-28 ${won ? "animate-[ff-hop_.4s_ease-out]" : lost ? "animate-[pz-shake_.35s]" : ""}`}
+            className={`pz-anim block h-24 w-auto drop-shadow-[0_6px_4px_rgba(0,0,0,.35)] sm:h-28 ${charging ? (fight?.by === 0 ? "animate-[ff-bump_.6s_ease-in-out]" : "animate-[ff-charge_.6s_ease-in-out]") : knocked ? "animate-[ff-knock_.7s_ease-out]" : ""}`}
           />
         </span>
       </button>
@@ -177,9 +192,18 @@ export function FractionFaceoff() {
         </div>
         <div className="relative flex items-end gap-3 pb-2">
           {bot(q.left, 1)}
-          <span className="mb-36 grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#ffd84d] font-sport text-xl font-bold text-[#16233a] shadow-lg ring-4 ring-white sm:mb-40" aria-hidden>
+          <span className="relative mb-36 grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#ffd84d] font-sport text-xl font-bold text-[#16233a] shadow-lg ring-4 ring-white sm:mb-40" aria-hidden>
             VS
           </span>
+          {fight ? (
+            <span key={fight.n} className="pz-anim pointer-events-none absolute bottom-8 left-1/2 z-20 -translate-x-1/2 animate-[ff-pow_.6s_ease-out_both]" aria-hidden>
+              <span className="relative grid h-24 w-24 place-items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/games/art/pirate/splash.png" alt="" className="absolute inset-0 h-full w-full" />
+                <span className="relative font-sport text-2xl font-extrabold italic text-white [text-shadow:0_2px_0_#7a2b00,0_0_6px_#7a2b00]">{fight.by === 0 ? "CLANG!" : "POW!"}</span>
+              </span>
+            </span>
+          ) : null}
           {bot(q.right, -1)}
         </div>
       </div>
