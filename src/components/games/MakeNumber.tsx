@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
 import { apply, makeNumber, MN_LEVELS, type MNLevel, type MNPuzzle, type Op } from "@/lib/games/makeNumber";
-import { ConfettiBurst, makeConfetti, type Confetti } from "./Controls";
 import { useBest } from "./useBest";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
+
+const T = THEMES.felt;
 
 // 🎯 Make the Number: tap a card, a sign, then another card — they join into a new card.
 // Use every card once and finish on the target number.
@@ -65,7 +67,6 @@ export function MakeNumber() {
   const [startedAt, setStartedAt] = useState(0);
   const [took, setTook] = useState(0);
   const [newBest, setNewBest] = useState(false);
-  const [confetti, setConfetti] = useState<Confetti[]>([]);
   const { best, offer } = useBest(`mn-${level}`, (a, b) => a < b, "s");
   const L = MN_LEVELS[level];
 
@@ -120,7 +121,6 @@ export function MakeNumber() {
             const t = Date.now() - startedAt;
             setTook(t);
             setNewBest(offer(Math.round(t / 1000)));
-            setConfetti(makeConfetti(["#ef4444", "#facc15", "#16a34a", "#2563eb"], 60, 520));
             setPhase("done");
           } else load(makeNumber(level));
         }, 1200);
@@ -156,41 +156,41 @@ export function MakeNumber() {
   if (phase === "setup")
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-center gap-4" aria-hidden>
-          <TargetBoard n={24} hit={false} />
-        </div>
-        <p className="text-muted">Join the number cards with + − × ÷ to make the target number. Use every card once! {PUZZLES} puzzles — how fast can you go?</p>
-        <div className="grid gap-2">
-          {(Object.keys(MN_LEVELS) as MNLevel[]).map((l) => (
-            <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)} className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}>
-              {MN_LEVELS[l].label}
-            </button>
+        <GameHero theme={T} art="🎯" title="MAKE THE NUMBER">
+          Join the number cards with + − × ÷ to hit the target. Use every card once! {PUZZLES} puzzles: how fast can you go?
+        </GameHero>
+        <div className="flex items-center justify-center gap-3 rounded-2xl p-3" style={{ background: `radial-gradient(120% 100% at 30% 0%, ${T.from}, ${T.to})` }} aria-hidden>
+          {[3, 8].map((v, i) => (
+            <span key={i} className="grid h-16 w-12 place-items-center rounded-xl bg-white text-2xl font-black text-[#1f2a44] shadow-[0_4px_0_rgba(0,0,0,.25)]">
+              {v}
+            </span>
           ))}
+          <span className="text-3xl font-black text-[#ffd84d]">×</span>
+          <span className="text-2xl font-black text-white">=</span>
+          <span className="-my-6 scale-75">
+            <TargetBoard n={24} hit={false} />
+          </span>
         </div>
-        {best != null ? <p className="text-sm text-muted">Your fastest: {secs(best * 1000)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
+        <LevelPicker theme={T} levels={(Object.keys(MN_LEVELS) as MNLevel[]).map((l) => [l, MN_LEVELS[l].label] as [MNLevel, string])} value={level} onChange={setLevel} />
+        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best * 1000)}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start
+        </BigButton>
       </div>
     );
 
   if (phase === "done")
     return (
-      <div className="relative space-y-4 text-center">
-        <ConfettiBurst pieces={confetti} className="left-1/2 top-16" />
-        <TargetBoard n={PUZZLES} hit />
-        <p className="text-sm text-muted">All {PUZZLES} targets hit!</p>
-        <p className="text-5xl font-semibold tabular-nums">{secs(took)}</p>
-        <p className={newBest ? "font-medium text-ok" : "text-muted"}>{newBest ? "New fastest time! 🏆" : `Your fastest: ${best != null ? secs(best * 1000) : "—"}`}</p>
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change level
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+      <ResultCard
+        theme={T}
+        art="🎯"
+        label={`All ${PUZZLES} targets hit in`}
+        big={secs(took)}
+        newBest={newBest}
+        bestText={`Your fastest: ${best != null ? secs(best * 1000) : "—"}`}
+        onAgain={start}
+        onChange={() => setPhase("setup")}
+      />
     );
 
   if (!puzzle) return null;

@@ -263,7 +263,7 @@ export function ClockQuest() {
             ))}
           </div>
           <input className="input w-full" placeholder="Hero name" value={newName} maxLength={14} onChange={(e) => setNewName(e.target.value)} aria-label="Hero name" />
-          <button className="btn-primary w-full" disabled={!newName.trim()}>
+          <button className="w-full rounded-2xl py-4 text-lg font-bold text-[#3b2a00] bg-[linear-gradient(#ffd84d,#f0c22e)] shadow-[0_5px_0_#9c7a12] transition active:translate-y-1 active:shadow-none disabled:opacity-50" disabled={!newName.trim()}>
             Start the quest
           </button>
         </form>

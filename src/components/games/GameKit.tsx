@@ -16,6 +16,12 @@ export const THEMES = {
   sun: { from: "#f59e0b", to: "#b45309", ink: "#ffffff", accent: "#1e3a8a", accentInk: "#ffffff", shadow: "#0f1e4d" },
   shop: { from: "#2f7d4f", to: "#1d5235", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
   sky: { from: "#2f7d9a", to: "#164e63", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
+  piggy: { from: "#e86fa3", to: "#9d2f63", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
+  blocks: { from: "#1f7fa3", to: "#123f57", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
+  scale: { from: "#b8892a", to: "#5e420f", ink: "#ffffff", accent: "#7ee0c3", accentInk: "#0b3b2e", shadow: "#3a9c80" },
+  pixel: { from: "#475569", to: "#1e293b", ink: "#ffffff", accent: "#f472b6", accentInk: "#ffffff", shadow: "#9d174d" },
+  felt: { from: "#1f6b4a", to: "#0e3a27", ink: "#ffffff", accent: "#ff6b5a", accentInk: "#ffffff", shadow: "#a33a2e" },
+  snake: { from: "#3fa34d", to: "#1d5f28", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
 } satisfies Record<string, Theme>;
 
 const bg = (t: Theme) => ({ background: `radial-gradient(120% 100% at 30% 0%, ${t.from} 0%, ${t.to} 85%)`, color: t.ink });
@@ -65,6 +71,29 @@ export function LevelPicker<K extends string>({ levels, value, onChange, theme }
                 ✓
               </span>
             ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Two or three chunky side-by-side choices (baht or dollars, 4×4 or 6×6…). */
+export function Toggle<K extends string>({ options, value, onChange, theme }: { options: [K, ReactNode][]; value: K; onChange: (k: K) => void; theme: Theme }) {
+  return (
+    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+      {options.map(([k, label]) => {
+        const on = value === k;
+        return (
+          <button
+            key={k}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(k)}
+            className={`min-h-14 rounded-2xl border-2 px-3 text-lg font-semibold transition ${on ? "-translate-y-0.5 border-transparent text-white" : "border-line bg-surface"}`}
+            style={on ? { background: `linear-gradient(${theme.from}, ${theme.to})`, boxShadow: `0 4px 0 color-mix(in srgb, ${theme.to}, #000 35%)` } : undefined}
+          >
+            {label}
           </button>
         );
       })}
@@ -123,6 +152,7 @@ export function ResultCard(props: {
   onAgain: () => void;
   onChange: () => void;
   changeLabel?: string;
+  againLabel?: string;
   children?: ReactNode;
 }) {
   const { theme } = props;
@@ -155,7 +185,7 @@ export function ResultCard(props: {
         </button>
         <div className="flex-1">
           <BigButton theme={theme} onClick={props.onAgain}>
-            Play again
+            {props.againLabel ?? "Play again"}
           </BigButton>
         </div>
       </div>

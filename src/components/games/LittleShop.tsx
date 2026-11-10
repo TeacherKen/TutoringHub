@@ -192,12 +192,12 @@ export function LittleShop() {
                 ["USD", "🇺🇸 Dollars"],
               ] as const
             ).map(([c, label]) => (
-              <button key={c} type="button" aria-pressed={newCur === c} onClick={() => setNewCur(c)} className={`min-h-11 rounded-xl border-2 font-semibold ${newCur === c ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}>
+              <button key={c} type="button" aria-pressed={newCur === c} onClick={() => setNewCur(c)} className={`min-h-12 rounded-xl border-2 font-semibold transition ${newCur === c ? "-translate-y-0.5 border-transparent bg-[linear-gradient(#c2643c,#8a3f1f)] text-white shadow-[0_4px_0_#5c2a14]" : "border-line bg-surface"}`}>
                 {label}
               </button>
             ))}
           </div>
-          <button className="btn-primary w-full" disabled={!newName.trim()}>
+          <button className="w-full rounded-2xl py-4 text-lg font-bold text-[#3b2a00] bg-[linear-gradient(#ffd84d,#f0c22e)] shadow-[0_5px_0_#9c7a12] transition active:translate-y-1 active:shadow-none disabled:opacity-50" disabled={!newName.trim()}>
             Open my shop
           </button>
         </form>

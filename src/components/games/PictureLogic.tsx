@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cluesOf, lineDone, PIC_LEVELS, PICTURES, solved, type Picture, type PicLevel } from "@/lib/games/nonogram";
-import { ConfettiBurst, makeConfetti, type Confetti } from "./Controls";
 import { useBest } from "./useBest";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
+
+const T = THEMES.pixel;
 
 // 🖼️ Picture Logic: the numbers say how many squares in a row (or column) are coloured, in order.
 // Colour the right squares and a hidden picture appears. Drag to colour many at once.
@@ -27,7 +29,6 @@ export function PictureLogic() {
   const [startedAt, setStartedAt] = useState(0);
   const [took, setTook] = useState(0);
   const [newBest, setNewBest] = useState(false);
-  const [confetti, setConfetti] = useState<Confetti[]>([]);
   const paint = useRef<Cell | null>(null);
   const { best, offer } = useBest(`pl-${level}`, (a, b) => a < b, "s");
 
@@ -70,7 +71,6 @@ export function PictureLogic() {
       const id = setTimeout(() => {
         setTook(t);
         setNewBest(offer(Math.round(t / 1000)));
-        setConfetti(makeConfetti([pic!.color, "#facc15", "#38bdf8", "#ffffff"], 60, 520));
         setPhase("won");
       }, 250);
       return () => clearTimeout(id);
@@ -105,25 +105,35 @@ export function PictureLogic() {
   if (phase === "setup")
     return (
       <div className="space-y-4">
-        <div className="mx-auto grid w-max grid-cols-5 gap-1 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5" aria-hidden>
-          {".#.#.##########.###...#..".split("").map((ch, i) => (
-            <span key={i} className="h-8 w-8 rounded-md" style={{ background: ch === "#" ? "#e11d48" : "#f1f5f9", boxShadow: ch === "#" ? "inset 0 -3px 0 rgba(0,0,0,.15)" : undefined }} />
-          ))}
+        <GameHero
+          theme={T}
+          art={
+            <span className="grid grid-cols-5 gap-0.5">
+              {".#.#.##########.###...#..".split("").map((ch, i) => (
+                <span key={i} className="h-2.5 w-2.5 rounded-[2px]" style={{ background: ch === "#" ? "#f472b6" : "rgba(255,255,255,.25)" }} />
+              ))}
+            </span>
+          }
+          title="PICTURE LOGIC"
+        >
+          Colour the right squares to find the hidden picture!
+        </GameHero>
+        <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-surface-2 p-3">
+          <div className="grid grid-cols-[auto_repeat(3,2rem)] gap-1 text-sm font-bold tabular-nums" aria-hidden>
+            <span className="grid h-8 w-10 place-items-center rounded-md bg-white text-ink shadow-sm">2 1</span>
+            {[1, 1, 0].map((on, i) => (
+              <span key={i} className="h-8 w-8 rounded-md" style={{ background: on ? "#e11d48" : "#fff", boxShadow: on ? "inset 0 -3px 0 rgba(0,0,0,.15)" : "inset 0 0 0 1px #cbd5e1" }} />
+            ))}
+          </div>
+          <p className="min-w-0 flex-1 text-sm text-muted">
+            The numbers tell you how many squares in a row to colour. <strong className="text-ink">2 1</strong> means 2 squares together, a gap, then 1 more.
+          </p>
         </div>
-        <p className="text-muted">
-          The numbers tell you how many squares in a row to colour. <strong>2 1</strong> means: 2 coloured squares together, a gap, then 1 more. Colour the right squares to find the hidden picture!
-        </p>
-        <div className="grid gap-2">
-          {(Object.keys(PIC_LEVELS) as PicLevel[]).map((l) => (
-            <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)} className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}>
-              {PIC_LEVELS[l]}
-            </button>
-          ))}
-        </div>
-        {best != null ? <p className="text-sm text-muted">Your fastest: {secs(best * 1000)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={() => start()}>
-          Start
-        </button>
+        <LevelPicker theme={T} levels={Object.entries(PIC_LEVELS) as [PicLevel, string][]} value={level} onChange={setLevel} />
+        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best * 1000)}</p> : null}
+        <BigButton theme={T} onClick={() => start()}>
+          ▶ Start
+        </BigButton>
       </div>
     );
 
@@ -134,8 +144,18 @@ export function PictureLogic() {
 
   if (phase === "won")
     return (
-      <div className="relative space-y-4 text-center">
-        <ConfettiBurst pieces={confetti} className="left-1/2 top-16" />
+      <ResultCard
+        theme={T}
+        art={pic.emoji}
+        label={`It's a ${pic.name}! Solved in`}
+        big={secs(took)}
+        newBest={newBest}
+        bestText={best != null ? `Your fastest: ${secs(best * 1000)}` : undefined}
+        onAgain={() => start()}
+        againLabel="Next picture ▶"
+        onChange={() => setPhase("setup")}
+        changeLabel="Change size"
+      >
         <div className="mx-auto inline-grid gap-1 rounded-2xl bg-white p-3 shadow-lg ring-1 ring-black/5 [perspective:600px]" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }} aria-hidden>
           {pic.rows.flatMap((row, r) =>
             [...row].map((ch, c) => (
@@ -151,20 +171,7 @@ export function PictureLogic() {
             )),
           )}
         </div>
-        <p className="text-2xl font-semibold">
-          It&apos;s a {pic.name}! {pic.emoji}
-        </p>
-        <p className="text-muted">Solved in {secs(took)}</p>
-        {newBest ? <p className="font-medium text-ok">New fastest time! 🏆</p> : best != null ? <p className="text-sm text-muted">Your fastest: {secs(best * 1000)}</p> : null}
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change size
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={() => start()}>
-            Next picture
-          </button>
-        </div>
-      </div>
+      </ResultCard>
     );
 
   return (

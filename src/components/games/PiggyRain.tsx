@@ -4,6 +4,9 @@ import { fmt, type Currency } from "@/lib/moneyShop";
 import { nextDrop, piggyMoney, piggyTarget, PIGGY_LEVELS, type PiggyLevel } from "@/lib/games/piggy";
 import { Cash } from "./MoneyShop";
 import { useBest } from "./useBest";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES, Toggle } from "./GameKit";
+
+const T = THEMES.piggy;
 
 // 🐷 Piggy Bank Rain (P1–P3): coins and notes float down; tap the right ones to fill the piggy to exactly
 // the amount. Too much? The coin bounces off. Fill 6 piggies as fast as you can.
@@ -158,63 +161,49 @@ export function PiggyRain() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <div className="flex justify-center">
-          <PiggyBank pct={45} happy={false} size={170} />
-        </div>
-        <p className="text-muted">Coins fall from the sky. Tap the right ones to fill the piggy bank with exactly the right amount. Fill {PIGGIES} piggies!</p>
-        <div className="grid grid-cols-2 gap-2">
-          {(
-            [
-              ["THB", "🇹🇭 Thai baht"],
-              ["USD", "🇺🇸 US dollars"],
-            ] as const
-          ).map(([c, label]) => (
-            <button key={c} type="button" aria-pressed={currency === c} onClick={() => setCurrency(c)} className={`min-h-14 rounded-xl border-2 px-3 text-lg font-semibold ${currency === c ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="grid gap-2">
-          {(Object.keys(PIGGY_LEVELS) as PiggyLevel[]).map((l) => (
-            <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)} className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}>
-              {PIGGY_LEVELS[l]}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2" aria-hidden>
+        <GameHero theme={T} art={<PiggyBank pct={45} happy={false} size={70} />} title="PIGGY BANK RAIN">
+          Coins fall from the sky. Tap the right ones to fill the piggy with exactly the right amount. Fill {PIGGIES} piggies!
+        </GameHero>
+        <Toggle
+          theme={T}
+          options={[
+            ["THB", "🇹🇭 Thai baht"],
+            ["USD", "🇺🇸 US dollars"],
+          ]}
+          value={currency}
+          onChange={setCurrency}
+        />
+        <LevelPicker theme={T} levels={Object.entries(PIGGY_LEVELS) as [PiggyLevel, string][]} value={level} onChange={setLevel} />
+        <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-surface-2 p-3" aria-hidden>
           {money.map((m) => (
             <Cash key={m.value} m={m} c={currency} small />
           ))}
         </div>
-        {best != null ? <p className="text-sm text-muted">Your fastest: {secs(best)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
+        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start
+        </BigButton>
       </div>
     );
   }
 
   if (phase === "done") {
     return (
-      <div className="space-y-4 text-center">
-        <div className="flex justify-center">
-          <span className="cq-m inline-block" style={{ animation: "pb-jump .6s ease 3" }}>
-            <PiggyBank pct={100} happy size={170} />
+      <ResultCard
+        theme={T}
+        art={
+          <span className="inline-block" style={{ animation: "pb-jump .6s ease 3" }}>
+            <PiggyBank pct={100} happy size={90} />
+            <style>{`@keyframes pb-jump{0%,100%{transform:translateY(0)}40%{transform:translateY(-16px) scale(1.05)}}`}</style>
           </span>
-        </div>
-        <style>{`@keyframes pb-jump{0%,100%{transform:translateY(0)}40%{transform:translateY(-16px) scale(1.05)}}`}</style>
-        <p className="text-sm text-muted">All {PIGGIES} piggies are full!</p>
-        <p className="text-5xl font-semibold tabular-nums">{secs(Math.round(elapsed / 100))}</p>
-        <p className={newBest ? "font-medium text-ok" : "text-muted"}>{newBest ? "New fastest time! 🏆" : `Your fastest: ${best != null ? secs(best) : "—"}`}</p>
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change level
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+        }
+        label={`All ${PIGGIES} piggies full in`}
+        big={secs(Math.round(elapsed / 100))}
+        newBest={newBest}
+        bestText={`Your fastest: ${best != null ? secs(best) : "—"}`}
+        onAgain={start}
+        onChange={() => setPhase("setup")}
+      />
     );
   }
 

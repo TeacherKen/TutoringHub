@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
 import { balanceQ, balanceStars, BALANCE_LEVELS, SHAPE_NAME, type BalanceLevel, type BalanceQ, type Item, type Shape } from "@/lib/games/balance";
-import { ConfettiBurst, makeConfetti, type Confetti } from "./Controls";
 import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
+
+const T = THEMES.scale;
 
 // ⚖️ Balance Puzzles: the scales balance, so both sides weigh the same. What does one shape weigh?
 
@@ -128,7 +130,6 @@ export function BalancePuzzles() {
   const [startedAt, setStartedAt] = useState(0);
   const [took, setTook] = useState(0);
   const [newBest, setNewBest] = useState(false);
-  const [confetti, setConfetti] = useState<Confetti[]>([]);
   const { best, offer } = useBest(`bp-${level}`, (a, b) => a > b, "stars");
 
   function start() {
@@ -138,7 +139,6 @@ export function BalancePuzzles() {
     setTries(0);
     setWrongTotal(0);
     setNote(null);
-    setConfetti([]);
     setStartedAt(Date.now());
     setPhase("play");
   }
@@ -148,7 +148,6 @@ export function BalancePuzzles() {
       const stars = balanceStars(wrongTotal);
       setTook(Date.now() - startedAt);
       setNewBest(offer(stars));
-      setConfetti(makeConfetti(["#e5484d", "#3e63dd", "#30a46c", "#f6d77b"], 60, 520));
       setPhase("done");
       return;
     }
@@ -180,52 +179,45 @@ export function BalancePuzzles() {
   if (phase === "setup")
     return (
       <div className="space-y-4">
+        <GameHero theme={T} art="⚖️" title="BALANCE PUZZLES">
+          The scales are balanced: both sides weigh the same. Work out what each shape weighs. {ROUNDS} puzzles.
+        </GameHero>
         <div className={stage} style={sky}>
           <ScaleView left={[{ s: "triangle" }, { s: "triangle" }]} right={[{ n: 8 }]} />
         </div>
-        <p className="text-muted">The scales are balanced: both sides weigh the same. Work out what each shape weighs. {ROUNDS} puzzles.</p>
-        <div className="grid gap-2">
-          {(Object.keys(BALANCE_LEVELS) as BalanceLevel[]).map((l) => (
-            <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)} className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}>
-              {BALANCE_LEVELS[l]}
-            </button>
-          ))}
-        </div>
-        {best != null ? <p className="text-sm text-muted">Your best: {"⭐".repeat(best)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
+        <LevelPicker theme={T} levels={Object.entries(BALANCE_LEVELS) as [BalanceLevel, string][]} value={level} onChange={setLevel} />
+        {best != null ? <p className="text-center text-sm text-muted">Your best: {"⭐".repeat(best)}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start
+        </BigButton>
       </div>
     );
 
   if (phase === "done") {
     const stars = balanceStars(wrongTotal);
     return (
-      <div className="relative space-y-4 text-center">
-        <ConfettiBurst pieces={confetti} className="left-1/2 top-10" />
+      <ResultCard
+        theme={T}
+        art="⚖️"
+        label={`${ROUNDS} puzzles solved`}
+        big={
+          <span aria-label={`${stars} stars`}>
+            {Array.from({ length: 3 }, (_, i) => (
+              <span key={i} className={`pz-anim inline-block ${i < stars ? "animate-[tt-pop_.5s_ease-out_both]" : "opacity-25 grayscale"}`} style={{ animationDelay: `${i * 180}ms` }}>
+                ⭐
+              </span>
+            ))}
+          </span>
+        }
+        newBest={newBest}
+        bestText={`${secs(took)} · ${wrongTotal === 0 ? "no mistakes!" : `${wrongTotal} wrong ${wrongTotal === 1 ? "try" : "tries"}`}`}
+        onAgain={start}
+        onChange={() => setPhase("setup")}
+      >
         <div className={stage} style={sky}>
           <ScaleView left={[{ s: "circle" }, { s: "triangle" }, { s: "square" }]} right={[{ n: ROUNDS }]} wobble />
         </div>
-        <p className="text-5xl">
-          {Array.from({ length: 3 }, (_, i) => (
-            <span key={i} className={`pz-anim inline-block ${i < stars ? "animate-[tt-pop_.5s_ease-out_both]" : "opacity-20"}`} style={{ animationDelay: `${i * 180}ms` }}>
-              ⭐
-            </span>
-          ))}
-        </p>
-        <p className="text-muted">
-          {ROUNDS} puzzles in {secs(took)} · {wrongTotal === 0 ? "no mistakes!" : `${wrongTotal} wrong ${wrongTotal === 1 ? "try" : "tries"}`}
-        </p>
-        {newBest ? <p className="font-medium text-ok">New best! 🏆</p> : null}
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change level
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+      </ResultCard>
     );
   }
 

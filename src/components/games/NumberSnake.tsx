@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { SNAKE_LEVELS, snakeDone, snakePuzzle, step, type SnakePuzzle, type SnakeSize } from "@/lib/games/numberSnake";
-import { ConfettiBurst, makeConfetti, type Confetti } from "./Controls";
 import { useBest } from "./useBest";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
+
+const T = THEMES.snake;
 
 // 🐍 Number Snake: start at 1 and tap (or drag to) the next square to grow the snake 2, 3, 4 …
 // It must pass through the numbers already shown and fill every square. Tap the snake to go back.
@@ -23,7 +25,6 @@ export function NumberSnake() {
   const [startedAt, setStartedAt] = useState(0);
   const [took, setTook] = useState(0);
   const [newBest, setNewBest] = useState(false);
-  const [confetti, setConfetti] = useState<Confetti[]>([]);
   const dragging = useRef(false);
   // The latest snake, so quick drags (many moves before the screen updates) build on it.
   const pathRef = useRef<number[]>([]);
@@ -69,7 +70,6 @@ export function NumberSnake() {
       const t = Date.now() - startedAt;
       setTook(t);
       setNewBest(offer(Math.round(t / 1000)));
-      setConfetti(makeConfetti(["#84cc16", "#22c55e", "#14b8a6", "#facc15"], 60, 520));
       setTimeout(() => setPhase("won"), 500);
     }
   }
@@ -82,27 +82,26 @@ export function NumberSnake() {
   if (phase === "setup")
     return (
       <div className="space-y-4">
-        <div className="mx-auto grid w-max grid-cols-3 overflow-hidden rounded-2xl ring-4 ring-[#5b9a4f]" aria-hidden>
-          {[1, 2, 3, 6, 5, 4, 7, 8, 9].map((v, i) => (
-            <span key={i} className="grid h-14 w-14 place-items-center text-xl font-black text-white [text-shadow:0_1px_2px_rgba(0,0,0,.4)]" style={{ background: `radial-gradient(circle, ${shade(v - 1, 9)} 52%, ${i % 2 ? "#a6d98c" : "#b7e4a0"} 54%)` }}>
-              {v}
-            </span>
-          ))}
+        <GameHero theme={T} art="🐍" title="NUMBER SNAKE">
+          Grow the snake 1, 2, 3 … through every square on the board!
+        </GameHero>
+        <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-surface-2 p-3">
+          <div className="grid w-max shrink-0 grid-cols-3 overflow-hidden rounded-xl ring-4 ring-[#5b9a4f]" aria-hidden>
+            {[1, 2, 3, 6, 5, 4, 7, 8, 9].map((v, i) => (
+              <span key={i} className="grid h-11 w-11 place-items-center text-lg font-black text-white [text-shadow:0_1px_2px_rgba(0,0,0,.4)]" style={{ background: `radial-gradient(circle, ${shade(v - 1, 9)} 52%, ${i % 2 ? "#a6d98c" : "#b7e4a0"} 54%)` }}>
+                {v}
+              </span>
+            ))}
+          </div>
+          <p className="min-w-0 flex-1 text-sm text-muted">
+            Start at <strong className="text-ink">1</strong> and tap the square next to it for <strong className="text-ink">2</strong>, then <strong className="text-ink">3</strong>… Up, down, left or right, not corner to corner. Go through the numbers already on the board and fill every square!
+          </p>
         </div>
-        <p className="text-muted">
-          Start at <strong>1</strong>. Tap the square next to it for <strong>2</strong>, then <strong>3</strong>… The snake goes up, down, left or right — not corner to corner. It must go through the numbers already on the board and fill every square!
-        </p>
-        <div className="grid gap-2">
-          {([4, 5, 6] as SnakeSize[]).map((n) => (
-            <button key={n} type="button" aria-pressed={size === n} onClick={() => setSize(n)} className={`min-h-12 rounded-xl border px-4 text-left ${size === n ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}>
-              {SNAKE_LEVELS[n]}
-            </button>
-          ))}
-        </div>
-        {best != null ? <p className="text-sm text-muted">Your fastest: {secs(best * 1000)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
+        <LevelPicker theme={T} levels={([4, 5, 6] as SnakeSize[]).map((k) => [String(k), SNAKE_LEVELS[k]] as [string, string])} value={String(size)} onChange={(k) => setSize(Number(k) as SnakeSize)} />
+        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best * 1000)}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start
+        </BigButton>
       </div>
     );
 
@@ -210,21 +209,20 @@ export function NumberSnake() {
 
   if (phase === "won")
     return (
-      <div className="relative space-y-4 text-center">
-        <ConfettiBurst pieces={confetti} className="left-1/2 top-24" />
+      <ResultCard
+        theme={T}
+        art="🐍"
+        label={`Snake complete: 1 to ${N} in`}
+        big={secs(took)}
+        newBest={newBest}
+        bestText={best != null ? `Your fastest: ${secs(best * 1000)}` : undefined}
+        onAgain={start}
+        againLabel="Next snake ▶"
+        onChange={() => setPhase("setup")}
+        changeLabel="Change size"
+      >
         {board}
-        <p className="text-2xl font-semibold">🎉 The snake is complete: 1 to {N}!</p>
-        <p className="text-muted">Done in {secs(took)}</p>
-        {newBest ? <p className="font-medium text-ok">New fastest time! 🏆</p> : best != null ? <p className="text-sm text-muted">Your fastest: {secs(best * 1000)}</p> : null}
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Change size
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Next snake
-          </button>
-        </div>
-      </div>
+      </ResultCard>
     );
 
   return (

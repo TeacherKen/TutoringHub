@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { PICTURES, PIECES, piecesOf, fits, hintFor, isSolved, normalize, pictureById, pictureCells, pictureSize, rotate, flip, solutionsFor, type Cell, type PieceId, type Picture, type Placement } from "@/lib/pentomino";
 import { useBest } from "./useBest";
 import { useReport } from "./report";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
+
+const T = THEMES.blocks;
 import { sfx } from "@/lib/gameSound";
 
 // 🧩 Shape Builder: fit all 12 blocks into the picture. Built for the iPad.
@@ -363,12 +366,13 @@ export function ShapeBuilder() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <p className="text-muted">Fit all the blocks into the picture. Drag them in, turn and flip them. Any way that fills the picture wins!</p>
+        <GameHero theme={T} art="🧩" title="SHAPE BUILDER">
+          Fit all the blocks into the picture. Drag them in, turn and flip them. Any way that fills the picture wins!
+        </GameHero>
         {resumable ? (
-          <button type="button" className="btn-primary flex min-h-14 w-full items-center justify-center gap-2 text-lg" onClick={() => resume(resumable)}>
-            ▶ Carry on: {pictureById(resumable.pictureId)!.emoji} {pictureById(resumable.pictureId)!.name} · {LEVELS[resumable.level].name} ·{" "}
-            {resumable.blocks.filter((b) => !b.at).length} to go
-          </button>
+          <BigButton theme={T} onClick={() => resume(resumable)}>
+            ▶ Carry on: {pictureById(resumable.pictureId)!.emoji} {pictureById(resumable.pictureId)!.name} · {LEVELS[resumable.level].name} · {resumable.blocks.filter((b) => !b.at).length} to go
+          </BigButton>
         ) : null}
         {[
           { title: "Little pictures", note: "4 to 6 blocks · a good start", list: PICTURES.filter((p) => p.pieces) },
@@ -379,73 +383,59 @@ export function ShapeBuilder() {
               {group.title} <span className="font-normal text-muted">· {group.note}</span>
             </h3>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-              {group.list.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  aria-pressed={pictureId === p.id}
-                  onClick={() => setPictureId(p.id)}
-                  className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-1 ${pictureId === p.id ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
-                >
-                  <span className="text-3xl" aria-hidden>
-                    {p.emoji}
-                  </span>
-                  <span className="text-sm leading-tight">
-                    {p.name}
-                    {p.pieces ? <span className="text-muted"> · {p.pieces.length}</span> : null}
-                  </span>
-                  <StarRow n={allStars[`${p.id}-${level}`] ?? 0} small />
-                </button>
-              ))}
+              {group.list.map((p) => {
+                const on = pictureId === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setPictureId(p.id)}
+                    className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-1.5 transition ${on ? "-translate-y-0.5 border-transparent text-white" : "border-line bg-surface hover:border-[#1f7fa3]"}`}
+                    style={on ? { background: `linear-gradient(${T.from}, ${T.to})`, boxShadow: `0 4px 0 color-mix(in srgb, ${T.to}, #000 35%)` } : undefined}
+                  >
+                    <span className="text-3xl" aria-hidden>
+                      {p.emoji}
+                    </span>
+                    <span className="text-sm font-medium leading-tight">
+                      {p.name}
+                      {p.pieces ? <span className="opacity-70"> · {p.pieces.length}</span> : null}
+                    </span>
+                    <StarRow n={allStars[`${p.id}-${level}`] ?? 0} small />
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
-        <div className="grid gap-2">
-          {(Object.keys(LEVELS) as Level[]).map((l) => (
-            <button
-              key={l}
-              type="button"
-              aria-pressed={level === l}
-              onClick={() => setLevel(l)}
-              className={`min-h-12 rounded-xl border px-4 text-left ${level === l ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-surface"}`}
-            >
-              {LEVELS[l].name} · {levelBlurb(l, piecesOf(picture).length)}
-            </button>
-          ))}
-        </div>
-        {best != null ? <p className="text-sm text-muted">Your fastest for this picture and level: {secs(best)}</p> : null}
-        <button type="button" className="btn-primary w-full" onClick={start}>
-          Start
-        </button>
+        <LevelPicker theme={T} levels={(Object.keys(LEVELS) as Level[]).map((l) => [l, `${LEVELS[l].name} · ${levelBlurb(l, piecesOf(picture).length)}`] as [Level, string])} value={level} onChange={setLevel} />
+        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest for this picture and level: {secs(best)}</p> : null}
+        <BigButton theme={T} onClick={start}>
+          ▶ Start {picture.emoji} {picture.name}
+        </BigButton>
       </div>
     );
   }
 
   if (phase === "done") {
     return (
-      <div className="relative space-y-4 overflow-hidden text-center">
-        <Confetti />
-        <p className="text-3xl font-semibold">
-          <span className="sb-pop inline-block text-5xl">{picture.emoji}</span> {picture.name} finished!
-        </p>
-        <div className="sb-pop">
+      <ResultCard
+        theme={T}
+        art={picture.emoji}
+        label={`${picture.name} finished in`}
+        big={secs(Math.round(elapsed / 100))}
+        newBest={newBest}
+        bestText={hints ? `With ${hints} hint${hints === 1 ? "" : "s"}` : `Your fastest: ${best != null ? secs(best) : "—"}`}
+        onAgain={start}
+        onChange={() => setPhase("setup")}
+        changeLabel="Another picture"
+      >
+        <div className="sb-pop flex justify-center">
           <Board picture={picture} placed={placed} px={Math.min(px, 32)} />
         </div>
         <StarRow n={stars} />
         <p className="text-sm text-muted">{stars === 3 ? "3 stars: no hints!" : stars === 2 ? "Try with no hints for 3 stars" : "Try with fewer hints for more stars"}</p>
-        <p className="text-5xl font-semibold tabular-nums">{secs(Math.round(elapsed / 100))}</p>
-        <p className={newBest ? "font-medium text-ok" : "text-muted"}>
-          {newBest ? "New fastest time! 🧩" : hints ? `With ${hints} hint${hints === 1 ? "" : "s"}` : `Your fastest: ${best != null ? secs(best) : "—"}`}
-        </p>
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={() => setPhase("setup")}>
-            Another picture
-          </button>
-          <button type="button" className="btn-primary flex-1" onClick={start}>
-            Play again
-          </button>
-        </div>
-      </div>
+      </ResultCard>
     );
   }
 
@@ -826,31 +816,6 @@ function TurnButtons({
   return <RoundButtons className="absolute" style={{ left: spot.x, top: spot.y }} vertical={spot.vertical} onTurn={onTurn} onOff={onOff} />;
 }
 
-/** A short burst of falling colours for a finished picture. */
-function Confetti() {
-  const bits = useMemo(
-    () =>
-      Array.from({ length: 36 }, (_, i) => ({
-        left: (i * 37) % 100,
-        delay: (i % 9) * 0.12,
-        dur: 1.6 + ((i * 7) % 10) / 10,
-        color: PIECES[i % PIECES.length].color,
-        rot: (i * 47) % 360,
-      })),
-    [],
-  );
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 z-10">
-      {bits.map((b, i) => (
-        <span
-          key={i}
-          className="sb-confetti absolute top-0 h-3 w-2 rounded-sm"
-          style={{ left: `${b.left}%`, background: b.color, animationDelay: `${b.delay}s`, animationDuration: `${b.dur}s`, transform: `rotate(${b.rot}deg)` }}
-        />
-      ))}
-    </div>
-  );
-}
 
 const TINT: Record<string, string> = {
   bear: "#8d5a3b",
