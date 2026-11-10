@@ -1,52 +1,61 @@
 import { MONEY, type Currency } from "@/lib/moneyShop";
 
-// 🏪 My Little Shop (P3–P5): run a shop, serve animal customers, give change, earn money, buy upgrades.
+// My Little Shop (P3–P5): run a shop, serve animal customers, give change, earn money, buy upgrades.
 // Prices are fixed (a real shop has a price list), so children get to know them. Amounts: baht, or cents.
 
-export type StockItem = { id: string; name: string; emoji: string; thb: number; usd: number; shelf: "snacks" | "drinks" | "toys" };
+/** Pictures from Kenney packs (CC0): Platformer Candy, Voxel, Alien UFO, Racing, Sports, Animal, Block, Fish. */
+const SHOP = (k: string) => `/games/art/shop/${k}.png`;
+export type StockItem = { id: string; name: string; img: string; thb: number; usd: number; shelf: "snacks" | "drinks" | "toys" };
 export const STOCK: StockItem[] = [
-  { id: "candy", name: "candy", emoji: "🍬", thb: 5, usd: 25, shelf: "snacks" },
-  { id: "eraser", name: "eraser", emoji: "🧽", thb: 8, usd: 40, shelf: "snacks" },
-  { id: "banana", name: "banana", emoji: "🍌", thb: 10, usd: 35, shelf: "snacks" },
-  { id: "pencil", name: "pencil", emoji: "✏️", thb: 12, usd: 65, shelf: "snacks" },
-  { id: "apple", name: "apple", emoji: "🍎", thb: 15, usd: 80, shelf: "snacks" },
-  { id: "cookie", name: "cookie", emoji: "🍪", thb: 18, usd: 115, shelf: "snacks" },
-  { id: "milk", name: "milk", emoji: "🥛", thb: 22, usd: 125, shelf: "drinks" },
-  { id: "juice", name: "juice", emoji: "🧃", thb: 25, usd: 150, shelf: "drinks" },
-  { id: "icecream", name: "ice cream", emoji: "🍦", thb: 35, usd: 275, shelf: "drinks" },
-  { id: "bubbletea", name: "bubble tea", emoji: "🧋", thb: 55, usd: 450, shelf: "drinks" },
-  { id: "kite", name: "kite", emoji: "🪁", thb: 120, usd: 625, shelf: "toys" },
-  { id: "car", name: "toy car", emoji: "🚗", thb: 180, usd: 850, shelf: "toys" },
-  { id: "ball", name: "football", emoji: "⚽", thb: 290, usd: 1200, shelf: "toys" },
-  { id: "teddy", name: "teddy bear", emoji: "🧸", thb: 350, usd: 1500, shelf: "toys" },
+  { id: "candy", name: "lollipop", img: SHOP("candy"), thb: 5, usd: 25, shelf: "snacks" },
+  { id: "eraser", name: "gummy sweet", img: SHOP("eraser"), thb: 8, usd: 40, shelf: "snacks" },
+  { id: "banana", name: "cherry", img: SHOP("banana"), thb: 10, usd: 35, shelf: "snacks" },
+  { id: "pencil", name: "candy cane", img: SHOP("pencil"), thb: 12, usd: 65, shelf: "snacks" },
+  { id: "apple", name: "apple", img: SHOP("apple"), thb: 15, usd: 80, shelf: "snacks" },
+  { id: "cookie", name: "cookie", img: SHOP("cookie"), thb: 18, usd: 115, shelf: "snacks" },
+  { id: "milk", name: "cream puff", img: SHOP("milk"), thb: 22, usd: 125, shelf: "drinks" },
+  { id: "juice", name: "waffle", img: SHOP("juice"), thb: 25, usd: 150, shelf: "drinks" },
+  { id: "icecream", name: "ice cream", img: SHOP("icecream"), thb: 35, usd: 275, shelf: "drinks" },
+  { id: "bubbletea", name: "choc sundae", img: SHOP("bubbletea"), thb: 55, usd: 450, shelf: "drinks" },
+  { id: "kite", name: "toy UFO", img: SHOP("kite"), thb: 120, usd: 625, shelf: "toys" },
+  { id: "car", name: "toy car", img: SHOP("car"), thb: 180, usd: 850, shelf: "toys" },
+  { id: "ball", name: "football", img: SHOP("ball"), thb: 290, usd: 1200, shelf: "toys" },
+  { id: "teddy", name: "teddy bear", img: SHOP("teddy"), thb: 350, usd: 1500, shelf: "toys" },
 ];
 export const price = (it: StockItem, c: Currency) => (c === "THB" ? it.thb : it.usd);
 
-export type Upgrade = { id: string; name: string; emoji: string; thb: number; usd: number; what: string };
+export type Upgrade = { id: string; name: string; img: string; thb: number; usd: number; what: string };
 export const UPGRADES: Upgrade[] = [
-  { id: "drinks", name: "Drinks fridge", emoji: "🧊", thb: 150, usd: 1000, what: "Sell milk, juice, ice cream and bubble tea" },
-  { id: "basket", name: "Big counter", emoji: "🧺", thb: 300, usd: 1500, what: "Customers buy 2 or 3 different things" },
-  { id: "toys", name: "Toy shelf", emoji: "🧸", thb: 400, usd: 2500, what: "Sell toys (bigger notes!)" },
-  { id: "plant", name: "Plant", emoji: "🪴", thb: 60, usd: 300, what: "Makes the shop pretty" },
-  { id: "lights", name: "Fairy lights", emoji: "💡", thb: 90, usd: 500, what: "A cosy glow" },
-  { id: "cat", name: "Shop cat", emoji: "🐈", thb: 120, usd: 700, what: "Sleeps on the counter" },
-  { id: "music", name: "Music", emoji: "🎵", thb: 150, usd: 900, what: "Happy shop music" },
-  { id: "fish", name: "Fish tank", emoji: "🐠", thb: 220, usd: 1200, what: "Customers love it" },
-  { id: "sign", name: "Neon sign", emoji: "🌟", thb: 300, usd: 1600, what: "Your shop's name in lights" },
+  { id: "drinks", name: "Dessert fridge", img: SHOP("u_drinks"), thb: 150, usd: 1000, what: "Sell cream puffs, waffles, ice cream and sundaes" },
+  { id: "basket", name: "Big counter", img: SHOP("u_basket"), thb: 300, usd: 1500, what: "Customers buy 2 or 3 different things" },
+  { id: "toys", name: "Toy shelf", img: SHOP("u_toys"), thb: 400, usd: 2500, what: "Sell toys (bigger notes!)" },
+  { id: "plant", name: "Plant", img: SHOP("u_plant"), thb: 60, usd: 300, what: "Makes the shop pretty" },
+  { id: "lights", name: "Star lights", img: SHOP("u_lights"), thb: 90, usd: 500, what: "A cosy glow" },
+  { id: "cat", name: "Shop dog", img: SHOP("u_cat"), thb: 120, usd: 700, what: "Naps on the counter" },
+  { id: "music", name: "Music", img: SHOP("u_music"), thb: 150, usd: 900, what: "Happy shop music" },
+  { id: "fish", name: "Fish tank", img: SHOP("u_fish"), thb: 220, usd: 1200, what: "Customers love it" },
+  { id: "sign", name: "Star sign", img: SHOP("u_sign"), thb: 300, usd: 1600, what: "Your shop's name in lights" },
 ];
 export const cost = (u: Upgrade, c: Currency) => (c === "THB" ? u.thb : u.usd);
 
+// Animal customers (Kenney Animal Pack, CC0): [picture, name].
 export const CUSTOMERS = [
-  ["🐼", "Panda"],
-  ["🐰", "Bunny"],
-  ["🐻", "Bear"],
-  ["🦊", "Fox"],
-  ["🐨", "Koala"],
-  ["🐯", "Tiger"],
-  ["🐸", "Frog"],
-  ["🐵", "Monkey"],
-  ["🐧", "Penguin"],
-  ["🦁", "Lion"],
+  [SHOP("c_panda"), "Panda"],
+  [SHOP("c_rabbit"), "Bunny"],
+  [SHOP("c_bear"), "Bear"],
+  [SHOP("c_frog"), "Frog"],
+  [SHOP("c_monkey"), "Monkey"],
+  [SHOP("c_penguin"), "Penguin"],
+  [SHOP("c_giraffe"), "Giraffe"],
+  [SHOP("c_elephant"), "Elephant"],
+  [SHOP("c_hippo"), "Hippo"],
+  [SHOP("c_zebra"), "Zebra"],
+  [SHOP("c_pig"), "Piglet"],
+  [SHOP("c_owl"), "Owl"],
+  [SHOP("c_parrot"), "Parrot"],
+  [SHOP("c_chick"), "Chick"],
+  [SHOP("c_goat"), "Goat"],
+  [SHOP("c_duck"), "Duck"],
 ] as const;
 
 export type ShopSave = { currency: Currency; money: number; day: number; owned: string[]; served: number; stars: number };

@@ -5,7 +5,7 @@ import { cost, newShop, nextOrder, PER_DAY, price, STOCK, starsFor, tipFor, UPGR
 import { Cash } from "./MoneyShop";
 import { useSaves } from "./useSaves";
 
-// 🏪 My Little Shop (P3–P5): run your own shop. Animal customers buy things and pay with a note;
+// My Little Shop (P3–P5): run your own shop. Animal customers buy things and pay with a note;
 // you give the right change. Earn money, then spend it on upgrades: new shelves make the maths harder,
 // decorations just make the shop yours. Each player's shop is saved on this device.
 
@@ -23,9 +23,8 @@ function PriceList({ s }: { s: Save }) {
           <div className="flex flex-wrap items-end justify-center gap-x-2 gap-y-1 px-2">
             {STOCK.filter((it) => it.shelf === sh).map((it) => (
               <span key={it.id} className="flex flex-col items-center">
-                <span className="text-3xl leading-none drop-shadow-[0_2px_1px_rgba(0,0,0,.25)] sm:text-4xl" aria-hidden>
-                  {it.emoji}
-                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={it.img} alt="" aria-hidden draggable={false} className="h-9 w-9 object-contain drop-shadow-[0_2px_1px_rgba(0,0,0,.25)] sm:h-11 sm:w-11" />
                 <span className="sr-only">{it.name}</span>
               </span>
             ))}
@@ -95,8 +94,9 @@ function ShopFront({ s, children, night = false }: { s: Save; children?: React.R
         }}
       >
         {has("fish") ? (
-          <span className="absolute right-2 top-2 grid h-12 w-16 place-items-center overflow-hidden rounded-lg border-2 border-white/80 bg-gradient-to-b from-[#9be7ff] to-[#3aa0d8] text-xl shadow" aria-label="Fish tank">
-            <span style={{ animation: "ls-swim 5s ease-in-out infinite" }}>🐠</span>
+          <span className="absolute right-2 top-2 grid h-12 w-16 place-items-center overflow-hidden rounded-lg border-2 border-white/80 bg-gradient-to-b from-[#9be7ff] to-[#3aa0d8] shadow" aria-label="Fish tank">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/games/art/shop/fish2.png" alt="" className="h-7 w-7 object-contain" style={{ animation: "ls-swim 5s ease-in-out infinite" }} />
           </span>
         ) : null}
         {has("music") ? (
@@ -112,8 +112,8 @@ function ShopFront({ s, children, night = false }: { s: Save; children?: React.R
         {children}
         {/* counter */}
         <div className="relative -mx-3 -mb-4 mt-2 h-8 shadow-[0_-2px_0_rgba(0,0,0,.08)]" style={{ background: "linear-gradient(#e6b77a, #b98446)" }} aria-hidden>
-          {has("plant") ? <span className="absolute -top-8 left-2 text-4xl">🪴</span> : null}
-          {has("cat") ? <span className="absolute -top-6 right-3 text-3xl">🐈</span> : null}
+          {has("plant") ? <Art src="/games/art/shop/u_plant.png" className="absolute -top-10 left-2 h-11 w-11" /> : null}
+          {has("cat") ? <Art src="/games/art/shop/u_cat.png" className="absolute -top-9 right-3 h-10 w-10" /> : null}
         </div>
       </div>
     </div>
@@ -152,7 +152,7 @@ export function LittleShop() {
             {names.map((n) => (
               <div key={n} className="flex items-center gap-2">
                 <button type="button" className="flex min-h-16 flex-1 items-center justify-between rounded-2xl border-2 border-[#e6b77a] bg-gradient-to-r from-[#fff8ec] to-[#fde9c8] px-4 text-left text-[#5a3a12] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => (setPlayer(n), setMode("home"))}>
-                  <span className="font-semibold">🏪 {all[n].shopName}</span>
+                  <span className="font-semibold">{all[n].shopName}</span>
                   <span className="text-sm text-muted tabular-nums">
                     Day {all[n].day} · {fmt(all[n].money, all[n].currency)}
                   </span>
@@ -188,8 +188,8 @@ export function LittleShop() {
           <div className="grid grid-cols-2 gap-2">
             {(
               [
-                ["THB", "🇹🇭 Baht"],
-                ["USD", "🇺🇸 Dollars"],
+                ["THB", "Thai Baht"],
+                ["USD", "US Dollars"],
               ] as const
             ).map(([c, label]) => (
               <button key={c} type="button" aria-pressed={newCur === c} onClick={() => setNewCur(c)} className={`min-h-12 rounded-xl border-2 font-semibold transition ${newCur === c ? "-translate-y-0.5 border-transparent bg-[linear-gradient(#c2643c,#8a3f1f)] text-white shadow-[0_4px_0_#5c2a14]" : "border-line bg-surface"}`}>
@@ -259,16 +259,14 @@ export function LittleShop() {
       <div className="space-y-4">
         <ShopFront s={s} night>
           <div className="space-y-2 py-4 text-center text-white">
-            <p className="text-5xl" aria-hidden>
-              🌙
-            </p>
+            <Moon />
             <p className="mx-auto w-max rotate-[-3deg] rounded-md border-2 border-[#6b3f17] bg-[#fdf3dc] px-3 py-1 font-sport text-xl font-bold text-[#6b3f17] shadow">CLOSED</p>
             <p className="text-xl font-bold">Shop closed for the day!</p>
             <p className="text-lg">
               You earned <strong>{fmt(dayTake.money, c)}</strong> today
             </p>
             <p className="text-2xl">
-              {"⭐".repeat(dayTake.stars)} <span className="text-sm text-white/70">({dayTake.stars} of {PER_DAY * 3} stars)</span>
+              <span className="inline-flex gap-0.5 align-middle">{Array.from({ length: dayTake.stars }, (_, i) => <Star key={i} className="h-6 w-6" />)}</span> <span className="text-sm text-white/70">({dayTake.stars} of {PER_DAY * 3} stars)</span>
             </p>
           </div>
         </ShopFront>
@@ -296,9 +294,7 @@ export function LittleShop() {
           </div>
           <PriceList s={s} />
           <div key={served} className="flex items-start gap-3" style={{ animation: "ls-in .4s ease" }}>
-            <span className="text-7xl leading-none drop-shadow-[0_3px_2px_rgba(0,0,0,.25)]" aria-hidden>
-              {order.who[0]}
-            </span>
+            <Art src={order.who[0]} className="h-20 w-20 shrink-0 drop-shadow-[0_3px_2px_rgba(0,0,0,.25)]" />
             <div className="relative flex-1 rounded-2xl bg-white p-3 text-[#2b2b2b] shadow-md">
               <span className="absolute -left-2 top-5 h-4 w-4 rotate-45 bg-white" aria-hidden />
               <p className="text-sm text-[#7a6a55]">{order.who[1]} wants:</p>
@@ -307,7 +303,7 @@ export function LittleShop() {
                   <span key={l.item.id} className="whitespace-nowrap">
                     {i ? " + " : ""}
                     {l.qty > 1 ? `${l.qty} × ` : ""}
-                    <span aria-hidden>{l.item.emoji}</span> {l.item.name}
+                    <Art src={l.item.img} className="inline h-7 w-7 align-middle" /> {l.item.name}
                   </span>
                 ))}
               </p>
@@ -318,8 +314,8 @@ export function LittleShop() {
           </div>
         </ShopFront>
 
-        {thanks ? <p className="rounded-2xl bg-ok-soft p-3 text-center font-semibold text-ok" style={{ animation: "tt-pop .4s ease-out" }}>💖 {thanks}</p> : null}
-        {hint && !thanks ? <p className="rounded-2xl bg-danger-soft p-3 text-center font-medium text-danger" style={{ animation: "pz-shake .35s" }}>🤔 {hint}</p> : null}
+        {thanks ? <p className="rounded-2xl bg-ok-soft p-3 text-center font-semibold text-ok" style={{ animation: "tt-pop .4s ease-out" }}>{thanks}</p> : null}
+        {hint && !thanks ? <p className="rounded-2xl bg-danger-soft p-3 text-center font-medium text-danger" style={{ animation: "pz-shake .35s" }}>{hint}</p> : null}
 
         <div>
           <p className="mb-1.5 text-sm font-medium text-muted">Change to give (tap to take back)</p>
@@ -360,22 +356,22 @@ export function LittleShop() {
       <ShopFront s={s}>
         <PriceList s={s} />
         <p className="text-center text-sm font-medium text-[#6b3f17]">
-          {s.served} customers served · {s.stars} ⭐
+          {s.served} customers served · <span className="inline-flex items-center gap-1 align-middle">{s.stars} <Star className="h-4 w-4" /></span>
         </p>
       </ShopFront>
       <button type="button" className="w-full rounded-2xl bg-gradient-to-b from-[#ff6b5e] to-[#d9342b] py-4 text-lg font-bold text-white shadow-[0_5px_0_#9c2018] transition active:translate-y-1 active:shadow-[0_1px_0_#9c2018]" onClick={openShop}>
-        🔔 Open the shop ({PER_DAY} customers)
+        Open the shop ({PER_DAY} customers)
       </button>
       <div className="space-y-2">
-        <p className="text-lg font-bold">🛠️ Upgrades</p>
+        <p className="text-lg font-bold">Upgrades</p>
         <div className="grid gap-2 sm:grid-cols-2">
           {UPGRADES.map((u) => {
             const owned = s.owned.includes(u.id);
             const price = cost(u, c);
             return (
               <div key={u.id} className={`relative flex items-center gap-3 overflow-hidden rounded-2xl border-2 p-2.5 ${owned ? "border-[#9be0b0] bg-[#effbf2]" : "border-[#f0dfc0] bg-[#fffaf1]"}`}>
-                <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl text-3xl shadow-inner ${owned ? "bg-white" : "bg-[#fdebc8]"}`} aria-hidden>
-                  {u.emoji}
+                <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl shadow-inner ${owned ? "bg-white" : "bg-[#fdebc8]"}`} aria-hidden>
+                  <Art src={u.img} className="h-10 w-10" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">{u.name}</span>
@@ -405,3 +401,23 @@ export function LittleShop() {
   );
 }
 
+
+/** A picture from the Kenney packs (CC0). */
+function Art({ src, className = "" }: { src: string; className?: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" aria-hidden draggable={false} className={`object-contain ${className}`} />;
+}
+function Star({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17.1l-5.9 3.2 1.3-6.5L2.5 9.3l6.6-.8z" fill="#ffd84d" stroke="#c99a00" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function Moon() {
+  return (
+    <svg viewBox="0 0 48 48" className="mx-auto h-14 w-14" aria-hidden>
+      <path d="M30 6a18 18 0 1 0 12 30A15 15 0 0 1 30 6z" fill="#fff3b0" stroke="#e0c050" strokeWidth="2" />
+    </svg>
+  );
+}
