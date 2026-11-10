@@ -6,7 +6,7 @@ import { Choices, ClockFace } from "./ClockRescue";
 import { NumberPad } from "./NumberPad";
 import { useSaves } from "./useSaves";
 
-// 🏰 Clock Tower Quest: a hero walks from Sunny Village to Dragon Castle. Each monster is beaten with
+// Clock Tower Quest: a hero walks from Sunny Village to Monster Castle. Each monster is beaten with
 // 3 right answers about time; a wrong answer and the monster hits back (lose a heart, get a hint).
 // Clear a town and a pet joins your team. Progress is saved per player on this device.
 
@@ -31,22 +31,62 @@ const ANIM = `@keyframes cq-shake{0%,100%{transform:none}20%{transform:translate
  */
 type TownLook = { sky: string; bg: string; ground: string | null; wash?: string; ink: string; decor: string[]; card: string };
 const THEME: Record<string, TownLook> = {
-  village: { sky: "linear-gradient(#7cc8f5, #c9ecff)", bg: "grass", ground: null, ink: "#1f3d16", decor: ["", "🌻", "🏡"], card: "linear-gradient(135deg, #fff6cc, #c9f0b5)" },
-  forest: { sky: "linear-gradient(#1f4a3e, #4f8467)", bg: "forest", ground: null, ink: "#e9ffe9", decor: ["", "🍄", ""], card: "linear-gradient(135deg, #2f6a4f, #1d4636)" },
-  river: { sky: "linear-gradient(#5fb3e6, #b5e3fa)", bg: "empty", ground: "linear-gradient(#3e9de0, #2367a8)", ink: "#0b2a4a", decor: ["🌴", "🪷", "🪨"], card: "linear-gradient(135deg, #d6f1ff, #8fd0f5)" },
-  mountain: { sky: "linear-gradient(#7e8db0, #d3dbea)", bg: "pines", ground: "linear-gradient(#9aa0ac, #6b707d)", ink: "#1e2433", decor: ["🏔️", "❄️", "⛰️"], card: "linear-gradient(135deg, #e7ecf5, #aab6cc)" },
-  castle: { sky: "linear-gradient(#1c1238, #5a2457)", bg: "castles", ground: "linear-gradient(#4a2d2d, #2a1717)", wash: "linear-gradient(rgba(28,18,56,.78), rgba(90,36,87,.6))", ink: "#ffe9e9", decor: ["", "🔥", "🦇"], card: "linear-gradient(135deg, #3a1d4f, #6b1f3a)" },
+  village: { sky: "linear-gradient(#7cc8f5, #c9ecff)", bg: "grass", ground: null, ink: "#1f3d16", decor: ["", "/games/art/scene/bush3.png", "/games/art/scene/houseSmall1.png"], card: "linear-gradient(135deg, #fff6cc, #c9f0b5)" },
+  forest: { sky: "linear-gradient(#1f4a3e, #4f8467)", bg: "forest", ground: null, ink: "#e9ffe9", decor: ["", "/games/art/scene/bush3.png", ""], card: "linear-gradient(135deg, #2f6a4f, #1d4636)" },
+  river: { sky: "linear-gradient(#5fb3e6, #b5e3fa)", bg: "empty", ground: "linear-gradient(#3e9de0, #2367a8)", ink: "#0b2a4a", decor: ["/games/art/scene/treePalm.png", "", ""], card: "linear-gradient(135deg, #d6f1ff, #8fd0f5)" },
+  mountain: { sky: "linear-gradient(#7e8db0, #d3dbea)", bg: "pines", ground: "linear-gradient(#9aa0ac, #6b707d)", ink: "#1e2433", decor: ["/games/art/scene/treePineSnow.png", "", "/games/art/scene/treeSnow.png"], card: "linear-gradient(135deg, #e7ecf5, #aab6cc)" },
+  castle: { sky: "linear-gradient(#1c1238, #5a2457)", bg: "castles", ground: "linear-gradient(#4a2d2d, #2a1717)", wash: "linear-gradient(rgba(28,18,56,.78), rgba(90,36,87,.6))", ink: "#ffe9e9", decor: ["", "", "/games/art/scene/towerSmall.png"], card: "linear-gradient(135deg, #3a1d4f, #6b1f3a)" },
 };
 
-/** A hero: a drawn character (in a pose) or an emoji (older heroes). */
-function HeroArt({ hero, pose = "idle", className = "", emojiClass = "" }: { hero: string; pose?: HeroPose; className?: string; emojiClass?: string }) {
-  const src = heroImage(hero, pose);
+/** A picture from the art pack (decoration only, so screen readers skip it). */
+function Pic({ src, className = "" }: { src: string; className?: string }) {
+  if (!src) return null;
   // eslint-disable-next-line @next/next/no-img-element
-  if (src) return <img src={src} alt="" aria-hidden draggable={false} className={`select-none object-contain ${className}`} />;
+  return <img src={src} alt="" aria-hidden draggable={false} className={`pointer-events-none select-none object-contain ${className}`} />;
+}
+
+/** A hero in a pose (Kenney "Toon Characters"). */
+function HeroArt({ hero, pose = "idle", className = "" }: { hero: string; pose?: HeroPose; className?: string }) {
+  return <Pic src={heroImage(hero, pose)} className={className} />;
+}
+
+/** Small drawn icons, so the game uses no emoji. */
+function StarIcon({ on = true, className = "h-4 w-4" }: { on?: boolean; className?: string }) {
   return (
-    <span className={emojiClass} aria-hidden>
-      {hero}
-    </span>
+    <svg viewBox="0 0 24 24" className={`inline-block align-[-0.15em] ${className}`} aria-hidden>
+      <path d="M12 2.5l2.9 6 6.6.8-4.9 4.6 1.3 6.5L12 17.2 6.1 20.4l1.3-6.5L2.5 9.3l6.6-.8z" fill={on ? "#ffc629" : "#94a3b8"} stroke={on ? "#c98a00" : "#64748b"} strokeWidth="1.3" strokeLinejoin="round" opacity={on ? 1 : 0.35} />
+    </svg>
+  );
+}
+function CoinIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`inline-block align-[-0.15em] ${className}`} aria-hidden>
+      <circle cx="12" cy="12" r="10" fill="#ffc629" stroke="#c98a00" strokeWidth="1.6" />
+      <circle cx="12" cy="12" r="6.5" fill="none" stroke="#e0a300" strokeWidth="1.3" />
+      <path d="M9.5 9.5l5 5M14.5 9.5l-5 5" stroke="#fff3c4" strokeWidth="1.2" opacity=".7" />
+    </svg>
+  );
+}
+function LockIcon({ className = "h-7 w-7" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <path d="M7 10V7.5a5 5 0 0 1 10 0V10" fill="none" stroke="#6b7280" strokeWidth="2.4" />
+      <rect x="4.5" y="10" width="15" height="11" rx="2.5" fill="#9ca3af" stroke="#6b7280" strokeWidth="1.4" />
+      <circle cx="12" cy="15.5" r="1.8" fill="#4b5563" />
+    </svg>
+  );
+}
+/** A comic "pow" burst for a hit. */
+function Burst({ color = "#ffd84d", className = "h-14 w-14" }: { color?: string; className?: string }) {
+  const pts = Array.from({ length: 16 }, (_, i) => {
+    const a = (i / 16) * Math.PI * 2;
+    const r = i % 2 ? 22 : 46;
+    return `${50 + Math.cos(a) * r},${50 + Math.sin(a) * r}`;
+  }).join(" ");
+  return (
+    <svg viewBox="0 0 100 100" className={className} aria-hidden>
+      <polygon points={pts} fill={color} stroke="#7a2b00" strokeWidth="4" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -84,24 +124,18 @@ function Arena(props: { townId: string; hero: string; heroName: string; foe: str
         </div>
       ) : null}
       {/* things in the background */}
-      <span className="absolute left-[4%] top-[34%] text-4xl opacity-80 sm:text-5xl" aria-hidden>
-        {th.decor[0]}
-      </span>
-      <span className="absolute right-[5%] top-[30%] text-3xl opacity-70 sm:text-4xl" aria-hidden>
-        {th.decor[2]}
-      </span>
+      <Pic src={th.decor[0]} className="absolute bottom-[26%] left-[2%] h-[55%] w-auto opacity-90" />
+      <Pic src={th.decor[2]} className="absolute bottom-[28%] right-[3%] h-[42%] w-auto opacity-90" />
       {/* ground (our own, for water, rock and castle stone) */}
       {th.ground ? <div className="absolute inset-x-0 bottom-0 h-[30%] rounded-t-[40%_12px]" style={{ background: th.ground }} aria-hidden /> : null}
-      <span className="absolute bottom-[18%] left-[44%] text-2xl opacity-90" aria-hidden>
-        {th.decor[1]}
-      </span>
+      <Pic src={th.decor[1]} className="absolute bottom-[16%] left-[44%] h-[12%] w-auto" />
 
       {/* hero */}
       <div className="absolute bottom-[14%] left-[10%] flex flex-col items-center">
         <div className="relative">
           {props.hit === "hero" ? (
-            <span key={`ow${props.hearts}`} className="cq-m absolute left-1/2 top-0 z-10 text-3xl" style={{ animation: "cq-float-up .9s ease-out forwards" }} aria-hidden>
-              💢
+            <span key={`ow${props.hearts}`} className="cq-m absolute left-1/2 top-0 z-10" style={{ animation: "cq-float-up .9s ease-out forwards" }} aria-hidden>
+              <Burst color="#ff5a5a" className="h-10 w-10" />
             </span>
           ) : null}
           <span
@@ -115,8 +149,10 @@ function Arena(props: { townId: string; hero: string; heroName: string; foe: str
         </div>
         <span className="mt-1 h-3 w-20 rounded-[50%] bg-black/30 blur-[2px]" aria-hidden />
         {props.pets.length ? (
-          <span className="absolute -right-10 bottom-3 text-2xl" aria-label="Pets">
-            {props.pets.slice(-2).join("")}
+          <span className="absolute -right-12 bottom-2 flex gap-0.5" aria-label="Pets">
+            {props.pets.slice(-2).map((p) => (
+              <Pic key={p} src={p} className="h-9 w-9 drop-shadow-[0_2px_2px_rgba(0,0,0,.3)]" />
+            ))}
           </span>
         ) : null}
       </div>
@@ -126,8 +162,8 @@ function Arena(props: { townId: string; hero: string; heroName: string; foe: str
         <div className="relative">
           {props.hit === "foe" ? (
             <>
-              <span key={`boom${props.hits}`} className="cq-m absolute left-1/2 top-2 z-10 text-4xl" style={{ animation: "cq-float-up .8s ease-out forwards" }} aria-hidden>
-                💥
+              <span key={`boom${props.hits}`} className="cq-m absolute left-1/2 top-2 z-10" style={{ animation: "cq-float-up .8s ease-out forwards" }} aria-hidden>
+                <Burst className="h-14 w-14" />
               </span>
               <span key={`dmg${props.hits}`} className="cq-m absolute -top-4 left-1/2 z-10 text-2xl font-black text-[#ffd84d] [text-shadow:0_2px_0_#7a2b00]" style={{ animation: "cq-float-up 1s ease-out .15s both" }} aria-hidden>
                 −1
@@ -144,7 +180,7 @@ function Arena(props: { townId: string; hero: string; heroName: string; foe: str
             aria-hidden
           >
             <span className="inline-block" style={{ transform: "scaleX(-1)" }}>
-              {props.monster}
+              <Pic src={props.monster} className="h-28 w-auto sm:h-36" />
             </span>
           </span>
         </div>
@@ -198,8 +234,8 @@ function TitleScene() {
         <rect x="156" y="92" width="10" height="14" rx="5" fill="#f5c451" opacity=".8" />
         <rect x="234" y="92" width="10" height="14" rx="5" fill="#f5c451" opacity=".8" />
       </svg>
-      <span className="cq-m absolute right-[22%] top-[34%] text-5xl" style={{ animation: "cq-fly 3s ease-in-out infinite" }}>
-        🐉
+      <span className="cq-m absolute right-[18%] top-[22%]" style={{ animation: "cq-fly 3s ease-in-out infinite" }}>
+        <Pic src="/games/art/monsters/clockmonster.png" className="h-20 w-auto sm:h-24" />
       </span>
       <p className="absolute left-4 top-3 font-sport text-2xl font-bold leading-none tracking-wide text-[#ffd84d] [text-shadow:0_3px_0_#7a2b00] sm:text-3xl">
         CLOCK TOWER
@@ -221,7 +257,7 @@ export function ClockQuest() {
   const [newName, setNewName] = useState("");
   const [newHero, setNewHero] = useState<string>(HEROES[0]);
   const [fight, setFight] = useState<Fight | null>(null);
-  const [result, setResult] = useState<null | { won: boolean; stars: number; coins: number; pet?: string }>(null);
+  const [result, setResult] = useState<null | { won: boolean; stars: number; coins: number; pet?: { img: string; name: string } }>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const s = player ? all[player] : null;
@@ -233,17 +269,17 @@ export function ClockQuest() {
       <div className="space-y-4">
         <style>{ANIM}</style>
         <TitleScene />
-        <p className="text-muted">The Clock Dragon has broken every clock in the kingdom! Travel from town to town, beat the monsters with your time skills, and save the castle.</p>
+        <p className="text-muted">The Clock Monster has broken every clock in the kingdom! Travel from town to town, beat the monsters with your time skills, and save the castle.</p>
         {names.length ? (
           <div className="grid gap-2">
             {names.map((n) => (
               <div key={n} className="flex items-center gap-2">
                 <button type="button" className="flex min-h-16 flex-1 items-center justify-between rounded-2xl border-2 border-[#e2c46a] bg-gradient-to-r from-[#fff8e1] to-[#ffefc2] px-4 text-left text-[#4a3410] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => setPlayer(n)}>
                   <span className="font-semibold">
-                    <HeroArt hero={all[n].hero} className="mr-2 inline-block h-10 w-auto align-middle" emojiClass="mr-2 text-2xl" />
+                    <HeroArt hero={all[n].hero} className="mr-2 inline-block h-10 w-auto align-middle" />
                     {all[n].name}
                   </span>
-                  <span className="rounded-full bg-white/70 px-2.5 py-1 text-sm font-semibold">{totalStars(all[n])} ⭐ · ▶ Play</span>
+                  <span className="rounded-full bg-white/70 px-2.5 py-1 text-sm font-semibold">{totalStars(all[n])} <StarIcon /> · ▶ Play</span>
                 </button>
                 {confirmDelete === n ? (
                   <button type="button" className="btn-danger h-14 px-3 text-sm" onClick={() => (remove(n), setConfirmDelete(null))}>
@@ -269,16 +305,16 @@ export function ClockQuest() {
             setNewName("");
           }}
         >
-          <p className="font-semibold">✨ New hero — pick your character</p>
+          <p className="font-semibold">New hero: pick your character</p>
           <div className="flex flex-wrap gap-1.5">
             {HEROES.map((h) => (
               <button
                 key={h}
                 type="button"
                 aria-pressed={newHero === h}
-                aria-label={h.startsWith("k:") ? `Hero ${HEROES.indexOf(h) + 1}` : h}
+                aria-label={`Hero ${HEROES.indexOf(h) + 1}`}
                 onClick={() => setNewHero(h)}
-                className={`grid place-items-center overflow-hidden rounded-2xl border-2 text-4xl transition ${h.startsWith("k:") ? "h-20 w-16" : "h-14 w-14"} ${newHero === h ? "-translate-y-1 border-[#d4a52c] bg-[#ffe9a8] shadow-md" : "border-[#eadfc4] bg-white"}`}
+                className={`grid place-items-center overflow-hidden rounded-2xl border-2 text-4xl transition h-20 w-16 ${newHero === h ? "-translate-y-1 border-[#d4a52c] bg-[#ffe9a8] shadow-md" : "border-[#eadfc4] bg-white"}`}
               >
                 <HeroArt hero={h} pose={newHero === h ? "cheer0" : "idle"} className="h-[4.5rem] w-auto" />
               </button>
@@ -315,7 +351,7 @@ export function ClockQuest() {
       setFight({ ...f, hits, hit: "foe" });
       winTimer.current = setTimeout(() => {
         setFight(null);
-        setResult({ won: true, stars, coins, pet: newlyDone ? `${TOWNS[f.town].pet} ${TOWNS[f.town].petName}` : undefined });
+        setResult({ won: true, stars, coins, pet: newlyDone ? { img: TOWNS[f.town].pet, name: TOWNS[f.town].petName } : undefined });
       }, 700);
       return;
     }
@@ -343,16 +379,17 @@ export function ClockQuest() {
         <style>{ANIM}</style>
         <div className="flex items-center justify-between text-sm">
           <button type="button" className="rounded-full bg-surface-2 px-3 py-1.5 font-medium text-muted" onClick={() => setFight(null)}>
-            🏃 Run away
+            ‹ Run away
           </button>
           <span className="rounded-full bg-surface-2 px-3 py-1.5 font-medium">
-            {town.emoji} {town.name} · Monster {fight.stage + 1} of {STAGES}
+            <Pic src={town.icon} className="mr-1 inline-block h-5 w-auto align-[-0.2em]" />
+            {town.name} · Monster {fight.stage + 1} of {STAGES}
           </span>
         </div>
         <Arena townId={town.id} hero={s.hero} heroName={s.name} foe={town.foe} monster={town.monster} hearts={fight.hearts} hits={fight.hits} pets={pets} hit={fight.hit} />
         <p key={fight.story} className="cq-m relative rounded-2xl border-2 border-[#e8d9b0] bg-[#fdf6e3] px-4 py-3 text-center text-lg font-semibold text-[#4a3b1f] shadow-sm" style={{ animation: "cq-pop .35s ease-out" }}>
           <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#7a2b00] px-3 py-0.5 text-xs font-bold tracking-wide text-[#ffd84d]">
-            ⚔️ YOUR MOVE
+            YOUR MOVE
           </span>
           {fight.story}
         </p>
@@ -361,7 +398,7 @@ export function ClockQuest() {
           <>
             <ClockFace time={fight.set} onChange={(t) => setFight({ ...fight, set: t })} step={STEP[level]} size={230} />
             <button type="button" className="btn-primary w-full" onClick={() => (same(fight.set, q.target) ? right(fight) : wrong(fight))}>
-              ⚔️ Attack!
+              Attack!
             </button>
           </>
         ) : q.kind === "read" || q.kind === "later" ? (
@@ -389,7 +426,7 @@ export function ClockQuest() {
                   <p className="text-xs uppercase text-muted">{i ? (q.to <= q.from ? "Wakes · next day" : "Wakes") : "Sleeps"}</p>
                   <p className="text-3xl font-bold tabular-nums">{hhmm(m)}</p>
                   <p className="text-sm text-muted">
-                    {m >= 720 ? "🌙" : "☀️"} {ampm(m)}
+                    {ampm(m)}
                   </p>
                 </div>
               ))}
@@ -400,7 +437,7 @@ export function ClockQuest() {
 
         {fight.wrong ? (
           <p className="cq-m rounded-2xl bg-danger-soft p-3 text-center font-medium text-danger" style={{ animation: "cq-shake .4s" }}>
-            💢 Ouch! {town.foe} hit you. {q.kind === "long" ? longHint(q) : clockHint(q)}
+            Ouch! {town.foe} hit you. {q.kind === "long" ? longHint(q) : clockHint(q)}
           </p>
         ) : null}
       </div>
@@ -418,12 +455,20 @@ export function ClockQuest() {
           </span>
           <span>
             <span className="block leading-tight">{s.name}</span>
-            {pets.length ? <span className="text-lg" aria-label="Pets">{pets.join("")}</span> : <span className="text-xs text-white/60">Save a town to find a pet</span>}
+            {pets.length ? (
+              <span className="mt-0.5 flex gap-1" aria-label={`${pets.length} pets`}>
+                {pets.map((p) => (
+                  <Pic key={p} src={p} className="h-7 w-7" />
+                ))}
+              </span>
+            ) : (
+              <span className="text-xs text-white/60">Save a town to find a pet</span>
+            )}
           </span>
         </span>
         <span className="flex gap-2 text-sm font-bold tabular-nums">
-          <span className="rounded-full bg-black/30 px-2.5 py-1">⭐ {totalStars(s)}</span>
-          <span className="rounded-full bg-black/30 px-2.5 py-1">🪙 {s.coins}</span>
+          <span className="rounded-full bg-black/30 px-2.5 py-1"><StarIcon /> {totalStars(s)}</span>
+          <span className="rounded-full bg-black/30 px-2.5 py-1"><CoinIcon /> {s.coins}</span>
         </span>
       </div>
 
@@ -431,22 +476,28 @@ export function ClockQuest() {
         <div className={`cq-m rounded-3xl border-2 p-5 text-center shadow-lg ${result.won ? "border-[#e2c46a] bg-gradient-to-b from-[#fff8dc] to-[#ffe8a3] text-[#4a3410]" : "border-line bg-surface-2"}`} style={{ animation: "cq-pop .45s ease" }}>
           {result.won ? (
             <>
-              <HeroArt hero={s.hero} pose="cheer1" className="mx-auto -mt-2 h-28 w-auto drop-shadow-[0_4px_4px_rgba(0,0,0,.25)]" emojiClass="hidden" />
-              <p className="text-xl font-bold">Monster beaten! 🎉</p>
+              <HeroArt hero={s.hero} pose="cheer1" className="mx-auto -mt-2 h-28 w-auto drop-shadow-[0_4px_4px_rgba(0,0,0,.25)]" />
+              <p className="text-xl font-bold">Monster beaten!</p>
               <p className="my-1 text-4xl">
                 {Array.from({ length: 3 }, (_, i) => (
                   <span key={i} className={`cq-m inline-block ${i < result.stars ? "" : "opacity-25 grayscale"}`} style={i < result.stars ? { animation: `cq-pop .45s ease ${0.15 + i * 0.18}s both` } : undefined}>
-                    ⭐
+                    <StarIcon className="h-10 w-10" />
                   </span>
                 ))}
               </p>
-              <p className="font-semibold">+{result.coins} 🪙</p>
-              {result.pet ? <p className="mt-1 font-semibold">Town saved! {result.pet} joined your team!</p> : null}
+              <p className="font-semibold">
+                +{result.coins} <CoinIcon />
+              </p>
+              {result.pet ? (
+                <p className="mt-2 flex items-center justify-center gap-2 font-semibold">
+                  <Pic src={result.pet.img} className="h-12 w-12" /> Town saved! {result.pet.name} joined your team!
+                </p>
+              ) : null}
             </>
           ) : (
             <>
-              <HeroArt hero={s.hero} pose="hurt" className="mx-auto h-24 w-auto opacity-90" emojiClass="hidden" />
-              <p className="text-xl font-bold">Out of hearts! 💫</p>
+              <HeroArt hero={s.hero} pose="hurt" className="mx-auto h-24 w-auto opacity-90" />
+              <p className="text-xl font-bold">Out of hearts!</p>
               <p className="text-sm">Read the hints carefully and try again. You can do it!</p>
             </>
           )}
@@ -462,13 +513,11 @@ export function ClockQuest() {
           const done = townDone(s, ti);
           return (
             <li key={t.id} className={`relative overflow-hidden rounded-3xl p-3 shadow-md ring-1 ring-black/5 ${open ? "" : "grayscale"}`} style={{ background: th.card, color: th.ink, opacity: open ? 1 : 0.6 }}>
-              <span className="pointer-events-none absolute -right-2 -top-3 text-7xl opacity-20" aria-hidden>
-                {th.decor[0]}
-              </span>
+              <Pic src={t.icon} className="absolute -right-3 -top-2 h-24 w-auto opacity-20" />
               <div className="relative flex items-center gap-3">
-                <span className="relative grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/80 text-4xl shadow-md" aria-hidden>
-                  {open ? t.emoji : "🔒"}
-                  {done ? <span className="absolute -bottom-1 -right-1 text-xl">{t.pet}</span> : null}
+                <span className="relative grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/80 shadow-md" aria-hidden>
+                  {open ? <Pic src={t.icon} className="h-11 w-11" /> : <LockIcon />}
+                  {done ? <Pic src={t.pet} className="absolute -bottom-2 -right-2 h-8 w-8 drop-shadow" /> : null}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-lg font-bold leading-tight">{t.name}</span>
@@ -491,17 +540,18 @@ export function ClockQuest() {
                         onClick={() => begin(ti, si)}
                         className={`min-h-[4.5rem] rounded-2xl px-2 text-center shadow-sm transition ${st ? "bg-white/85 text-[#3a2a0a]" : can ? "cq-m bg-[#ffd84d] text-[#4a2a00] shadow-[0_4px_0_#c99a12] hover:-translate-y-0.5" : "bg-black/15"}`}
                       >
-                        <span className={`block text-3xl ${can && !st ? "cq-m" : ""}`} style={can && !st ? { animation: "cq-bob 1.6s ease-in-out infinite" } : undefined} aria-hidden>
-                          {can ? t.monster : "🔒"}
+                        <span className={`mx-auto grid h-11 place-items-center ${can && !st ? "cq-m" : ""}`} style={can && !st ? { animation: "cq-bob 1.6s ease-in-out infinite" } : undefined} aria-hidden>
+                          {can ? <Pic src={t.monster} className={`h-11 w-auto ${st ? "opacity-60 grayscale" : ""}`} /> : <LockIcon className="h-6 w-6" />}
                         </span>
                         <span className="block text-xs font-bold">
                           {st ? (
                             <>
-                              {"⭐".repeat(st)}
-                              <span className="opacity-25">{"⭐".repeat(Math.max(0, 3 - st))}</span>
+                              {[0, 1, 2].map((k) => (
+                                <StarIcon key={k} on={k < st} />
+                              ))}
                             </>
                           ) : can ? (
-                            "⚔️ Fight!"
+                            "Fight!"
                           ) : (
                             "Locked"
                           )}

@@ -4,24 +4,34 @@ import { addMinutes, ampm, clockQ, DAY, digital, duration, hhmm, timeJumps, word
 // answers to beat. The towns get harder: o'clock → quarter → 5 minutes → how much later → 24-hour, overnight.
 
 export type TownLevel = ClockLevel | "castle";
-export type Town = { id: string; name: string; emoji: string; foe: string; monster: string; level: TownLevel; pet: string; petName: string };
+/** `icon`, `monster` and `pet` are pictures (Kenney art, CC0: scenery, Monster Builder Pack, Animal Pack). */
+export type Town = { id: string; name: string; icon: string; foe: string; monster: string; level: TownLevel; pet: string; petName: string };
 
+const ART = "/games/art";
 export const TOWNS: Town[] = [
-  { id: "village", name: "Sunny Village", emoji: "🏡", foe: "Rat King", monster: "🐀", level: "hour", pet: "🐶", petName: "Puppy" },
-  { id: "forest", name: "Whisper Forest", emoji: "🌲", foe: "Grey Wolf", monster: "🐺", level: "quarter", pet: "🦉", petName: "Owl" },
-  { id: "river", name: "Crocodile River", emoji: "🌊", foe: "Snap the Croc", monster: "🐊", level: "five", pet: "🐢", petName: "Turtle" },
-  { id: "mountain", name: "Troll Mountain", emoji: "⛰️", foe: "Mountain Troll", monster: "🧌", level: "later", pet: "🦅", petName: "Eagle" },
-  { id: "castle", name: "Dragon Castle", emoji: "🏰", foe: "Clock Dragon", monster: "🐉", level: "castle", pet: "🐲", petName: "Baby dragon" },
+  { id: "village", name: "Sunny Village", icon: `${ART}/scene/houseSmall1.png`, foe: "Gloop", monster: `${ART}/monsters/gloop.png`, level: "hour", pet: `${ART}/animals/dog.png`, petName: "Puppy" },
+  { id: "forest", name: "Whisper Forest", icon: `${ART}/scene/treePine.png`, foe: "Snarl", monster: `${ART}/monsters/snarl.png`, level: "quarter", pet: `${ART}/animals/owl.png`, petName: "Owl" },
+  { id: "river", name: "Bubble River", icon: `${ART}/scene/treePalm.png`, foe: "Bubbles", monster: `${ART}/monsters/bubbles.png`, level: "five", pet: `${ART}/animals/duck.png`, petName: "Duckling" },
+  { id: "mountain", name: "Snowy Mountain", icon: `${ART}/scene/treePineSnow.png`, foe: "Rocky the Yeti", monster: `${ART}/monsters/rocky.png`, level: "later", pet: `${ART}/animals/goat.png`, petName: "Mountain goat" },
+  { id: "castle", name: "Monster Castle", icon: `${ART}/scene/castleSmall.png`, foe: "Clock Monster", monster: `${ART}/monsters/clockmonster.png`, level: "castle", pet: `${ART}/monsters/baby.png`, petName: "Baby monster" },
 ];
 export const STAGES = 3; // monsters per town
 export const HITS = 3; // right answers to beat a monster
 export const HEARTS = 3;
 
-/** Hero characters: "k:" ones are drawn pictures (Kenney "Toon Characters", CC0); the rest are emoji (older saves). */
-export const HEROES = ["k:femaleAdventurer", "k:maleAdventurer", "k:femalePerson", "k:malePerson", "k:robot", "k:zombie", "🧙", "🧝", "🦸", "🥷", "🧚", "🤴", "👸", "🧑‍🚀"] as const;
+/** Hero characters (Kenney "Toon Characters", CC0). */
+export const HEROES = ["k:femaleAdventurer", "k:maleAdventurer", "k:femalePerson", "k:malePerson", "k:robot", "k:zombie"] as const;
+// Older saves picked an emoji hero; each one now gets a drawn hero instead.
+const OLD_EMOJI = ["🧙", "🧝", "🦸", "🥷", "🧚", "🤴", "👸", "🧑‍🚀"];
 export type HeroPose = "idle" | "attack1" | "hurt" | "cheer0" | "cheer1";
-/** The picture for a drawn hero in a pose, or null for an emoji hero. */
-export const heroImage = (hero: string, pose: HeroPose = "idle") => (hero.startsWith("k:") ? `/games/art/heroes/${hero.slice(2)}_${pose}.png` : null);
+/** A saved hero as a drawn hero (old emoji heroes are swapped for one). */
+export function heroOf(hero: string): (typeof HEROES)[number] {
+  if ((HEROES as readonly string[]).includes(hero)) return hero as (typeof HEROES)[number];
+  const i = OLD_EMOJI.indexOf(hero);
+  return HEROES[(i < 0 ? 0 : i) % HEROES.length];
+}
+/** The picture for a hero in a pose. */
+export const heroImage = (hero: string, pose: HeroPose = "idle") => `/games/art/heroes/${heroOf(hero).slice(2)}_${pose}.png`;
 
 export type QuestSave = { hero: string; stars: Record<string, number>; coins: number };
 export const newQuest = (hero: string): QuestSave => ({ hero, stars: {}, coins: 0 });
@@ -47,7 +57,7 @@ export type QuestQ = ClockQ | LongQ;
 type Rand = () => number;
 const int = (lo: number, hi: number, r: Rand) => lo + Math.floor(r() * (hi - lo + 1));
 
-/** Dragon Castle: 24-hour times, often overnight ("21:30 to 06:30 the next day"). */
+/** Monster Castle: 24-hour times, often overnight ("21:30 to 06:30 the next day"). */
 export function longQ(r: Rand = Math.random): LongQ {
   const overnight = r() < 0.6;
   const from = overnight ? int(18 * 12, 23 * 12 + 11, r) * 5 : int(6 * 12, 13 * 12, r) * 5;
@@ -108,7 +118,7 @@ export function story(q: QuestQ, town: Town, r: Rand = Math.random): string {
     case "long":
       return pick(
         [
-          `The Clock Dragon sleeps from ${hhmm(q.from)} to ${hhmm(q.to)}${q.to <= q.from ? " the next day" : ""}. How long does it sleep?`,
+          `The Clock Monster sleeps from ${hhmm(q.from)} to ${hhmm(q.to)}${q.to <= q.from ? " the next day" : ""}. How long does it sleep?`,
           `The castle gate is locked from ${hhmm(q.from)} to ${hhmm(q.to)}${q.to <= q.from ? " the next morning" : ""}. How long is it locked?`,
         ],
         r,
@@ -116,7 +126,7 @@ export function story(q: QuestQ, town: Town, r: Rand = Math.random): string {
   }
 }
 
-/** A hint for the Dragon Castle questions (the other kinds use clockHint). */
+/** A hint for the Monster Castle questions (the other kinds use clockHint). */
 export function longHint(q: LongQ): string {
   const { jumps } = timeJumps(q.from, q.to);
   return jumps.map((j) => `${hhmm(j.from)} → ${hhmm(j.to)} is ${duration(j.mins)}`).join(", ") + ". Add them up!";

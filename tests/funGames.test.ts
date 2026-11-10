@@ -76,3 +76,14 @@ describe("clock tower quest", () => {
     for (const t of TOWNS) for (let i = 0; i < 30; i++) expect(story(questQ(t.level, r), t, r).length).toBeGreaterThan(10);
   });
 });
+
+describe("Clock Tower Quest heroes", () => {
+  it("swaps old emoji heroes for drawn ones", async () => {
+    const { heroOf, heroImage, HEROES } = await import("@/lib/games/clockQuest");
+    expect(heroOf("k:robot")).toBe("k:robot");
+    expect(HEROES).toContain(heroOf("🧙"));
+    expect(HEROES).toContain(heroOf("🧑‍🚀"));
+    expect(heroOf("anything else")).toBe(HEROES[0]);
+    expect(heroImage("🧝", "hurt")).toMatch(/^\/games\/art\/heroes\/\w+_hurt\.png$/);
+  });
+});
