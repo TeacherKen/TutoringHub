@@ -3,12 +3,16 @@ import { useEffect, useRef, useState } from "react";
 import { ampm, CLOCK_LEVELS, clockHint, clockQ, DAY, digital, duration, hhmm, hourAngle, timeJumps, toFace, minuteAngle, same, STEP, type ClockLevel, type ClockQ, type Time } from "@/lib/clock";
 import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
-import { BigButton, GameHero, LevelPicker, ResultCard, Runner, THEMES } from "./GameKit";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
 
 const T = THEMES.sky;
+const TW = "/games/art/tower";
+const OWL = "/games/art/animals/owl.png";
 
-// ⏰ Clock Rescue: set the clock (drag the hands), read the clock (pick the time), and "how much later?".
-// 10 questions, beat your fastest time. Wrong answers get a kind hint, then try again.
+// Clock Rescue: Hoot the owl's clock tower has stopped! Each right answer fixes one floor's clock and
+// Hoot flies up a floor; fix all 10 to reach the top and ring the big clock. Questions: set the clock
+// (drag the hands), read the clock (pick the time), and "how much later?". Beat your fastest time.
+// Wrong answers get a kind hint, then try again. (Tower art: Kenney "Platformer Pack Remastered", CC0.)
 
 const COUNT = 10;
 /** Rounded so the server and the browser draw exactly the same numbers. */
@@ -102,7 +106,7 @@ export function ClockFace({ time, onChange, step = 5, size = 260 }: { time: Time
     );
   };
 
-  const btn = "grid h-12 w-12 place-items-center rounded-full bg-surface-2 text-2xl font-bold transition active:scale-90 hover:bg-line";
+  const btn = "rpg-sq grid h-12 w-12 place-items-center text-2xl leading-none";
   return (
     <div className="space-y-2">
       <svg
@@ -179,7 +183,7 @@ export function Choices({ options, onPick, wrongPick }: { options: string[]; onP
           type="button"
           onClick={() => onPick(i)}
           disabled={wrongPick === i}
-          className={`min-h-14 rounded-2xl border-2 px-3 text-lg font-semibold ${wrongPick === i ? "border-danger/40 text-danger line-through opacity-60" : "border-line bg-surface hover:border-accent"}`}
+          className={`rpg-btn-light min-h-14 px-3 text-lg ${wrongPick === i ? "line-through" : ""}`}
         >
           {o}
         </button>
@@ -200,13 +204,16 @@ export function ClockRescue() {
   const [startedAt, setStartedAt] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [newBest, setNewBest] = useState(false);
+  const [oops, setOops] = useState(0);
+  const [finishing, setFinishing] = useState(false); // counts wrong answers, so Hoot wobbles each time
   const { best, offer } = useBest(`ck-${level}`, (a, b) => a < b, "ds");
 
   useEffect(() => {
     if (phase !== "play") return;
+    if (finishing) return;
     const id = setInterval(() => setElapsed(Date.now() - startedAt), 100);
     return () => clearInterval(id);
-  }, [phase, startedAt]);
+  }, [phase, startedAt, finishing]);
 
   function fresh(next: ClockQ) {
     setQ(next);
@@ -214,6 +221,7 @@ export function ClockRescue() {
     setAnswer("");
     setWrong(false);
     setWrongPick(null);
+    setOops(0);
   }
 
   function start() {
@@ -226,29 +234,33 @@ export function ClockRescue() {
   }
 
   function right() {
+    if (n >= COUNT) return; // already finished: Hoot is flying to the roof
     const next = n + 1;
     setN(next);
     if (next >= COUNT) {
       const time = Math.round((Date.now() - startedAt) / 100);
       setElapsed(time * 100);
       setNewBest(offer(time));
-      setPhase("done");
+      setWrong(false);
+      setOops(0);
+      setFinishing(true);
+      setTimeout(() => (setFinishing(false), setPhase((p) => (p === "play" ? "done" : p))), 1600); // watch Hoot reach the top
     } else fresh(clockQ(level, Math.random, q));
   }
 
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <GameHero theme={T} art={<span className="pointer-events-none block"><ClockFace time={{ h: 10, m: 10 }} size={70} /></span>} title="CLOCK RESCUE">
-          {COUNT} questions: set the clock, read the clock, and work out times. Wrong answers get a hint.
+        <GameHero theme={T} art={<Pic src={OWL} className="h-16 w-16" />} title="CLOCK RESCUE">
+          Oh no! All {COUNT} clocks in Hoot the owl&apos;s tower have stopped. Answer clock questions to fix them, floor by floor, and fly Hoot to the top!
         </GameHero>
         <LevelPicker theme={T} levels={Object.entries(CLOCK_LEVELS) as [ClockLevel, string][]} value={level} onChange={setLevel} />
-        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        {best != null ? <p className="text-center text-sm text-muted">Your fastest: {secs(best)}</p> : null}
         <BigButton theme={T} onClick={start}>
           ▶ Start
         </BigButton>
         <button type="button" className="btn-secondary min-h-14 w-full" onClick={() => setPhase("demo")}>
-          🧑‍🏫 Teacher demo clock
+          Teacher demo clock
         </button>
       </div>
     );
@@ -258,32 +270,28 @@ export function ClockRescue() {
 
   if (phase === "done") {
     return (
-      <ResultCard theme={T} art="⏰" label={`All ${COUNT} clocks rescued in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
+      <ResultCard theme={T} art={<Pic src={OWL} className="mx-auto h-20 w-20 animate-[gk-cheer_.8s_ease-in-out_infinite]" />} label={`Hoot's tower is ticking again! All ${COUNT} clocks fixed in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 
   if (!q) return null;
+  const miss = () => (setWrong(true), setOops((o) => o + 1));
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between text-sm text-muted">
-        <span>
-          Question <strong className="text-ink tabular-nums">{n + 1}</strong> of {COUNT}
-        </span>
-        <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
-      </div>
-      <Runner theme={T} value={n} max={COUNT} icon="⏰" />
+    <div className="grid gap-3 sm:grid-cols-[190px_1fr] sm:items-start">
+      <Tower n={n} oops={oops} time={secs(Math.round(elapsed / 100))} />
 
-      <div className="space-y-4 rounded-3xl p-4 shadow-[0_6px_18px_rgba(0,0,0,.12)] ring-1 ring-black/5" style={{ background: "linear-gradient(#e6f4fb, #f7fbfd)", color: "#0f2a36" }}>
+      <div className="space-y-3">
+      <div className="rpg-panel-light space-y-4 p-1">
       {q.kind === "set" ? (
         <>
           <p className="text-center text-2xl font-semibold">
-            Show <span className="text-accent">{q.say}</span>
+            Show <span className="text-[#c2410c]">{q.say}</span>
           </p>
           <ClockFace time={set} onChange={setSet} step={STEP[level]} />
-          <p className="text-center text-sm text-[#4a6a78]">Turn the long hand (minutes) and the short hand follows, or use + and −.</p>
-          <BigButton theme={T} onClick={() => (same(set, q.target) ? right() : setWrong(true))}>
-            ✓ Check
-          </BigButton>
+          <p className="text-center text-sm text-[#7a5a2a]">Turn the long hand (minutes) and the short hand follows, or use + and −.</p>
+          <button type="button" className="rpg-btn w-full py-1 text-xl" onClick={() => (same(set, q.target) ? right() : miss())}>
+            Fix the clock!
+          </button>
         </>
       ) : q.kind === "read" ? (
         <>
@@ -296,7 +304,7 @@ export function ClockRescue() {
               if (i === q.answer) right();
               else {
                 setWrongPick(i);
-                setWrong(true);
+                miss();
               }
             }}
           />
@@ -304,7 +312,7 @@ export function ClockRescue() {
       ) : q.kind === "later" ? (
         <>
           <p className="text-center text-xl font-semibold">
-            It&apos;s <span className="tabular-nums">{digital(q.start)}</span>. What time will it be <span className="text-accent">{q.add} minutes</span> later?
+            It&apos;s <span className="tabular-nums">{digital(q.start)}</span>. What time will it be <span className="text-[#c2410c]">{q.add} minutes</span> later?
           </p>
           <ClockFace time={q.start} size={200} />
           <Choices
@@ -314,7 +322,7 @@ export function ClockRescue() {
               if (i === q.answer) right();
               else {
                 setWrongPick(i);
-                setWrong(true);
+                miss();
               }
             }}
           />
@@ -322,16 +330,16 @@ export function ClockRescue() {
       ) : (
         <>
           <p className="text-center text-xl font-semibold">
-            How many minutes from <span className="tabular-nums text-accent">{digital(q.from)}</span> to <span className="tabular-nums text-accent">{digital(q.to)}</span>?
+            How many minutes from <span className="tabular-nums text-[#c2410c]">{digital(q.from)}</span> to <span className="tabular-nums text-[#c2410c]">{digital(q.to)}</span>?
           </p>
           <div className="flex items-center justify-center gap-3">
             <ClockFace time={q.from} size={130} />
-            <span className="text-3xl text-muted" aria-hidden>
+            <span className="text-3xl text-[#7a5a2a]" aria-hidden>
               →
             </span>
             <ClockFace time={q.to} size={130} />
           </div>
-          <p className="text-center text-sm text-muted">Type the number of minutes.</p>
+          <p className="text-center text-sm text-[#7a5a2a]">Type the number of minutes.</p>
           <NumberPad
             value={answer}
             onChange={setAnswer}
@@ -339,7 +347,7 @@ export function ClockRescue() {
               if (!answer) return;
               if (Number(answer) === q.answer) right();
               else {
-                setWrong(true);
+                miss();
                 setAnswer("");
               }
             }}
@@ -350,7 +358,8 @@ export function ClockRescue() {
       )}
       </div>
 
-      {wrong ? <p className="pz-anim animate-[pz-shake_.35s] rounded-2xl bg-danger-soft p-3 text-center font-medium text-danger">🤔 Not quite. {clockHint(q)}</p> : null}
+      {wrong ? <p key={oops} className="rpg-panel-brown pz-anim animate-[pz-shake_.35s] p-1 text-center font-medium">Hoot says: not quite! {clockHint(q)}</p> : null}
+      </div>
     </div>
   );
 }
@@ -377,7 +386,7 @@ function TimeSetter({ label, mins, onChange }: { label: string; mins: number; on
         </div>
       </div>
       <p className="text-sm text-muted">
-        {pm ? "🌙" : "☀️"} {ampm(mins)}
+        {ampm(mins)}
       </p>
       <ClockFace
         time={toFace(mins)}
@@ -391,7 +400,7 @@ function TimeSetter({ label, mins, onChange }: { label: string; mins: number; on
 }
 
 /**
- * 🧑‍🏫 For Mr Ken to show a question to the class: set a start and an end time (the end can be the next day),
+ * For Mr Ken to show a question to the class: set a start and an end time (the end can be the next day),
  * let the children think, then reveal the jumps one by one: to the next o'clock, to midnight, whole hours, the minutes.
  */
 function ClockDemo({ onBack }: { onBack: () => void }) {
@@ -459,6 +468,105 @@ function ClockDemo({ onBack }: { onBack: () => void }) {
           </button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function Pic({ src, className = "", style }: { src: string; className?: string; style?: React.CSSProperties }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" aria-hidden draggable={false} className={`pointer-events-none select-none object-contain ${className}`} style={style} />;
+}
+
+/** A small clock in a tower window: grey and stuck until it's fixed, then gold and ticking. */
+function TinyClock({ ok, stuck, size }: { ok: boolean; stuck: number; size: string }) {
+  return (
+    <svg viewBox="0 0 24 24" style={{ width: size, height: size }} aria-hidden>
+      <circle cx="12" cy="12" r="10.5" fill={ok ? "#fffbe8" : "#c9cdd3"} stroke={ok ? "#e0a526" : "#7b828c"} strokeWidth="2.5" />
+      <line x1="12" y1="12" x2="12" y2="7" stroke={ok ? "#1f2a36" : "#5b626b"} strokeWidth="2.2" strokeLinecap="round" style={{ transformOrigin: "12px 12px", transform: `rotate(${stuck * 37}deg)` }} />
+      <line
+        x1="12"
+        y1="12"
+        x2="12"
+        y2="4.5"
+        stroke={ok ? "#d9622b" : "#5b626b"}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        style={{ transformOrigin: "12px 12px", transform: ok ? undefined : `rotate(${stuck * 83 + 40}deg)`, animation: ok ? "ck-tick 4s linear infinite" : undefined }}
+      />
+      <circle cx="12" cy="12" r="1.6" fill="#1f2a36" />
+    </svg>
+  );
+}
+
+/**
+ * Hoot's clock tower: one floor per question, from the door at the bottom to the big clock on the roof.
+ * Fixed floors light up (gold clock, lit torches) and Hoot flies up to the next one.
+ */
+function Tower({ n, oops, time }: { n: number; oops: number; time: string }) {
+  const done = n >= COUNT;
+  // floor height (smaller on phones)
+  const fl = "var(--fl)";
+  return (
+    <div
+      className="relative h-[calc(var(--fl)*14.6+48px)] overflow-hidden rounded-3xl shadow-[0_6px_18px_rgba(0,0,0,.18)] ring-2 ring-black/10 [--fl:17px] sm:[--fl:25px]"
+      style={{ background: `url(${TW}/colored_shroom.png) center bottom / auto 100% repeat-x, #d6eef8` }}
+      role="img"
+      aria-label={`Clock tower: ${n} of ${COUNT} clocks fixed`}
+    >
+      <style>{`@keyframes ck-tick{to{transform:rotate(360deg)}}@keyframes ck-hop{0%{transform:translateY(0)}35%{transform:translateY(-14px) rotate(-6deg)}70%{transform:translateY(2px)}100%{transform:none}}@keyframes ck-oops{0%,100%{transform:none}20%{transform:translateX(-5px) rotate(-8deg)}40%{transform:translateX(5px) rotate(8deg)}60%{transform:translateX(-4px) rotate(-5deg)}80%{transform:translateX(3px)}}@keyframes ck-flag{0%,49%{opacity:1}50%,100%{opacity:0}}`}</style>
+      {/* score card */}
+      <div className="absolute bottom-1 left-2 z-20 rounded-xl bg-white/90 px-2 py-1 text-xs font-bold text-[#4a3410] shadow sm:text-sm">
+        <span className="tabular-nums">{n}</span>/{COUNT} fixed
+        <span className="ml-1.5 font-semibold tabular-nums text-[#7a5a2a]">{time}</span>
+      </div>
+      {/* ground */}
+      <div className="absolute inset-x-0 bottom-0 h-[18px]" style={{ background: "linear-gradient(#7ac943, #4f9a2c)", boxShadow: "inset 0 3px 0 #a3e06a" }} />
+
+      <div className="absolute bottom-[18px] left-[57%] w-[calc(var(--fl)*3.8)] -translate-x-1/2">
+        {/* roof with the big clock and a flag */}
+        <div className="relative mx-auto h-[calc(var(--fl)*2.4)] w-[calc(var(--fl)*4.6)] -translate-x-[calc(var(--fl)*0.4)]">
+          <div className="absolute inset-0" style={{ clipPath: "polygon(50% 0, 100% 100%, 0 100%)", background: "linear-gradient(#d9483b, #a8302a)" }} />
+          <span className="absolute bottom-[8%] left-1/2 -translate-x-1/2">
+            <TinyClock ok={done} stuck={5} size={`calc(${fl} * 1.35)`} />
+          </span>
+          <span className="absolute -top-[calc(var(--fl)*1.1)] left-1/2 h-[calc(var(--fl)*1.2)] w-[calc(var(--fl)*1.2)]">
+            <Pic src={`${TW}/flagRed1.png`} className="absolute inset-0 h-full w-full" style={done ? { animation: "ck-flag .5s steps(1) infinite" } : undefined} />
+            {done ? <Pic src={`${TW}/flagRed2.png`} className="absolute inset-0 h-full w-full" style={{ animation: "ck-flag .5s steps(1) .25s infinite" }} /> : null}
+          </span>
+        </div>
+        {/* floors, top first */}
+        {Array.from({ length: COUNT }, (_, k) => COUNT - 1 - k).map((i) => {
+          const ok = i < n;
+          const now = i === n;
+          return (
+            <div key={i} className="relative flex h-[var(--fl)] items-center justify-center" style={{ background: `url(${TW}/brickGrey.png) 0 0 / ${fl} ${fl}`, boxShadow: "inset 3px 0 0 rgba(0,0,0,.18), inset -3px 0 0 rgba(0,0,0,.18)" }}>
+              <Pic src={`${TW}/${ok ? (i % 2 ? "torch1" : "torch2") : "torchOff"}.png`} className="absolute left-[6%] h-[80%]" />
+              <span className={`grid place-items-center rounded-full ${ok ? "shadow-[0_0_10px_3px_rgba(255,214,77,.85)]" : ""} ${now ? "outline outline-2 outline-offset-1 outline-[#ffd84d]" : ""}`}>
+                <TinyClock ok={ok} stuck={i} size={`calc(${fl} * .82)`} />
+              </span>
+              <Pic src={`${TW}/${ok ? (i % 2 ? "torch2" : "torch1") : "torchOff"}.png`} className="absolute right-[6%] h-[80%]" />
+            </div>
+          );
+        })}
+        {/* the door */}
+        <div className="relative h-[calc(var(--fl)*1.6)]" style={{ background: `url(${TW}/brickGrey.png) 0 0 / ${fl} ${fl}`, boxShadow: "inset 3px 0 0 rgba(0,0,0,.18), inset -3px 0 0 rgba(0,0,0,.18)" }}>
+          <Pic src={`${TW}/${done ? "doorOpen_mid" : "doorClosed_mid"}.png`} className="absolute bottom-0 left-1/2 h-[var(--fl)] w-[var(--fl)] -translate-x-1/2" />
+          <Pic src={`${TW}/${done ? "doorOpen_top" : "doorClosed_top"}.png`} className="absolute bottom-[var(--fl)] left-1/2 h-[var(--fl)] w-[var(--fl)] -translate-x-1/2" />
+        </div>
+        {/* Hoot: beside the floor being fixed, on the roof at the end */}
+        <span
+          className="absolute z-10 transition-[bottom,left] duration-700 ease-out"
+          style={{
+            bottom: done ? `calc(${fl} * ${COUNT + 1.6 + 0.3})` : `calc(${fl} * ${n + 1.6 - 0.3})`,
+            left: done ? `calc(${fl} * 2.5)` : `calc(${fl} * -1.75)`,
+          }}
+        >
+          <span key={`${n}-${oops}`} className="block" style={{ animation: oops && !done ? "ck-oops .5s ease" : "ck-hop .6s ease-out" }}>
+            <Pic src={OWL} className="h-[calc(var(--fl)*1.7)] w-[calc(var(--fl)*1.7)] drop-shadow-[0_3px_2px_rgba(0,0,0,.3)]" />
+          </span>
+        </span>
+      </div>
+
     </div>
   );
 }

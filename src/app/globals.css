@@ -1169,3 +1169,15 @@ html.board-full .page-enter {
 .rpg-btn:disabled,
 .rpg-btn-light:disabled { border-image-source: url(/games/art/ui/buttonLong_grey.png); color: #6b7280; text-shadow: none; cursor: not-allowed; }
 .rpg-sword { cursor: url(/games/art/ui/cursorSword_gold.png) 4 4, pointer; }
+/* Square wooden + / − buttons (Kenney RPG pack). */
+.rpg-sq {
+  border-style: solid;
+  border-color: transparent;
+  border-width: 8px 8px 12px;
+  border-image: url(/games/art/ui/buttonSquare_brown.png) 8 8 12 fill stretch;
+  color: #fff7e6;
+  font-weight: 800;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  transition: transform 80ms;
+}
+.rpg-sq:active { border-image-source: url(/games/art/ui/buttonSquare_brown_pressed.png); border-width: 8px; transform: translateY(3px); }
