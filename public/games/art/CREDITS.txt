@@ -8,3 +8,6 @@ Game art by Kenney (www.kenney.nl), released as CC0 (free to use, no credit requ
             Space Shooter Remastered, Planets, Racing Pack, Boardgame Pack, Donuts, Robot Pack,
             Pirate Pack, Block Pack, Physics Assets, Pixel Platformer, Sports Pack (plus the above)
 - ui/       UI Pack: RPG Expansion (folder "UI Adventure Pack") for Clock Tower Quest
+- items/    Voxel Pack, Voxel Expansion Pack (adventure market gear)
+- robots/   Robot Pack · pirate/ Pirate Pack, Block Pack · market/ Block Pack · race/ Racing Pack
+- space/    Alien UFO Pack, Space Shooter Remastered, Planets · dice/ Boardgame Pack

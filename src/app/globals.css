@@ -1046,6 +1046,14 @@ html.board-full .page-enter {
   25% { transform: translateX(-6px); }
   75% { transform: translateX(6px); }
 }
+@keyframes pf-rock {
+  0%, 100% { transform: rotate(-2deg) translateY(0); }
+  50% { transform: rotate(2deg) translateY(-3px); }
+}
+@keyframes ff-hop {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-18px); }
+}
 @keyframes qm-twinkle {
   0%, 100% { opacity: 0.35; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1.1); }

@@ -2,9 +2,11 @@
 import { useEffect, useState } from "react";
 import { changeHint, face, fewest, fmt, shopHint, shopQ, SHOP_LEVELS, sum, wallet, type Currency, type Money, type ShopLevel, type ShopQ } from "@/lib/moneyShop";
 import { useBest } from "./useBest";
-import { BigButton, GameHero, LevelPicker, ResultCard, Runner, THEMES } from "./GameKit";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
 
-const T = THEMES.shop;
+const T = THEMES.market;
+// The adventure market's shopkeepers (Kenney Toon Characters) and stalls (Block Pack), CC0.
+const KEEPERS = ["femalePerson", "maleAdventurer", "malePerson", "femaleAdventurer", "robot", "zombie"];
 
 // 🛒 Money Shop: pay the exact price, give the change, and add up a basket — with Thai baht or US dollars.
 // Children tap coins and notes into the tray (tap one in the tray to take it back), then press Pay.
@@ -60,35 +62,58 @@ export function Cash({ m, c, small = false }: { m: Money; c: Currency; small?: b
   );
 }
 
-function Shelf({ q, c, level }: { q: ShopQ; c: Currency; level: ShopLevel }) {
+/** 🏪 The adventure market: a shopkeeper at a stall with the gear on the counter, and what to do. */
+function Market({ q, c, level, n, happy }: { q: ShopQ; c: Currency; level: ShopLevel; n: number; happy: boolean }) {
+  const keeper = KEEPERS[n % KEEPERS.length];
+  const many = q.items.length > 1;
+  const what = many ? "these" : `the ${q.items[0].name}`;
   return (
-    <div className="overflow-hidden rounded-3xl shadow-[0_6px_18px_rgba(0,0,0,.15)] ring-1 ring-black/10">
-      <div className="h-6" style={{ background: "repeating-linear-gradient(90deg,#e0504a 0 26px,#fbf3e4 26px 52px)" }} aria-hidden />
-      <div className="space-y-3 p-4 text-[#3b2a12]" style={{ background: "linear-gradient(#fbf1dc, #f3e2c0)" }}>
-      <div className="flex flex-wrap justify-center gap-3">
-        {q.items.map((it) => (
-          <div key={it.name} className="pz-anim flex min-w-[6.5rem] animate-[tt-pop_.3s_ease-out] flex-col items-center rounded-2xl bg-white px-3 py-2 shadow-[0_4px_0_#e2c99a]">
-            <span className="text-5xl leading-tight" aria-hidden>
-              {it.emoji}
-            </span>
-            <span className="text-sm text-[#7a6a55]">{it.name}</span>
-            <span className="mt-1 rounded-full bg-[#ffc629] px-2.5 py-0.5 text-lg font-bold tabular-nums text-[#2b1a08]">{fmt(it.price, c)}</span>
+    <div className="overflow-hidden rounded-3xl shadow-[0_8px_24px_rgba(0,0,0,.2)] ring-4 ring-black/10">
+      <div className="relative h-60 sm:h-64" style={{ backgroundImage: "url(/games/art/bg/grass.png)", backgroundSize: "auto 100%", backgroundPosition: "center bottom", backgroundColor: "#cdeaf7" }}>
+        {/* the stall */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/games/art/market/stall.png" alt="" aria-hidden className="absolute bottom-3 left-2 h-48 w-auto sm:left-6 sm:h-52" />
+        {/* the gear on the counter, with price tags */}
+        <div key={n} className="absolute bottom-[4.5rem] left-4 flex w-[11rem] items-end justify-center gap-1 sm:left-8 sm:w-[12.5rem]">
+          {q.items.map((it) => (
+            <div key={it.name} className="pz-anim flex animate-[tt-pop_.35s_ease-out] flex-col items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={it.img} alt="" aria-hidden className={`${many ? "h-12" : "h-20"} w-auto drop-shadow-[0_3px_2px_rgba(0,0,0,.35)]`} />
+              <span className="mt-0.5 rounded-md bg-[#fff7e0] px-1.5 text-xs font-black tabular-nums text-[#3b2a00] shadow ring-1 ring-[#c9a35a]">{fmt(it.price, c)}</span>
+            </div>
+          ))}
+        </div>
+        {/* the shopkeeper */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          key={`k${n}-${happy}`}
+          src={`/games/art/heroes/${keeper}_${happy ? "cheer0" : "idle"}.png`}
+          alt=""
+          aria-hidden
+          className="pz-anim absolute bottom-4 right-4 h-32 w-auto animate-[tt-pop_.35s_ease-out] drop-shadow-[0_6px_4px_rgba(0,0,0,.3)] sm:right-10 sm:h-36"
+        />
+        {/* what the shopkeeper says */}
+        <div className="absolute right-3 top-3 max-w-[60%] sm:right-8">
+          <div className="relative rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-[#3b2a12] shadow-lg sm:text-base">
+            {happy ? (
+              "Thank you, adventurer! Good luck!"
+            ) : q.paid == null ? (
+              <>
+                {many ? "All of these" : `The ${q.items[0].name}`}? That&apos;s <span className="whitespace-nowrap rounded-full bg-[#ffd84d] px-2 text-[#3b2a00]">{fmt(q.total, c)}</span>, please!
+              </>
+            ) : (
+              <span className="inline-flex flex-wrap items-center gap-1.5">
+                You want {what} and paid with <Cash m={{ value: q.paid, kind: "note" }} c={c} small /> How much change do I give you?
+              </span>
+            )}
+            <span className="absolute -bottom-2 right-10 h-4 w-4 rotate-45 bg-white" aria-hidden />
           </div>
-        ))}
+        </div>
       </div>
-      <p className="text-center text-lg font-semibold">
-        {q.paid == null ? (
-          <>
-            Pay exactly <span className="rounded-full bg-[#ffd84d] px-2.5 py-0.5 text-[#3b2a00]">{fmt(q.total, c)}</span>
-          </>
-        ) : (
-          <span className="inline-flex flex-wrap items-center justify-center gap-2">
-            {level === "basket" ? "Buy them all." : "Buy it."} You pay with <Cash m={{ value: q.paid, kind: "note" }} c={c} small /> Give the change.
-          </span>
-        )}
-      </p>
+      <div className="flex items-center justify-between gap-2 px-4 py-2 text-sm font-semibold text-white" style={{ background: `linear-gradient(90deg, ${T.from}, ${T.to})` }}>
+        <span>{level === "basket" ? "Basket" : q.paid == null ? "Pay exactly" : "Count your change"}</span>
+        <span className="tabular-nums">{q.paid == null ? `Price ${fmt(q.total, c)}` : `Price ${fmt(q.total, c)} · Paid ${fmt(q.paid, c)}`}</span>
       </div>
-      <div className="h-4" style={{ background: "linear-gradient(#e6b77a, #b98446)" }} aria-hidden />
     </div>
   );
 }
@@ -105,6 +130,7 @@ export function MoneyShop() {
   const [startedAt, setStartedAt] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [newBest, setNewBest] = useState(false);
+  const [happy, setHappy] = useState(false);
   const { best, offer } = useBest(`ms-${currency}-${level}`, (a, b) => a < b, "ds");
 
   useEffect(() => {
@@ -130,7 +156,7 @@ export function MoneyShop() {
   }
 
   function pay() {
-    if (!q || !tray.length) return;
+    if (!q || !tray.length || happy) return;
     const given = sum(tray);
     if (given === q.target) {
       const next = n + 1;
@@ -140,7 +166,14 @@ export function MoneyShop() {
         setElapsed(time * 100);
         setNewBest(offer(time));
         setPhase("done");
-      } else fresh(shopQ(currency, level, Math.random, q));
+      } else {
+        // The shopkeeper cheers for a moment, then the next stall.
+        setHappy(true);
+        setTimeout(() => {
+          setHappy(false);
+          fresh(shopQ(currency, level, Math.random, q));
+        }, 700);
+      }
       return;
     }
     const t = tries + 1;
@@ -153,8 +186,8 @@ export function MoneyShop() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <GameHero theme={T} art="🛒" title="MONEY SHOP">
-          {COUNT} shoppers. Tap coins and notes to pay, then press Pay. Wrong? You get a hint.
+        <GameHero theme={T} art="🛒" title="ADVENTURE MARKET">
+          Buy gear for your adventure at {COUNT} stalls. Tap coins and notes to pay. Wrong? You get a hint.
         </GameHero>
         <div className="grid grid-cols-2 gap-2" role="group" aria-label="Money">
           {(
@@ -183,7 +216,7 @@ export function MoneyShop() {
         <LevelPicker theme={T} levels={Object.entries(SHOP_LEVELS) as [ShopLevel, string][]} value={level} onChange={setLevel} />
         {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
         <BigButton theme={T} onClick={start}>
-          🔔 Open the shop
+          ▶ Go to the market
         </BigButton>
       </div>
     );
@@ -191,7 +224,7 @@ export function MoneyShop() {
 
   if (phase === "done") {
     return (
-      <ResultCard theme={T} art="🛒" label={`All ${COUNT} shoppers served in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
+      <ResultCard theme={T} art="🛒" label={`All ${COUNT} stalls done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 
@@ -201,16 +234,14 @@ export function MoneyShop() {
     <div className="space-y-4">
       <div className="flex items-center justify-between text-sm text-muted">
         <span>
-          Shopper <strong className="text-ink tabular-nums">{n + 1}</strong> of {COUNT}
+          Stall <strong className="text-ink tabular-nums">{Math.min(n + 1, COUNT)}</strong> of {COUNT}
         </span>
         <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
       </div>
-      <Runner theme={T} value={n} max={COUNT} icon="🛒" />
-
-      <Shelf q={q} c={currency} level={level} />
+      <Market q={q} c={currency} level={level} n={n} happy={happy} />
 
       <div>
-        <p className="mb-1.5 text-sm font-medium text-muted">{q.paid == null ? "Your tray (tap to take back)" : "Change to give (tap to take back)"}</p>
+        <p className="mb-1.5 text-sm font-medium text-muted">{q.paid == null ? "Your money (tap one to take it back)" : "Your change (tap one to take it back)"}</p>
         <div className={`flex min-h-[4.5rem] flex-wrap items-center gap-2 rounded-2xl p-2.5 shadow-inner ring-4 ${hint ? "ring-danger/60" : "ring-[#b98446]"}`} style={{ background: "linear-gradient(#5b3a1c, #3f2812)" }}>
           {tray.length ? (
             tray.map((v, i) => (
@@ -228,7 +259,7 @@ export function MoneyShop() {
               </button>
             ))
           ) : (
-            <span className="px-2 text-sm text-white/60">Empty — tap money below</span>
+            <span className="px-2 text-sm text-white/60">Empty: tap money below</span>
           )}
         </div>
       </div>
@@ -253,7 +284,7 @@ export function MoneyShop() {
         </div>
       </div>
 
-      {hint ? <p className="pz-anim animate-[pz-shake_.35s] rounded-2xl bg-danger-soft p-3 text-center font-medium text-danger">🤔 Not quite. {hint}</p> : null}
+      {hint ? <p className="rpg-panel-light pz-anim animate-[pz-shake_.35s] px-2 py-1 text-center font-medium text-[#b42318]">Not quite. {hint}</p> : null}
 
       <div className="flex gap-2">
         <button type="button" className="btn-secondary" disabled={!tray.length} onClick={() => (setTray([]), setHint(null))}>
@@ -261,7 +292,7 @@ export function MoneyShop() {
         </button>
         <div className="flex-1">
           <BigButton theme={T} onClick={pay} disabled={!tray.length}>
-            {q.paid == null ? "💳 Pay" : "🪙 Give change"}
+            {q.paid == null ? "Pay" : "That's my change"}
           </BigButton>
         </div>
       </div>

@@ -4,9 +4,47 @@ import { CHALLENGE_LEVELS, challengeHint, challengeQ, type ChallengeLevel, type 
 import { FracText } from "./FractionShapes";
 import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
-import { BigButton, Board, GameHero, LevelPicker, ResultCard, Runner, THEMES } from "./GameKit";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
 
-const T = THEMES.sun;
+const T = THEMES.pirate;
+const PI = "/games/art/pirate"; // Kenney Pirate Pack, Block Pack, Platformer Pack (CC0)
+
+/**
+ * 🏴‍☠️ The treasure voyage: each right answer sails the pirate ship one step to Treasure Island.
+ * A wrong answer: a cannonball splashes next to the ship (and a hint shows).
+ */
+function Voyage({ n, max, splash }: { n: number; max: number; splash: number }) {
+  const pct = Math.min(1, n / max);
+  return (
+    <div className="relative h-36 overflow-hidden rounded-3xl shadow-[0_8px_24px_rgba(0,0,0,.25)] ring-4 ring-black/15 sm:h-44" style={{ background: "radial-gradient(120% 140% at 30% 0%, #5cc4f0, #1f7fb8 60%, #0b3a5c)" }} aria-hidden>
+      {/* waves */}
+      <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(ellipse_18px_5px_at_50%_50%,#fff_40%,transparent_42%)] [background-size:70px_36px]" />
+      {/* treasure island */}
+      <div className="absolute -right-6 top-1/2 h-28 w-36 -translate-y-1/2 rounded-[50%] bg-[radial-gradient(circle_at_45%_40%,#f7e3a8,#e2c27a_65%,#c9a35a)] shadow-[0_0_0_10px_rgba(255,255,255,.25)] sm:h-32 sm:w-44" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/games/art/scene/treePalm.png" alt="" className="absolute right-12 top-2 h-20 w-auto sm:h-24" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={`${PI}/chest.png`} alt="" className="absolute bottom-6 right-6 h-12 w-auto sm:h-14" />
+      {/* coins collected so far */}
+      <div className="absolute bottom-2 left-3 flex -space-x-2">
+        {Array.from({ length: n }, (_, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={i} src={`${PI}/coin.png`} alt="" className="pz-anim h-6 w-6 animate-[tt-pop_.3s_ease-out]" />
+        ))}
+      </div>
+      {/* the ship */}
+      <div className="absolute top-1/2 -translate-y-1/2 transition-[left] duration-700 ease-out" style={{ left: `calc(${pct} * (100% - 13rem) + 0.5rem)` }}>
+        {splash ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={splash} src={`${PI}/splash.png`} alt="" className="pz-anim absolute -top-4 left-14 h-12 w-12 opacity-0" style={{ animation: "qm-burst .7s ease-out" }} />
+        ) : null}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`${PI}/ship.png`} alt="" className="pz-anim h-16 w-auto drop-shadow-[0_6px_6px_rgba(0,0,0,.35)] sm:h-20" style={{ animation: "pf-rock 2.4s ease-in-out infinite" }} />
+      </div>
+      <span className="absolute right-3 top-2 rounded-full bg-black/35 px-2.5 py-0.5 text-xs font-bold tracking-wider text-white">{max - n} TO TREASURE ISLAND</span>
+    </div>
+  );
+}
 
 // 🏆 Fraction Challenge (older children): fractions of amounts, adding and taking away fractions with the
 // same bottom number, and equivalent fractions. Answers go in on the big number pad. 10 questions.
@@ -59,6 +97,7 @@ export function FractionChallenge() {
   const [n, setN] = useState(0);
   const [answer, setAnswer] = useState("");
   const [wrong, setWrong] = useState(false);
+  const [misses, setMisses] = useState(0);
   const [startedAt, setStartedAt] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [newBest, setNewBest] = useState(false);
@@ -93,14 +132,17 @@ export function FractionChallenge() {
         setNewBest(offer(time));
         setPhase("done");
       } else setQ(challengeQ(level, Math.random, q));
-    } else setWrong(true);
+    } else {
+      setWrong(true);
+      setMisses((m) => m + 1);
+    }
     setAnswer("");
   }
 
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <GameHero theme={T} art="🏆" title="FRACTION CHALLENGE">
+        <GameHero theme={T} art="🏴‍☠️" title="FRACTION CHALLENGE">
           {COUNT} questions. A wrong answer gets a hint, then you try again.
         </GameHero>
         <LevelPicker theme={T} levels={Object.entries(CHALLENGE_LEVELS) as [ChallengeLevel, string][]} value={level} onChange={setLevel} />
@@ -114,7 +156,7 @@ export function FractionChallenge() {
 
   if (phase === "done") {
     return (
-      <ResultCard theme={T} art="🏆" label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
+      <ResultCard theme={T} art="🏴‍☠️" label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 
@@ -127,15 +169,16 @@ export function FractionChallenge() {
         </span>
         <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
       </div>
-      <Runner theme={T} value={n} max={COUNT} icon="🏃" />
-      <Board theme={T}>
-        <div key={n} className="pz-anim animate-[tt-pop_.3s_ease-out] py-2 [text-shadow:0_2px_0_rgba(0,0,0,.2)]">
+      <Voyage n={n} max={COUNT} splash={misses} />
+      <div key={n} className="rpg-panel pz-anim animate-[tt-pop_.3s_ease-out] px-2 py-1 text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#7a4a1a]">Captain&apos;s question</p>
+        <div className="text-[#3b2410]">
           <Question q={q} />
         </div>
-      </Board>
+      </div>
       {wrong ? (
-        <div className="pz-anim animate-[pz-shake_.35s] space-y-3 rounded-2xl bg-danger-soft p-3 text-center">
-          <p className="font-medium text-danger">🤔 Not quite. {challengeHint(q)}</p>
+        <div className="rpg-panel-light pz-anim animate-[pz-shake_.35s] space-y-3 px-2 py-1 text-center">
+          <p className="font-medium text-[#b42318]">Splash! A cannonball missed you. {challengeHint(q)}</p>
           {q.kind === "of" ? <Groups q={q} /> : null}
         </div>
       ) : null}

@@ -48,27 +48,39 @@ export function fmt(amount: number, c: Currency): string {
 /** What's printed on a coin or note: "10", "฿100", "25¢", "$5". */
 export const face = (m: Money, c: Currency) => (c === "THB" ? (m.kind === "note" ? `฿${m.value}` : String(m.value)) : fmt(m.value, c));
 
-type Item = { name: string; emoji: string; thb: [number, number]; usd: [number, number] };
+type Item = { name: string; img: string; thb: [number, number]; usd: [number, number] };
+// 🛡️ The adventure market: gear and food for adventurers (pictures: Kenney Voxel Pack, CC0).
 // Price ranges: baht in baht, dollars in cents.
+const ITEM = (k: string) => `/games/art/items/${k}.png`;
 const ITEMS: Item[] = [
-  { name: "pencil", emoji: "✏️", thb: [5, 15], usd: [25, 95] },
-  { name: "eraser", emoji: "🩹", thb: [5, 12], usd: [20, 75] },
-  { name: "apple", emoji: "🍎", thb: [8, 20], usd: [40, 120] },
-  { name: "banana", emoji: "🍌", thb: [5, 15], usd: [25, 80] },
-  { name: "cookie", emoji: "🍪", thb: [10, 25], usd: [50, 150] },
-  { name: "juice", emoji: "🧃", thb: [12, 30], usd: [75, 225] },
-  { name: "ice cream", emoji: "🍦", thb: [15, 45], usd: [125, 350] },
-  { name: "bubble tea", emoji: "🧋", thb: [35, 79], usd: [275, 575] },
-  { name: "notebook", emoji: "📒", thb: [20, 59], usd: [150, 450] },
-  { name: "sticker pack", emoji: "⭐", thb: [15, 49], usd: [100, 350] },
-  { name: "football", emoji: "⚽", thb: [150, 450], usd: [800, 1900] },
-  { name: "teddy bear", emoji: "🧸", thb: [120, 399], usd: [700, 1800] },
-  { name: "book", emoji: "📕", thb: [95, 295], usd: [499, 1499] },
-  { name: "toy car", emoji: "🚗", thb: [60, 250], usd: [350, 1200] },
-  { name: "robot", emoji: "🤖", thb: [250, 890], usd: [1200, 1999] },
+  { name: "apple", img: ITEM("apple"), thb: [5, 15], usd: [25, 95] },
+  { name: "magic seed", img: ITEM("seed"), thb: [5, 12], usd: [20, 75] },
+  { name: "wheat", img: ITEM("wheat"), thb: [8, 20], usd: [40, 120] },
+  { name: "sea shell", img: ITEM("shell"), thb: [5, 15], usd: [25, 80] },
+  { name: "grilled fish", img: ITEM("fish"), thb: [10, 25], usd: [50, 150] },
+  { name: "bucket of water", img: ITEM("water"), thb: [12, 30], usd: [75, 225] },
+  { name: "roast meat", img: ITEM("meat"), thb: [15, 45], usd: [125, 350] },
+  { name: "bowl of stew", img: ITEM("stew"), thb: [35, 79], usd: [275, 575] },
+  { name: "torch", img: ITEM("torch"), thb: [20, 59], usd: [150, 450] },
+  { name: "arrows", img: ITEM("arrow"), thb: [15, 49], usd: [100, 350] },
+  { name: "slingshot", img: ITEM("slingshot"), thb: [25, 69], usd: [200, 500] },
+  { name: "cooking pot", img: ITEM("pot"), thb: [40, 99], usd: [300, 700] },
+  { name: "shovel", img: ITEM("shovel"), thb: [60, 250], usd: [350, 1200] },
+  { name: "fishing rod", img: ITEM("fishingpole"), thb: [60, 199], usd: [350, 1000] },
+  { name: "pickaxe", img: ITEM("pickaxe"), thb: [95, 295], usd: [499, 1499] },
+  { name: "axe", img: ITEM("axe"), thb: [95, 295], usd: [499, 1499] },
+  { name: "hammer", img: ITEM("hammer"), thb: [80, 260], usd: [450, 1300] },
+  { name: "bow", img: ITEM("bow"), thb: [120, 399], usd: [700, 1800] },
+  { name: "iron sword", img: ITEM("sword"), thb: [150, 450], usd: [800, 1900] },
+  { name: "ruby", img: ITEM("ruby"), thb: [120, 399], usd: [700, 1800] },
+  { name: "emerald", img: ITEM("emerald"), thb: [150, 450], usd: [800, 1900] },
+  { name: "gold sword", img: ITEM("goldsword"), thb: [250, 890], usd: [1200, 1999] },
+  { name: "diamond", img: ITEM("diamond"), thb: [250, 890], usd: [1200, 1999] },
+  { name: "diamond sword", img: ITEM("diamondsword"), thb: [300, 950], usd: [1300, 1999] },
+  { name: "boat", img: ITEM("boat"), thb: [400, 990], usd: [1500, 1999] },
 ];
 
-export type ShopItem = { name: string; emoji: string; price: number };
+export type ShopItem = { name: string; img: string; price: number };
 export type ShopQ = { items: ShopItem[]; total: number; paid: number | null; target: number };
 
 type Rand = () => number;
@@ -117,7 +129,7 @@ function makeShopQ(c: Currency, level: ShopLevel, r: Rand): ShopQ {
     used.add(it.name);
     let price = priceFor(it, c, level, r);
     if (c === "THB" && level === "exact") price = Math.min(price, 99);
-    chosen.push({ name: it.name, emoji: it.emoji, price });
+    chosen.push({ name: it.name, img: it.img, price });
   }
   const total = chosen.reduce((s, i) => s + i.price, 0);
   // Change is always from one note, so the basket must cost less than the biggest note.

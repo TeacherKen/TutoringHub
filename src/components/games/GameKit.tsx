@@ -28,6 +28,9 @@ export const THEMES = {
   felt: { from: "#1f6b4a", to: "#0e3a27", ink: "#ffffff", accent: "#ff6b5a", accentInk: "#ffffff", shadow: "#a33a2e", mascot: A("frog"), game: "mn" },
   snake: { from: "#3fa34d", to: "#1d5f28", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: A("snake"), game: "ns" },
   dice: { from: "#2f8a58", to: "#123f2d", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: "/games/art/dice/die_red.png", game: "sd" },
+  robot: { from: "#3e7fd6", to: "#16233a", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: "/games/art/robots/red_jump.png", game: "ff" },
+  pirate: { from: "#1f7fb8", to: "#0b3a5c", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: "/games/art/pirate/chest.png", game: "fc" },
+  market: { from: "#c2643c", to: "#6b2f17", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: "/games/art/heroes/femalePerson_cheer0.png", game: "ms" },
   space: { from: "#3b2a6b", to: "#120c26", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: "/games/art/space/ufo.png", game: "qm" },
   race: { from: "#2f3640", to: "#14181f", ink: "#ffffff", accent: "#ff4d3d", accentInk: "#ffffff", shadow: "#9e2316", mascot: "/games/art/race/car_red.png", game: "tt" },
 } satisfies Record<string, Theme & { mascot: string; game: GameInfo["id"] }>;
