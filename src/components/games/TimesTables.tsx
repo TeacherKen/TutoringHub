@@ -4,7 +4,58 @@ import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
 import { BigButton, Board, GameHero, ResultCard, THEMES } from "./GameKit";
 
-const T = THEMES.arena;
+const T = THEMES.race;
+const RC = "/games/art/race"; // Kenney Racing Pack (CC0)
+
+/**
+ * 🏎️ The race: your red car moves one step for each right answer. The blue "pace car" drives
+ * steadily and reaches the flag when time runs out, at your best score (or 20) — beat it!
+ */
+function RaceTrack({ score, goal, left, ready }: { score: number; goal: number; left: number; ready: number | null }) {
+  const you = Math.min(1, score / goal);
+  const pace = Math.min(1, (SECONDS - left) / SECONDS);
+  const x = (p: number) => `calc(${p} * (100% - 7.5rem) + 0.5rem)`;
+  return (
+    <div className="relative overflow-hidden rounded-3xl bg-[linear-gradient(#5cb85c,#3f9a45)] shadow-[0_8px_24px_rgba(0,0,0,.3)] ring-4 ring-black/15">
+      <div className="flex justify-around px-2 pt-2" aria-hidden>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`${RC}/tribune.png`} alt="" className="h-12 w-auto sm:h-16" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`${RC}/tribune.png`} alt="" className="hidden h-12 w-auto sm:block sm:h-16" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`${RC}/tribune.png`} alt="" className="h-12 w-auto sm:h-16" />
+      </div>
+      <div className="relative mt-2 h-28 bg-repeat-x" style={{ backgroundImage: `url(${RC}/track.png)`, backgroundSize: "auto 100%" }} aria-hidden>
+        {/* finish flag */}
+        <span className="absolute inset-y-2 right-14 w-4 bg-[conic-gradient(#fff_25%,#111_0_50%,#fff_0_75%,#111_0)] bg-[length:8px_8px] opacity-90" />
+        {/* pace car (top lane) and your car (bottom lane) */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`${RC}/car_blue.png`} alt="" className="absolute top-3 h-9 w-auto opacity-90 transition-[left] duration-300 ease-linear" style={{ left: x(pace) }} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`${RC}/car_red.png`} alt="" className="absolute bottom-3 h-11 w-auto transition-[left] duration-300 ease-out" style={{ left: x(you) }} />
+        {ready != null ? (
+          <div className="absolute inset-0 grid place-items-center bg-black/35">
+            <span className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`${RC}/lights.png`} alt="" className="h-10 w-auto" />
+              <span key={ready} className="pz-anim animate-[tt-pop_.3s_ease-out] font-sport text-6xl font-extrabold italic text-white [text-shadow:0_3px_0_rgba(0,0,0,.5)]">
+                {ready > 0 ? ready : "GO!"}
+              </span>
+            </span>
+          </div>
+        ) : null}
+      </div>
+      <div className="flex items-center justify-between px-3 py-1.5 text-xs font-bold text-white/90">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ff4d3d]" /> You: {score}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#3e8ef7]" /> Pace car: {goal} by the end
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const ALL = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const SECONDS = 60;
@@ -22,7 +73,8 @@ function makeQ(tables: number[], prev?: Q): Q {
 
 export function TimesTables() {
   const [tables, setTables] = useState<number[]>([2, 3, 4]);
-  const [phase, setPhase] = useState<"setup" | "play" | "done">("setup");
+  const [phase, setPhase] = useState<"setup" | "ready" | "play" | "done">("setup");
+  const [ready, setReady] = useState<number | null>(null);
   const [q, setQ] = useState<Q>({ a: 2, b: 3 });
   const [answer, setAnswer] = useState("");
   const [score, setScore] = useState(0);
@@ -34,6 +86,10 @@ export function TimesTables() {
   const { best, offer } = useBest(key, (a, b) => a > b, "pts");
 
   const scoreRef = useRef(0);
+  const lightsRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => {
+    if (lightsRef.current) clearInterval(lightsRef.current);
+  }, []);
 
   // The clock: set up once when a round starts (not again on every draw), and it ends at a fixed time.
   const offerRef = useRef(offer);
@@ -62,12 +118,26 @@ export function TimesTables() {
     setLeft(SECONDS);
     setAnswer("");
     setQ(makeQ(tables));
-    setPhase("play");
     setNewBest(false);
+    // Race lights: 3, 2, 1, GO!
+    setPhase("ready");
+    setReady(3);
+    let c = 3;
+    if (lightsRef.current) clearInterval(lightsRef.current);
+    const id = setInterval(() => {
+      c -= 1;
+      setReady(c);
+      if (c < 0) {
+        clearInterval(id);
+        setReady(null);
+        setPhase("play");
+      }
+    }, 650);
+    lightsRef.current = id;
   }
 
   function submit() {
-    if (!answer) return;
+    if (!answer || phase !== "play") return;
     if (Number(answer) === q.a * q.b) {
       scoreRef.current += 1;
       setScore(scoreRef.current);
@@ -83,7 +153,7 @@ export function TimesTables() {
   if (phase === "setup") {
     return (
       <div className="space-y-5">
-        <GameHero theme={T} art="⏱️" title="TIMES TABLES SPRINT">
+        <GameHero theme={T} art="🏎️" title="TIMES TABLES SPRINT">
           Pick your times tables, then answer as many as you can in 60 seconds!
         </GameHero>
         <p className="text-sm font-semibold">Which tables?</p>
@@ -114,7 +184,7 @@ export function TimesTables() {
 
   if (phase === "done") {
     return (
-      <ResultCard theme={T} art="⏱️" label="Time's up! You scored" big={score} newBest={newBest} bestText={`Your best: ${best ?? score}`} onAgain={start} onChange={() => setPhase("setup")} changeLabel="Change tables">
+      <ResultCard theme={T} art="🏎️" label="Time's up! You scored" big={score} newBest={newBest} bestText={`Your best: ${best ?? score}`} onAgain={start} onChange={() => setPhase("setup")} changeLabel="Change tables">
         {missed.length ? (
           <div className="rounded-2xl border-2 border-dashed border-line bg-surface-2 p-3 text-left">
             <p className="text-sm font-semibold">📝 Practise these:</p>
@@ -146,9 +216,10 @@ export function TimesTables() {
           </svg>
         </div>
         <p key={`${q.a}x${q.b}`} className={`pz-anim py-3 text-center font-sport text-7xl font-bold tabular-nums ${shake ? "animate-[pz-shake_.3s] text-[#ff8a7a]" : "animate-[tt-pop_.25s_ease-out]"}`}>
-          {q.a} × {q.b}
+          {phase === "ready" ? "Ready…" : `${q.a} × ${q.b}`}
         </p>
       </Board>
+      <RaceTrack score={score} goal={Math.max(10, best ?? 20)} left={left} ready={ready} />
       <NumberPad value={answer} onChange={setAnswer} onSubmit={submit} max={3} wrong={shake} />
     </div>
   );

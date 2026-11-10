@@ -27,6 +27,9 @@ export const THEMES = {
   pixel: { from: "#475569", to: "#1e293b", ink: "#ffffff", accent: "#f472b6", accentInk: "#ffffff", shadow: "#9d174d", mascot: A("penguin"), game: "pl" },
   felt: { from: "#1f6b4a", to: "#0e3a27", ink: "#ffffff", accent: "#ff6b5a", accentInk: "#ffffff", shadow: "#a33a2e", mascot: A("frog"), game: "mn" },
   snake: { from: "#3fa34d", to: "#1d5f28", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: A("snake"), game: "ns" },
+  dice: { from: "#2f8a58", to: "#123f2d", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: "/games/art/dice/die_red.png", game: "sd" },
+  space: { from: "#3b2a6b", to: "#120c26", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: "/games/art/space/ufo.png", game: "qm" },
+  race: { from: "#2f3640", to: "#14181f", ink: "#ffffff", accent: "#ff4d3d", accentInk: "#ffffff", shadow: "#9e2316", mascot: "/games/art/race/car_red.png", game: "tt" },
 } satisfies Record<string, Theme & { mascot: string; game: GameInfo["id"] }>;
 
 const bg = (t: Theme) => ({ background: `radial-gradient(120% 100% at 30% 0%, ${t.from} 0%, ${t.to} 85%)`, color: t.ink });

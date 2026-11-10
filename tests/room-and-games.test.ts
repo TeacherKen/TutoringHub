@@ -23,6 +23,7 @@ describe("mini sudoku", () => {
     for (let i = 0; i < 200; i++) {
       expect(isValidSolution(solvedGrid(4), 4)).toBe(true);
       expect(isValidSolution(solvedGrid(6), 6)).toBe(true);
+      expect(isValidSolution(solvedGrid(9), 9)).toBe(true);
     }
   });
   it("spots a wrong grid", () => {

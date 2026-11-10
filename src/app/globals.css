@@ -1046,6 +1046,15 @@ html.board-full .page-enter {
   25% { transform: translateX(-6px); }
   75% { transform: translateX(6px); }
 }
+@keyframes qm-twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+@keyframes qm-burst {
+  0% { opacity: 0; transform: scale(0.4); }
+  30% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
 @keyframes gk-cheer {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   30% { transform: translateY(-10px) rotate(-6deg); }

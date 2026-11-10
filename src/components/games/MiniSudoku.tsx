@@ -2,15 +2,17 @@
 import { useEffect, useState } from "react";
 import { useBest } from "./useBest";
 import { ConfettiBurst, makeConfetti, type Confetti } from "./Controls";
-import { THEMES } from "./GameKit";
+import { THEMES, Toggle } from "./GameKit";
+import { GameLogo } from "./GameLogo";
 
-const T = THEMES.grape;
+const T = THEMES.dice;
 // Each number has its own colour, so children can spot them quickly.
-const NUM_COLOUR = ["", "#e5484d", "#f59e0b", "#30a46c", "#3e63dd", "#8e4ec6", "#d6409f"];
+const NUM_COLOUR = ["", "#e5484d", "#f59e0b", "#30a46c", "#3e63dd", "#8e4ec6", "#d6409f", "#0e9aa7", "#a0522d", "#475569"];
 
-// 4×4 (numbers 1–4) or 6×6 (numbers 1–6) sudoku.
-type Size = 4 | 6;
-const BOX = { 4: [2, 2], 6: [2, 3] } as const; // [rows, cols] per box
+// 4×4 (numbers 1–4), 6×6 (1–6) or the full 9×9 (1–9) sudoku.
+type Size = 4 | 6 | 9;
+const BOX = { 4: [2, 2], 6: [2, 3], 9: [3, 3] } as const; // [rows, cols] per box
+const HOLES = { 4: 9, 6: 20, 9: 42 } as const; // empty squares to fill
 
 function shuffle<T>(a: T[]): T[] {
   const b = [...a];
@@ -51,7 +53,7 @@ export function isValidSolution(g: number[][], size: Size): boolean {
 
 function makePuzzle(size: Size) {
   const solution = solvedGrid(size);
-  const holes = size === 4 ? 9 : 20;
+  const holes = HOLES[size];
   const cells = shuffle([...Array(size * size).keys()]).slice(0, holes);
   const given = solution.map((row) => row.map(() => true));
   cells.forEach((i) => (given[Math.floor(i / size)][i % size] = false));
@@ -123,75 +125,65 @@ export function MiniSudoku() {
   return (
     <div className="relative space-y-4">
       <ConfettiBurst pieces={confetti} className="left-1/2 top-40" />
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-2">
-          {([4, 6] as Size[]).map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={size === s}
-              onClick={() => reset(s)}
-              className={`min-h-11 rounded-xl border-2 px-4 text-sm font-semibold transition ${size === s ? "border-transparent text-white shadow-[0_3px_0_#2e1f66]" : "border-line bg-surface"}`}
-              style={size === s ? { background: `linear-gradient(${T.from}, ${T.to})` } : undefined}
-            >
-              {s} × {s}
-            </button>
-          ))}
-        </div>
-        <button type="button" className="btn-secondary min-h-11 text-sm" onClick={() => reset()}>
-          🔀 New puzzle
+      <div className="flex flex-wrap items-center gap-3 rounded-3xl p-3 text-white shadow-[0_8px_24px_rgba(0,0,0,.18)]" style={{ background: `radial-gradient(120% 100% at 30% 0%, ${T.from}, ${T.to} 85%)` }}>
+        <span className="w-20 shrink-0 sm:w-28">
+          <GameLogo id="sd" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-sport text-2xl font-bold leading-none tracking-wide sm:text-3xl">MINI SUDOKU</span>
+          <span className="mt-1 block text-sm opacity-90">Every row, column and box has 1 to {size} once.</span>
+        </span>
+        <button type="button" className="min-h-11 rounded-xl bg-white/15 px-3 text-sm font-semibold ring-1 ring-white/25 hover:bg-white/25" onClick={() => reset()}>
+          New puzzle
         </button>
       </div>
-      <p className="text-sm text-muted">
-        Fill the grid so every row, column and box has the numbers 1 to {size} once.
-      </p>
+      <Toggle
+        theme={T}
+        options={[
+          ["4", "4 × 4"],
+          ["6", "6 × 6"],
+          ["9", "9 × 9"],
+        ]}
+        value={String(size)}
+        onChange={(k) => reset(Number(k) as Size)}
+      />
 
-      <div className="mx-auto w-full max-w-sm rounded-3xl p-2.5 shadow-[0_8px_24px_rgba(0,0,0,.2)]" style={{ background: `linear-gradient(135deg, ${T.from}, ${T.to})` }}>
-      <div
-        className="grid w-full overflow-hidden rounded-2xl border-2 border-[#2e1f66] bg-white"
-        style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
-        role="grid"
-        aria-label="Sudoku"
-      >
-        {grid.map((row, r) =>
-          row.map((v, c) => {
-            const given = isGiven(r, c);
-            const isSel = sel?.[0] === r && sel?.[1] === c;
-            const thickR = (c + 1) % bc === 0 && c < size - 1;
-            const thickB = (r + 1) % br === 0 && r < size - 1;
-            return (
-              <button
-                key={`${r}-${c}`}
-                type="button"
-                role="gridcell"
-                aria-label={`Row ${r + 1} column ${c + 1}${v ? `, ${v}` : ", empty"}`}
-                onClick={() => setSel([r, c])}
-                className={`aspect-square border-[#d8d0ee] text-2xl font-bold tabular-nums transition-colors sm:text-3xl ${thickR ? "border-r-[3px] border-r-[#2e1f66]" : "border-r"} ${
-                  thickB ? "border-b-[3px] border-b-[#2e1f66]" : "border-b"
-                }`}
-                style={{
-                  background: isSel
-                    ? "#ffe9a8"
-                    : v != null && v === selVal
-                      ? "#fff4cc"
-                      : sel && (sel[0] === r || sel[1] === c || sameBox(r, c))
-                        ? "#f1ecfb"
-                        : given
-                          ? "#f6f4fb"
-                          : "#ffffff",
-                  color: v ? NUM_COLOUR[v] : undefined,
-                  boxShadow: isSel ? "inset 0 0 0 3px #f59e0b" : undefined,
-                }}
-              >
-                {v != null ? <span className={given ? "" : "pz-anim inline-block animate-[tt-pop_.25s_ease-out] underline decoration-2 underline-offset-4"}>{v}</span> : ""}
-              </button>
-            );
-          }),
-        )}
-      </div>
+      <div className={`mx-auto w-full rounded-3xl p-3 shadow-[0_10px_28px_rgba(0,0,0,.28)] ${size === 9 ? "max-w-lg" : "max-w-sm"}`} style={{ background: `radial-gradient(130% 100% at 30% 0%, ${T.from}, ${T.to})`, boxShadow: "inset 0 2px 10px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.25)" }}>
+        <div className="grid w-full overflow-hidden rounded-xl border-[3px] border-[#123f2d] bg-[#fffaf0]" style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }} role="grid" aria-label="Sudoku">
+          {grid.map((row, r) =>
+            row.map((v, c) => {
+              const given = isGiven(r, c);
+              const isSel = sel?.[0] === r && sel?.[1] === c;
+              const thickR = (c + 1) % bc === 0 && c < size - 1;
+              const thickB = (r + 1) % br === 0 && r < size - 1;
+              const lit = !isSel && sel != null && (sel[0] === r || sel[1] === c || sameBox(r, c));
+              const same = !isSel && v != null && v === selVal;
+              return (
+                <button
+                  key={`${r}-${c}`}
+                  type="button"
+                  role="gridcell"
+                  aria-label={`Row ${r + 1} column ${c + 1}${v ? `, ${v}` : ", empty"}`}
+                  onClick={() => setSel([r, c])}
+                  className={`relative aspect-square border-[#d6e3d8] p-[3px] font-black tabular-nums transition-colors ${size === 9 ? "text-lg sm:text-2xl" : "text-2xl sm:text-3xl"} ${thickR ? "border-r-[3px] border-r-[#123f2d]" : "border-r"} ${thickB ? "border-b-[3px] border-b-[#123f2d]" : "border-b"}`}
+                  style={{ background: isSel ? "#ffe9a8" : same ? "#fff1b8" : lit ? "#eaf5ec" : "transparent", boxShadow: isSel ? "inset 0 0 0 3px #f59e0b" : undefined }}
+                >
+                  {v != null ? (
+                    <span
+                      className={`grid h-full w-full place-items-center rounded-lg ${given ? "bg-white shadow-[0_2px_0_#c9d6cc,inset_0_0_0_1px_#e3ebe5]" : "pz-anim animate-[tt-pop_.25s_ease-out]"}`}
+                      style={{ color: NUM_COLOUR[v] }}
+                    >
+                      {v}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            }),
+          )}
+        </div>
       </div>
 
-      <div className="mx-auto grid max-w-sm gap-2" style={{ gridTemplateColumns: `repeat(${size + 1}, minmax(0, 1fr))` }}>
+      <div className={`mx-auto grid gap-2 ${size === 9 ? "max-w-lg" : "max-w-sm"}`} style={{ gridTemplateColumns: `repeat(${size === 9 ? 5 : size + 1}, minmax(0, 1fr))` }}>
         {[...Array(size).keys()].map((i) => (
           <button
             key={i}
@@ -210,7 +202,7 @@ export function MiniSudoku() {
 
       {checked === "solved" ? (
         <p className="pz-anim animate-[tt-pop_.4s_ease-out] rounded-2xl bg-ok-soft p-4 text-center text-lg font-semibold text-ok">
-          🎉 Solved in {time}s!{best != null && time != null && time <= best ? " New best!" : best != null ? ` Best: ${best}s` : ""}
+          Solved in {time}s!{best != null && time != null && time <= best ? " New best!" : best != null ? ` Best: ${best}s` : ""}
         </p>
       ) : checked === "wrong" ? (
         <p className="pz-anim animate-[pz-shake_.35s] rounded-2xl bg-warn-soft p-3 text-center text-warn">🤔 Almost — something doesn&apos;t fit. Check each row, column and box.</p>

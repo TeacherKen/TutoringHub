@@ -2,9 +2,62 @@
 import { useEffect, useState } from "react";
 import { NumberPad } from "./NumberPad";
 import { useBest } from "./useBest";
-import { BigButton, Board, GameHero, LevelPicker, ResultCard, Runner, THEMES } from "./GameKit";
+import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
 
-const T = THEMES.chalk;
+const T = THEMES.space;
+const SP = "/games/art/space"; // Kenney Alien UFO Pack, Space Shooter, Planets (CC0)
+
+/**
+ * 🛸 The space race: your UFO flies towards the planet, one hop for each right answer.
+ * The question glows in the middle; a laser burst flashes when you get one right.
+ */
+function SpaceRace({ n, max, text, wrong }: { n: number; max: number; text: string; wrong: boolean }) {
+  const pct = Math.min(1, n / max);
+  return (
+    <div className="relative h-72 overflow-hidden rounded-3xl shadow-[0_8px_24px_rgba(0,0,0,.35)] ring-4 ring-black/20 sm:h-80" style={{ backgroundImage: `url(${SP}/bg.png)`, backgroundSize: "256px" }}>
+      {[
+        [8, 12, 14, 0],
+        [30, 70, 10, 0.6],
+        [55, 18, 16, 1.2],
+        [78, 60, 12, 0.3],
+        [15, 52, 9, 0.9],
+        [66, 8, 11, 1.5],
+      ].map(([x, y, sz, d], i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={i} src={`${SP}/star.png`} alt="" aria-hidden className="pz-anim absolute" style={{ left: `${x}%`, top: `${y}%`, width: sz, animation: `qm-twinkle 1.8s ease-in-out ${d}s infinite` }} />
+      ))}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={`${SP}/planet.png`} alt="" aria-hidden className="absolute -right-10 bottom-2 h-40 w-40 opacity-95 sm:h-48 sm:w-48" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={`${SP}/ufo_pink.png`} alt="" aria-hidden className="pz-anim absolute left-4 top-4 h-8" style={{ animation: "pz-float 3s ease-in-out infinite" }} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={`${SP}/ufo_yellow.png`} alt="" aria-hidden className="pz-anim absolute right-6 top-6 h-6" style={{ animation: "pz-float 2.4s ease-in-out .5s infinite" }} />
+
+      <p key={text + n} className={`pz-anim relative pt-12 text-center font-sport text-6xl font-bold tabular-nums text-white [text-shadow:0_0_18px_rgba(126,224,195,.65),0_3px_0_rgba(0,0,0,.4)] sm:text-7xl ${wrong ? "animate-[pz-shake_.35s]" : "animate-[tt-pop_.3s_ease-out]"}`}>
+        {text} = ?
+      </p>
+      {wrong ? <p className="relative mt-1 text-center text-sm font-semibold text-[#ffb4a8]">Not quite. Try again!</p> : null}
+
+      {/* the flight path to the planet, with a dot for each question */}
+      <div className="absolute inset-x-6 bottom-10 flex items-center justify-between pr-24 sm:pr-32" aria-hidden>
+        {Array.from({ length: max }, (_, i) => (
+          <span key={i} className={`h-2 w-2 rounded-full ${i < n ? "bg-[#7ee0c3] shadow-[0_0_8px_#7ee0c3]" : "bg-white/25"}`} />
+        ))}
+      </div>
+      <div className="absolute bottom-3 transition-[left] duration-500 ease-out" style={{ left: `calc(${4 + pct * 62}% )` }} aria-hidden>
+        {n > 0 ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={`b${n}`} src={`${SP}/burst.png`} alt="" className="pz-anim absolute -left-8 -top-2 h-12 opacity-0" style={{ animation: "qm-burst .6s ease-out" }} />
+        ) : null}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`${SP}/ufo.png`} alt="" className="pz-anim h-16 drop-shadow-[0_0_10px_rgba(126,224,195,.6)] sm:h-20" style={{ animation: "pz-float 2s ease-in-out infinite" }} />
+      </div>
+      <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/35 px-3 py-0.5 text-xs font-bold tracking-wider text-white/85">
+        {max - n} TO THE PLANET
+      </span>
+    </div>
+  );
+}
 
 const LEVELS = {
   easy: "Easy · add and take away to 20",
@@ -113,7 +166,7 @@ export function QuickMaths() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <GameHero theme={T} art="🧮" title="QUICK MATHS">
+        <GameHero theme={T} art="🛸" title="QUICK MATHS">
           Answer {COUNT} questions as fast as you can. A wrong answer? Just try again.
         </GameHero>
         <LevelPicker theme={T} levels={Object.entries(LEVELS) as [Level, string][]} value={level} onChange={setLevel} />
@@ -127,7 +180,7 @@ export function QuickMaths() {
 
   if (phase === "done") {
     return (
-      <ResultCard theme={T} art="🧮" label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
+      <ResultCard theme={T} art="🛸" label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 
@@ -139,14 +192,7 @@ export function QuickMaths() {
         </span>
         <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
       </div>
-      <Runner theme={T} value={n} max={COUNT} />
-      <Board theme={T}>
-        <p key={q.text + n} className={`pz-anim py-3 text-center font-[cursive,ui-rounded] text-5xl font-bold tabular-nums [text-shadow:0_0_1px_rgba(255,255,255,.6)] sm:text-6xl ${wrong ? "animate-[pz-shake_.35s]" : "animate-[tt-pop_.3s_ease-out]"}`}>
-          {q.text} = ?
-        </p>
-        {wrong ? <p className="text-center text-sm font-semibold text-[#ffb4a8]">Not quite. Try again!</p> : null}
-        <span className="absolute bottom-1.5 right-3 h-1.5 w-8 rounded-full bg-white/70" aria-hidden />
-      </Board>
+      <SpaceRace n={n} max={COUNT} text={q.text} wrong={wrong} />
       <NumberPad
         value={answer}
         onChange={(v) => {
