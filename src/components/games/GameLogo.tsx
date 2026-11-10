@@ -4,43 +4,38 @@ import type { GameInfo } from "@/lib/games";
 import { BallIcon } from "./Controls";
 import { FracText, Pie } from "./FractionShapes";
 
-// 🖼️ Each game's logo: a little painted scene (Kenney art, CC0: landscapes, animals, characters,
-// monsters) with the game's own friend in it, plus a small badge that shows what the game is about.
+// 🖼️ Each game's logo: its own little scene, each from a different Kenney pack (CC0): space ships for
+// Quick Maths, race cars for Times Tables, dice, donuts, robots, pirates, playing cards, pixel art…
+// The pictures are made once from the packs (see public/games/art/CREDITS.txt) and saved as JPGs.
+// Each also has a small badge that shows what the game is about.
 // (It draws its own little clock, coins and shapes: importing them from the games would make a loop,
 // because the games import GameKit, which shows this logo.)
 
 const ART = "/games/art";
-type Logo = {
-  bg: string; // landscape picture in /games/art/bg
-  wash?: string; // a colour laid over the landscape (night, dusk…)
-  main: string; // the big picture in front
-  side?: string; // a second, smaller picture
-  flipSide?: boolean;
-  badge?: ReactNode; // what the game is about
-};
+type Logo = { badge?: ReactNode }; // what the game is about (the picture is /games/art/logos/<id>.jpg)
 
 const big = "font-sport font-bold leading-none";
 const LOGOS: Record<GameInfo["id"], Logo> = {
-  football: { bg: "grass", main: `${ART}/heroes/maleAdventurer_kick.png`, badge: <BallIcon className="h-9 w-9" /> },
-  "wolf-vs-sheep": { bg: "forest", main: `${ART}/animals/dog.png`, side: `${ART}/animals/goat.png`, badge: <span className={`${big} text-lg`}>Trap it!</span> },
-  "magic-square": { bg: "castles", wash: "linear-gradient(rgba(60,40,140,.45), rgba(60,40,140,.15))", main: `${ART}/animals/zebra.png`, badge: <span className={`${big} text-xl`}>= 15</span> },
-  qm: { bg: "grass", main: `${ART}/animals/monkey.png`, badge: <span className={`${big} text-2xl tracking-wider`}>+ − × ÷</span> },
-  tt: { bg: "fall", main: `${ART}/animals/horse.png`, badge: <span className={`${big} text-2xl italic`}>×7 · 60s</span> },
-  sd: { bg: "forest", main: `${ART}/animals/panda.png`, badge: <span className={`${big} text-xl tracking-[.2em]`}>1234</span> },
-  fp: { bg: "sand", main: `${ART}/animals/chick.png`, badge: <Pie parts={8} shaded={[0, 1, 2]} size={40} label="" /> },
-  ff: { bg: "fall", main: `${ART}/animals/parrot.png`, badge: <span className={`${big} flex items-center gap-1 text-xl`}><FracText f={{ n: 3, d: 4 }} className="" /> &gt; <FracText f={{ n: 2, d: 3 }} className="" /></span> },
-  fc: { bg: "sand", main: `${ART}/animals/giraffe.png`, badge: <span className={`${big} flex items-center gap-1 text-xl`}><FracText f={{ n: 1, d: 3 }} className="" /> of 12</span> },
-  ck: { bg: "pines", main: `${ART}/animals/owl.png`, badge: <MiniClock /> },
-  ms: { bg: "grass", main: `${ART}/animals/rabbit.png`, badge: <span className="rounded-md bg-[#2f8f4f] px-2 py-0.5 font-sport text-lg font-bold text-white shadow-[inset_0_0_0_2px_#bfe8c9]">฿20</span> },
-  cq: { bg: "castles", wash: "linear-gradient(rgba(28,18,56,.7), rgba(90,36,87,.45))", main: `${ART}/heroes/femaleAdventurer_attack1.png`, side: `${ART}/monsters/clockmonster.png`, flipSide: true },
-  pb: { bg: "grass", main: `${ART}/animals/pig.png`, badge: <span className="flex gap-1"><Coin n={10} /><Coin n={5} /></span> },
-  ls: { bg: "sand", main: `${ART}/animals/hippo.png`, side: `${ART}/scene/house1.png`, badge: <span className={`${big} text-xl`}>Shop</span> },
-  sb: { bg: "forest", main: `${ART}/animals/bear.png`, badge: <MiniBlocks /> },
-  bp: { bg: "empty", main: `${ART}/animals/elephant.png`, badge: <span className="flex items-center gap-1"><svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden><path d="M10 2 L18 17 H2Z" fill="#3e63dd" /></svg><svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden><circle cx="10" cy="10" r="8" fill="#e5484d" /></svg><span className={`${big} text-lg`}>= 8</span></span> },
-  pl: { bg: "pines", main: `${ART}/animals/penguin.png`, badge: <MiniPixels /> },
-  mn: { bg: "forest", main: `${ART}/animals/frog.png`, badge: <span className={`${big} text-2xl`}>6 × 4 = 24</span> },
-  ns: { bg: "grass", main: `${ART}/animals/snake.png`, badge: <span className={`${big} text-xl tracking-wider`}>1 → 2 → 3</span> },
-  "bridge-torch": { bg: "empty", wash: "linear-gradient(rgba(16,28,60,.72), rgba(16,28,60,.35))", main: `${ART}/heroes/maleAdventurer_run0.png`, side: `${ART}/heroes/femalePerson_run0.png`, badge: <span className={`${big} text-xl text-[#b45309]`}>17 min</span> },
+  football: { badge: <BallIcon className="h-9 w-9" /> },
+  "wolf-vs-sheep": { badge: <span className={`${big} text-lg`}>Trap it!</span> },
+  "magic-square": { badge: <span className={`${big} text-xl`}>= 15</span> },
+  qm: { badge: <span className={`${big} text-2xl tracking-wider`}>+ − × ÷</span> },
+  tt: { badge: <span className={`${big} text-2xl italic`}>×7 · 60s</span> },
+  sd: { badge: <span className={`${big} text-xl tracking-[.2em]`}>1234</span> },
+  fp: { badge: <Pie parts={8} shaded={[0, 1, 2]} size={40} label="" /> },
+  ff: { badge: <span className={`${big} flex items-center gap-1 text-xl`}><FracText f={{ n: 3, d: 4 }} className="" /> &gt; <FracText f={{ n: 2, d: 3 }} className="" /></span> },
+  fc: { badge: <span className={`${big} flex items-center gap-1 text-xl`}><FracText f={{ n: 1, d: 3 }} className="" /> of 12</span> },
+  ck: { badge: <MiniClock /> },
+  ms: { badge: <span className="rounded-md bg-[#2f8f4f] px-2 py-0.5 font-sport text-lg font-bold text-white shadow-[inset_0_0_0_2px_#bfe8c9]">฿20</span> },
+  cq: {},
+  pb: { badge: <span className="flex gap-1"><Coin n={10} /><Coin n={5} /></span> },
+  ls: { badge: <span className={`${big} text-xl`}>Shop</span> },
+  sb: { badge: <MiniBlocks /> },
+  bp: { badge: <span className="flex items-center gap-1"><svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden><path d="M10 2 L18 17 H2Z" fill="#3e63dd" /></svg><svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden><circle cx="10" cy="10" r="8" fill="#e5484d" /></svg><span className={`${big} text-lg`}>= 8</span></span> },
+  pl: { badge: <MiniPixels /> },
+  mn: { badge: <span className={`${big} text-2xl`}>6 × 4 = 24</span> },
+  ns: { badge: <span className={`${big} text-xl tracking-wider`}>1 → 2 → 3</span> },
+  "bridge-torch": { badge: <span className={`${big} text-xl text-[#b45309]`}>17 min</span> },
 };
 
 function MiniClock() {
@@ -80,23 +75,15 @@ function MiniPixels() {
   );
 }
 
-/** The logo picture for a game (used on the game tiles). */
+/** The logo picture for a game (used on the game tiles and in each game's banner). */
 export function GameLogo({ id, className = "" }: { id: GameInfo["id"]; className?: string }) {
   const l = LOGOS[id];
   if (!l) return null;
   return (
     <span className={`relative block aspect-[16/10] w-full overflow-hidden rounded-2xl shadow-[0_8px_18px_rgba(0,0,0,.3)] ring-2 ring-white/40 ${className}`} aria-hidden>
-      <span className="absolute inset-0 bg-repeat-x" style={{ backgroundImage: `url(${ART}/bg/${l.bg}.png)`, backgroundSize: "auto 100%", backgroundPosition: "center bottom" }} />
-      {l.wash ? <span className="absolute inset-0" style={{ background: l.wash }} /> : null}
-      {l.side ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={l.side} alt="" draggable={false} className={`absolute bottom-[8%] right-[6%] h-[58%] w-auto object-contain drop-shadow-[0_4px_4px_rgba(0,0,0,.3)] ${l.flipSide ? "-scale-x-100" : ""}`} />
-      ) : null}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={l.main} alt="" draggable={false} className={`absolute bottom-[6%] h-[78%] w-auto object-contain drop-shadow-[0_6px_6px_rgba(0,0,0,.35)] ${l.side ? "left-[10%]" : "left-1/2 -translate-x-1/2"}`} />
-      {l.badge ? (
-        <span className="absolute left-2 top-2 flex items-center rounded-xl bg-white/95 px-2 py-1 text-[#1f2a44] shadow-md">{l.badge}</span>
-      ) : null}
+      <img src={`${ART}/logos/${id}.jpg`} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+      {l.badge ? <span className="absolute left-2 top-2 flex items-center rounded-xl bg-white/95 px-2 py-1 text-[#1f2a44] shadow-md">{l.badge}</span> : null}
     </span>
   );
 }
