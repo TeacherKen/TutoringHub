@@ -15,6 +15,97 @@ const SECONDS = 60;
 const OOPS_MS = 1600;
 const bar = (f: Frac) => Array.from({ length: f.n }, (_, i) => i);
 
+/** The robots' weapons (Kenney Space Shooter, Space Shooter Extension, Tank Pack art, CC0). A streak of
+ *  right answers unlocks bigger ones: laser → cannon → rocket → energy orb, and every 5th is a MEGA BEAM. */
+type Weapon = "laser" | "cannon" | "rocket" | "orb" | "mega";
+const WEAPONS: Weapon[] = ["laser", "cannon", "rocket", "orb"];
+const weaponFor = (streak: number): Weapon => (streak % 5 === 0 ? "mega" : WEAPONS[(streak - 1) % 4]);
+const SHOUT: Record<Weapon, string> = { laser: "LASER!", cannon: "CANNON!", rocket: "ROCKET!", orb: "ENERGY ORB!", mega: "MEGA BEAM!" };
+
+/** One attack flying from one robot to the other, with the hit at the end. `by`: 1 = the left (red) robot. */
+function Shot({ by, kind }: { by: -1 | 0 | 1; kind: Weapon }) {
+  if (by === 0) {
+    return (
+      <span className="pz-anim pointer-events-none absolute bottom-8 left-1/2 z-20 -translate-x-1/2 animate-[ff-pow_.6s_ease-out_both]" aria-hidden>
+        <span className="relative grid h-24 w-24 place-items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`${RB}/boom.png`} alt="" className="absolute inset-0 h-full w-full" />
+          <span className="relative font-sport text-2xl font-extrabold italic text-white [text-shadow:0_2px_0_#7a2b00,0_0_6px_#7a2b00]">CLANG!</span>
+        </span>
+      </span>
+    );
+  }
+  const fromLeft = by === 1;
+  const colour = fromLeft ? "red" : "blue";
+  const from = fromLeft ? "24%" : "76%";
+  const to = fromLeft ? "76%" : "24%";
+  const flip = fromLeft ? "" : "-scale-x-100";
+  const fly = (delay = 0, dur = 0.3): React.CSSProperties => ({ ["--from" as string]: from, ["--to" as string]: to, left: from, animation: `ff-fly ${dur}s linear ${delay}s both` });
+  const img = (src: string, cls: string) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" className={`${cls} ${flip}`} />
+  );
+  return (
+    <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
+      {kind === "laser"
+        ? [0, 0.07, 0.14].map((d) => (
+            <span key={d} className="absolute bottom-[4.2rem] -translate-x-1/2" style={fly(d, 0.22)}>
+              {img(`${RB}/laser_${colour}.png`, "h-4 w-16 drop-shadow-[0_0_8px_rgba(255,255,255,.95)]")}
+            </span>
+          ))
+        : null}
+      {kind === "cannon" ? (
+        <span className="absolute bottom-[4rem] -translate-x-1/2" style={fly(0, 0.38)}>
+          <span className="block" style={{ animation: "ff-arc .38s ease-in-out both" }}>
+            {img(`${RB}/shell.png`, "h-6 w-auto")}
+          </span>
+        </span>
+      ) : null}
+      {kind === "rocket" ? (
+        <span className="absolute bottom-[4.4rem] -translate-x-1/2" style={fly(0, 0.4)}>
+          <span className="flex items-center" style={{ animation: "ff-wobble .4s linear both" }}>
+            {fromLeft ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`${RB}/smoke.png`} alt="" className="-mr-2 h-5 w-5 opacity-70" />
+            ) : null}
+            {img(`${RB}/rocket_${colour}.png`, "h-9 w-auto")}
+            {!fromLeft ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`${RB}/smoke.png`} alt="" className="-ml-2 h-5 w-5 opacity-70" />
+            ) : null}
+          </span>
+        </span>
+      ) : null}
+      {kind === "orb" ? (
+        <span className="absolute bottom-[3.8rem] -translate-x-1/2" style={fly(0, 0.42)}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`${RB}/orb_${colour}.png`} alt="" className="h-12 w-12 animate-[spin_.4s_linear_infinite] drop-shadow-[0_0_12px_rgba(255,255,255,.95)]" />
+        </span>
+      ) : null}
+      {kind === "mega" ? (
+        <span
+          className={`absolute bottom-[4.1rem] h-7 rounded-full ${fromLeft ? "origin-left" : "origin-right"}`}
+          style={{
+            left: fromLeft ? "24%" : "24%",
+            right: "24%",
+            background: fromLeft ? "linear-gradient(90deg,#fff,#ff9a7a 30%,#ff3d2e)" : "linear-gradient(270deg,#fff,#9ad0ff 30%,#2e7dff)",
+            boxShadow: fromLeft ? "0 0 22px 6px #ff6b4d" : "0 0 22px 6px #4d9bff",
+            animation: "ff-beam .55s ease-out both",
+          }}
+        />
+      ) : null}
+      {/* the hit */}
+      <span className="absolute bottom-[2.6rem] -translate-x-1/2" style={{ left: to }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`${RB}/boom.png`} alt="" className={`${kind === "mega" ? "h-28 w-28" : "h-20 w-20"} opacity-0`} style={{ animation: `ff-boom .45s ease-out ${kind === "laser" ? 0.22 : kind === "mega" ? 0.2 : 0.36}s both` }} />
+      </span>
+      <span className="absolute bottom-[7.5rem] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#16233a]/70 px-3 font-sport text-2xl font-extrabold italic text-white opacity-0 [text-shadow:0_2px_0_#16233a,0_0_8px_#16233a]" style={{ animation: "ff-shout .7s ease-out both" }}>
+        {SHOUT[kind]}
+      </span>
+    </div>
+  );
+}
+
 export function FractionFaceoff() {
   const [level, setLevel] = useState<FaceLevel>("bottom");
   const [phase, setPhase] = useState<"setup" | "play" | "done">("setup");
@@ -24,13 +115,14 @@ export function FractionFaceoff() {
   const [oops, setOops] = useState<string | null>(null);
   const [flash, setFlash] = useState<-1 | 0 | 1 | null>(null);
   // A fight: which robot attacks (1 left, -1 right, 0 both: a draw), and a count so each one replays.
-  const [fight, setFight] = useState<{ by: -1 | 0 | 1; n: number } | null>(null);
+  const [fight, setFight] = useState<{ by: -1 | 0 | 1; n: number; kind: Weapon; combo: number } | null>(null);
+  const streak = useRef(0);
   const fightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (fightTimer.current) clearTimeout(fightTimer.current);
   }, []);
-  function attack(by: -1 | 0 | 1, ms = 700) {
-    setFight((f) => ({ by, n: (f?.n ?? 0) + 1 }));
+  function attack(by: -1 | 0 | 1, ms = 700, kind: Weapon = "laser") {
+    setFight((f) => ({ by, n: (f?.n ?? 0) + 1, kind, combo: streak.current }));
     if (fightTimer.current) clearTimeout(fightTimer.current);
     fightTimer.current = setTimeout(() => setFight(null), ms);
   }
@@ -62,6 +154,7 @@ export function FractionFaceoff() {
 
   function start() {
     scoreRef.current = 0;
+    streak.current = 0;
     setScore(0);
     setMissed([]);
     setLeft(SECONDS);
@@ -81,12 +174,14 @@ export function FractionFaceoff() {
       setScore(scoreRef.current);
       setFlash(pick);
       setTimeout(() => setFlash(null), 200);
-      attack(pick);
+      streak.current += 1;
+      attack(pick, streak.current % 5 === 0 ? 900 : 750, weaponFor(streak.current));
       setQ((p) => faceQ(level, Math.random, p ?? undefined));
       return;
     }
     setMissed((m) => (m.some((x) => fracText(x.left) === fracText(q.left) && fracText(x.right) === fracText(q.right)) ? m : [...m, q]));
-    attack(truth, 900);
+    streak.current = 0;
+    attack(truth, 900, "laser");
     setOops(truth === 0 ? "They're the same amount!" : `${fracText(truth === 1 ? q.left : q.right)} is bigger.`);
     setTimeout(() => {
       setOops(null);
@@ -167,7 +262,7 @@ export function FractionFaceoff() {
             src={`${RB}/${colour}_${pose}.png`}
             alt=""
             aria-hidden
-            className={`pz-anim block h-24 w-auto drop-shadow-[0_6px_4px_rgba(0,0,0,.35)] sm:h-28 ${charging ? (fight?.by === 0 ? "animate-[ff-bump_.6s_ease-in-out]" : "animate-[ff-charge_.6s_ease-in-out]") : knocked ? "animate-[ff-knock_.7s_ease-out]" : ""}`}
+            className={`pz-anim block h-24 w-auto drop-shadow-[0_6px_4px_rgba(0,0,0,.35)] sm:h-28 ${charging ? (fight?.by === 0 ? "animate-[ff-bump_.6s_ease-in-out]" : "animate-[ff-recoil_.45s_ease-out]") : knocked ? (fight?.kind === "mega" ? "animate-[ff-knock_.9s_ease-out]" : "animate-[ff-knock_.75s_ease-out]") : ""}`}
           />
         </span>
       </button>
@@ -195,13 +290,10 @@ export function FractionFaceoff() {
           <span className="relative mb-36 grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#ffd84d] font-sport text-xl font-bold text-[#16233a] shadow-lg ring-4 ring-white sm:mb-40" aria-hidden>
             VS
           </span>
-          {fight ? (
-            <span key={fight.n} className="pz-anim pointer-events-none absolute bottom-8 left-1/2 z-20 -translate-x-1/2 animate-[ff-pow_.6s_ease-out_both]" aria-hidden>
-              <span className="relative grid h-24 w-24 place-items-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/games/art/pirate/splash.png" alt="" className="absolute inset-0 h-full w-full" />
-                <span className="relative font-sport text-2xl font-extrabold italic text-white [text-shadow:0_2px_0_#7a2b00,0_0_6px_#7a2b00]">{fight.by === 0 ? "CLANG!" : "POW!"}</span>
-              </span>
+          {fight ? <Shot key={fight.n} by={fight.by} kind={fight.kind} /> : null}
+          {fight && fight.by !== 0 && fight.combo >= 2 && !oops ? (
+            <span key={`c${fight.n}`} className="pz-anim pointer-events-none absolute -top-2 left-1/2 z-30 -translate-x-1/2 animate-[tt-pop_.35s_ease-out] whitespace-nowrap rounded-full bg-[#ffd84d] px-3 py-0.5 font-sport text-lg font-extrabold italic text-[#16233a] shadow-lg" aria-hidden>
+              COMBO ×{fight.combo}
             </span>
           ) : null}
           {bot(q.right, -1)}

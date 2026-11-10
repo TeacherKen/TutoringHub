@@ -11,3 +11,4 @@ Game art by Kenney (www.kenney.nl), released as CC0 (free to use, no credit requ
 - items/    Voxel Pack, Voxel Expansion Pack (adventure market gear)
 - robots/   Robot Pack · pirate/ Pirate Pack, Block Pack · market/ Block Pack · race/ Racing Pack
 - space/    Alien UFO Pack, Space Shooter Remastered, Planets · dice/ Boardgame Pack
+- robots/ weapons: Space Shooter Remastered (lasers), Space Shooter Extension (rockets), Tank Pack (shell, explosions)
