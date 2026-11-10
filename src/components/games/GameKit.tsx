@@ -5,24 +5,27 @@ import { ConfettiBurst, makeConfetti, type Confetti } from "./Controls";
 // 🎨 Shared look for the games: a themed banner, level cards, a big start button, a themed board for the
 // question, and a result screen with confetti. Each game picks a theme (colours and a picture).
 
-export type Theme = { from: string; to: string; ink: string; accent: string; accentInk: string; shadow: string };
+export type Theme = { from: string; to: string; ink: string; accent: string; accentInk: string; shadow: string; mascot?: string };
+
+// Each game's animal friend (art: Kenney "Animal Pack", CC0, see public/games/art/CREDITS.txt).
+const A = (name: string) => `/games/art/animals/${name}.png`;
 
 export const THEMES = {
-  chalk: { from: "#2f5d46", to: "#1d3d2e", ink: "#f4f1e6", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
-  arena: { from: "#1e3a8a", to: "#0f1e4d", ink: "#ffffff", accent: "#ffc629", accentInk: "#2b1a08", shadow: "#a67c00" },
-  grape: { from: "#5b3fa8", to: "#2e1f66", ink: "#ffffff", accent: "#7ee0c3", accentInk: "#0b3b2e", shadow: "#3a9c80" },
-  pizza: { from: "#c2412d", to: "#7f1d1d", ink: "#fff7ed", accent: "#facc15", accentInk: "#422006", shadow: "#a16207" },
-  berry: { from: "#9d2b6b", to: "#4c1036", ink: "#ffffff", accent: "#ffd166", accentInk: "#3b2600", shadow: "#a8761a" },
-  sun: { from: "#f59e0b", to: "#b45309", ink: "#ffffff", accent: "#1e3a8a", accentInk: "#ffffff", shadow: "#0f1e4d" },
-  shop: { from: "#2f7d4f", to: "#1d5235", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
-  sky: { from: "#2f7d9a", to: "#164e63", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
-  piggy: { from: "#e86fa3", to: "#9d2f63", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
-  blocks: { from: "#1f7fa3", to: "#123f57", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
-  scale: { from: "#b8892a", to: "#5e420f", ink: "#ffffff", accent: "#7ee0c3", accentInk: "#0b3b2e", shadow: "#3a9c80" },
-  pixel: { from: "#475569", to: "#1e293b", ink: "#ffffff", accent: "#f472b6", accentInk: "#ffffff", shadow: "#9d174d" },
-  felt: { from: "#1f6b4a", to: "#0e3a27", ink: "#ffffff", accent: "#ff6b5a", accentInk: "#ffffff", shadow: "#a33a2e" },
-  snake: { from: "#3fa34d", to: "#1d5f28", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12" },
-} satisfies Record<string, Theme>;
+  chalk: { from: "#2f5d46", to: "#1d3d2e", ink: "#f4f1e6", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: A("monkey") },
+  arena: { from: "#1e3a8a", to: "#0f1e4d", ink: "#ffffff", accent: "#ffc629", accentInk: "#2b1a08", shadow: "#a67c00", mascot: A("horse") },
+  grape: { from: "#5b3fa8", to: "#2e1f66", ink: "#ffffff", accent: "#7ee0c3", accentInk: "#0b3b2e", shadow: "#3a9c80", mascot: A("panda") },
+  pizza: { from: "#c2412d", to: "#7f1d1d", ink: "#fff7ed", accent: "#facc15", accentInk: "#422006", shadow: "#a16207", mascot: A("chick") },
+  berry: { from: "#9d2b6b", to: "#4c1036", ink: "#ffffff", accent: "#ffd166", accentInk: "#3b2600", shadow: "#a8761a", mascot: A("parrot") },
+  sun: { from: "#f59e0b", to: "#b45309", ink: "#ffffff", accent: "#1e3a8a", accentInk: "#ffffff", shadow: "#0f1e4d", mascot: A("giraffe") },
+  shop: { from: "#2f7d4f", to: "#1d5235", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: A("rabbit") },
+  sky: { from: "#2f7d9a", to: "#164e63", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: A("owl") },
+  piggy: { from: "#e86fa3", to: "#9d2f63", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: A("pig") },
+  blocks: { from: "#1f7fa3", to: "#123f57", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: A("bear") },
+  scale: { from: "#b8892a", to: "#5e420f", ink: "#ffffff", accent: "#7ee0c3", accentInk: "#0b3b2e", shadow: "#3a9c80", mascot: A("elephant") },
+  pixel: { from: "#475569", to: "#1e293b", ink: "#ffffff", accent: "#f472b6", accentInk: "#ffffff", shadow: "#9d174d", mascot: A("penguin") },
+  felt: { from: "#1f6b4a", to: "#0e3a27", ink: "#ffffff", accent: "#ff6b5a", accentInk: "#ffffff", shadow: "#a33a2e", mascot: A("frog") },
+  snake: { from: "#3fa34d", to: "#1d5f28", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: A("snake") },
+} satisfies Record<string, Theme & { mascot: string }>;
 
 const bg = (t: Theme) => ({ background: `radial-gradient(120% 100% at 30% 0%, ${t.from} 0%, ${t.to} 85%)`, color: t.ink });
 
@@ -36,12 +39,28 @@ export function GameHero({ theme, art, title, children }: { theme: Theme; art: R
         <div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-white/15 text-5xl shadow-inner ring-1 ring-white/20" aria-hidden>
           {art}
         </div>
-        <div className="min-w-0">
+        <div className={`min-w-0 flex-1 ${theme.mascot ? "pr-14 sm:pr-20" : ""}`}>
           <p className="font-sport text-3xl font-bold leading-none tracking-wide">{title}</p>
           {children ? <p className="mt-1.5 text-sm leading-snug opacity-90">{children}</p> : null}
         </div>
       </div>
+      {theme.mascot ? <Mascot src={theme.mascot} className="absolute -bottom-2 right-2 h-16 w-16 sm:h-24 sm:w-24" /> : null}
     </div>
+  );
+}
+
+/** The game's animal friend, gently bobbing. */
+export function Mascot({ src, className = "", cheer = false, delay = 0 }: { src: string; className?: string; cheer?: boolean; delay?: number }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      aria-hidden
+      draggable={false}
+      className={`pz-anim pointer-events-none select-none object-contain drop-shadow-[0_6px_6px_rgba(0,0,0,.3)] ${className}`}
+      style={{ animation: cheer ? `gk-cheer .7s ease-in-out ${delay}s infinite` : `pz-float 3s ease-in-out ${delay}s infinite` }}
+    />
   );
 }
 
@@ -164,7 +183,13 @@ export function ResultCard(props: {
   return (
     <div className="relative space-y-4 text-center">
       <ConfettiBurst pieces={pieces} className="left-1/2 top-20" />
-      <div className="rounded-3xl p-6 shadow-[0_8px_24px_rgba(0,0,0,.18)]" style={bg(theme)}>
+      <div className="relative overflow-hidden rounded-3xl p-6 shadow-[0_8px_24px_rgba(0,0,0,.18)]" style={bg(theme)}>
+        {theme.mascot ? <Mascot src={theme.mascot} cheer className="absolute -bottom-1 -left-1 h-16 w-16 sm:h-20 sm:w-20" /> : null}
+        {theme.mascot ? (
+          <span className="absolute -bottom-1 -right-1 -scale-x-100">
+            <Mascot src={theme.mascot} cheer delay={0.35} className="h-16 w-16 sm:h-20 sm:w-20" />
+          </span>
+        ) : null}
         <p className="pz-anim animate-[tt-pop_.5s_ease-out] text-6xl" aria-hidden>
           {props.newBest ? "🏆" : props.art}
         </p>

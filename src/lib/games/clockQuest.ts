@@ -17,7 +17,11 @@ export const STAGES = 3; // monsters per town
 export const HITS = 3; // right answers to beat a monster
 export const HEARTS = 3;
 
-export const HEROES = ["🧙", "🧝", "🦸", "🥷", "🧚", "🤴", "👸", "🧑‍🚀"] as const;
+/** Hero characters: "k:" ones are drawn pictures (Kenney "Toon Characters", CC0); the rest are emoji (older saves). */
+export const HEROES = ["k:femaleAdventurer", "k:maleAdventurer", "k:femalePerson", "k:malePerson", "k:robot", "k:zombie", "🧙", "🧝", "🦸", "🥷", "🧚", "🤴", "👸", "🧑‍🚀"] as const;
+export type HeroPose = "idle" | "attack1" | "hurt" | "cheer0" | "cheer1";
+/** The picture for a drawn hero in a pose, or null for an emoji hero. */
+export const heroImage = (hero: string, pose: HeroPose = "idle") => (hero.startsWith("k:") ? `/games/art/heroes/${hero.slice(2)}_${pose}.png` : null);
 
 export type QuestSave = { hero: string; stars: Record<string, number>; coins: number };
 export const newQuest = (hero: string): QuestSave => ({ hero, stars: {}, coins: 0 });

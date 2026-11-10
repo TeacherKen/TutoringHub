@@ -1046,6 +1046,11 @@ html.board-full .page-enter {
   25% { transform: translateX(-6px); }
   75% { transform: translateX(6px); }
 }
+@keyframes gk-cheer {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  30% { transform: translateY(-10px) rotate(-6deg); }
+  60% { transform: translateY(-4px) rotate(5deg); }
+}
 @keyframes pz-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }

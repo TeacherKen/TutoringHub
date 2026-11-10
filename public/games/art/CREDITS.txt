@@ -1,0 +1,4 @@
+Game art by Kenney (www.kenney.nl), released as CC0 (free to use, no credit required, credit given with thanks).
+- animals/  Animal Pack Remastered
+- heroes/   Toon Characters
+- bg/       Background Elements Remastered
