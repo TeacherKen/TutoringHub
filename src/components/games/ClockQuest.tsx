@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { clockHint, hhmm, ampm, same, STEP, type Time } from "@/lib/clock";
 import { HEARTS, HEROES, heroImage, HITS, longHint, newQuest, questQ, stageKey, stageOpen, STAGES, starsFor, story, totalStars, TOWNS, townDone, townOpen, type HeroPose, type QuestQ, type QuestSave } from "@/lib/games/clockQuest";
-import { Choices, ClockFace } from "./ClockRescue";
+import { ClockFace } from "./ClockRescue";
 import { NumberPad } from "./NumberPad";
 import { useSaves } from "./useSaves";
 
@@ -31,7 +31,7 @@ const ANIM = `@keyframes cq-shake{0%,100%{transform:none}20%{transform:translate
  */
 type TownLook = { sky: string; bg: string; ground: string | null; wash?: string; ink: string; decor: string[]; card: string };
 const THEME: Record<string, TownLook> = {
-  village: { sky: "linear-gradient(#7cc8f5, #c9ecff)", bg: "grass", ground: null, ink: "#1f3d16", decor: ["", "/games/art/scene/bush3.png", "/games/art/scene/houseSmall1.png"], card: "linear-gradient(135deg, #fff6cc, #c9f0b5)" },
+  village: { sky: "linear-gradient(#7cc8f5, #c9ecff)", bg: "grass", ground: null, ink: "#1f3d16", decor: ["", "/games/art/scene/bush3.png", ""], card: "linear-gradient(135deg, #fff6cc, #c9f0b5)" },
   forest: { sky: "linear-gradient(#1f4a3e, #4f8467)", bg: "forest", ground: null, ink: "#e9ffe9", decor: ["", "/games/art/scene/bush3.png", ""], card: "linear-gradient(135deg, #2f6a4f, #1d4636)" },
   river: { sky: "linear-gradient(#5fb3e6, #b5e3fa)", bg: "empty", ground: "linear-gradient(#3e9de0, #2367a8)", ink: "#0b2a4a", decor: ["/games/art/scene/treePalm.png", "", ""], card: "linear-gradient(135deg, #d6f1ff, #8fd0f5)" },
   mountain: { sky: "linear-gradient(#7e8db0, #d3dbea)", bg: "pines", ground: "linear-gradient(#9aa0ac, #6b707d)", ink: "#1e2433", decor: ["/games/art/scene/treePineSnow.png", "", "/games/art/scene/treeSnow.png"], card: "linear-gradient(135deg, #e7ecf5, #aab6cc)" },
@@ -105,7 +105,42 @@ function Hearts({ n, max = HEARTS }: { n: number; max?: number }) {
 
 /** A name plate for the battle screen. */
 function Plate({ children, right = false }: { children: React.ReactNode; right?: boolean }) {
-  return <div className={`rounded-xl bg-black/45 px-2.5 py-1.5 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm ${right ? "text-right" : ""}`}>{children}</div>;
+  return <div className={`rpg-panel-brown px-1 py-0 shadow-lg ${right ? "text-right" : ""}`}>{children}</div>;
+}
+
+/** Answer buttons in the RPG style (a crossed-out one after a wrong pick). */
+function RpgChoices({ options, onPick, wrongPick }: { options: string[]; onPick: (i: number) => void; wrongPick: number | null }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {options.map((o, i) => (
+        <button key={o} type="button" onClick={() => onPick(i)} disabled={wrongPick === i} className={`rpg-btn-light min-h-14 px-2 text-lg ${wrongPick === i ? "line-through" : ""}`}>
+          {o}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A health bar from the RPG pack: red (or green) pieces on a dark back. */
+function HealthBar({ value, max, color = "Red" }: { value: number; max: number; color?: "Red" | "Green" }) {
+  const pct = Math.max(0, Math.min(1, value / max));
+  const seg = (k: "Back" | "Red" | "Green") => (
+    <span className="flex h-[18px] w-full">
+      <Pic src={`/games/art/ui/bar${k}_horizontalLeft.png`} className="h-[18px] w-[9px] shrink-0 object-fill" />
+      <span className="h-[18px] flex-1 bg-repeat-x [background-size:18px_18px]" style={{ backgroundImage: `url(/games/art/ui/bar${k}_horizontalMid.png)` }} />
+      <Pic src={`/games/art/ui/bar${k}_horizontalRight.png`} className="h-[18px] w-[9px] shrink-0 object-fill" />
+    </span>
+  );
+  return (
+    <span className="relative block h-[18px] w-24" aria-hidden>
+      <span className="absolute inset-0">{seg("Back")}</span>
+      {pct > 0 ? (
+        <span className="absolute inset-y-0 left-0 flex transition-[width] duration-300" style={{ width: `${Math.max(20, pct * 100)}%` }}>
+          {seg(color)}
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 /** The battle scene: themed sky and ground, the hero on the left, the monster on the right. */
@@ -197,10 +232,8 @@ function Arena(props: { townId: string; hero: string; heroName: string; foe: str
       <div className="absolute right-3 top-3">
         <Plate right>
           <p className="text-sm font-bold leading-tight">{props.foe}</p>
-          <div className="mt-1 flex justify-end gap-1" aria-label={`Monster health ${HITS - props.hits} of ${HITS}`}>
-            {Array.from({ length: HITS }, (_, i) => (
-              <span key={i} className={`h-3 w-7 rounded-sm transition-colors duration-300 ${i < HITS - props.hits ? "bg-gradient-to-b from-[#ff7a7a] to-[#d61f1f]" : "bg-white/15"}`} />
-            ))}
+          <div className="mt-1 flex justify-end" role="img" aria-label={`Monster health ${HITS - props.hits} of ${HITS}`}>
+            <HealthBar value={HITS - props.hits} max={HITS} />
           </div>
         </Plate>
       </div>
@@ -274,7 +307,7 @@ export function ClockQuest() {
           <div className="grid gap-2">
             {names.map((n) => (
               <div key={n} className="flex items-center gap-2">
-                <button type="button" className="flex min-h-16 flex-1 items-center justify-between rounded-2xl border-2 border-[#e2c46a] bg-gradient-to-r from-[#fff8e1] to-[#ffefc2] px-4 text-left text-[#4a3410] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => setPlayer(n)}>
+                <button type="button" className="rpg-btn-light flex min-h-16 flex-1 items-center justify-between px-2 text-left transition hover:-translate-y-0.5 hover:shadow-md" onClick={() => setPlayer(n)}>
                   <span className="font-semibold">
                     <HeroArt hero={all[n].hero} className="mr-2 inline-block h-10 w-auto align-middle" />
                     {all[n].name}
@@ -295,7 +328,7 @@ export function ClockQuest() {
           </div>
         ) : null}
         <form
-          className="space-y-3 rounded-2xl border-2 border-dashed border-[#c9b27a] bg-[#fffaf0] p-4 text-[#4a3410]"
+          className="rpg-panel space-y-3 px-2 py-1"
           onSubmit={(e) => {
             e.preventDefault();
             const name = newName.trim().slice(0, 14);
@@ -314,14 +347,14 @@ export function ClockQuest() {
                 aria-pressed={newHero === h}
                 aria-label={`Hero ${HEROES.indexOf(h) + 1}`}
                 onClick={() => setNewHero(h)}
-                className={`grid place-items-center overflow-hidden rounded-2xl border-2 text-4xl transition h-20 w-16 ${newHero === h ? "-translate-y-1 border-[#d4a52c] bg-[#ffe9a8] shadow-md" : "border-[#eadfc4] bg-white"}`}
+                className={`grid place-items-center overflow-hidden rounded-2xl border-2 text-4xl transition h-20 w-16 ${newHero === h ? "-translate-y-1 border-[#a86b2a] bg-[#ffe9a8] shadow-md" : "border-[#d9c49a] bg-[#fffaf0]"}`}
               >
                 <HeroArt hero={h} pose={newHero === h ? "cheer0" : "idle"} className="h-[4.5rem] w-auto" />
               </button>
             ))}
           </div>
           <input className="input w-full" placeholder="Hero name" value={newName} maxLength={14} onChange={(e) => setNewName(e.target.value)} aria-label="Hero name" />
-          <button className="w-full rounded-2xl py-4 text-lg font-bold text-[#3b2a00] bg-[linear-gradient(#ffd84d,#f0c22e)] shadow-[0_5px_0_#9c7a12] transition active:translate-y-1 active:shadow-none disabled:opacity-50" disabled={!newName.trim()}>
+          <button className="rpg-btn w-full text-lg" disabled={!newName.trim()}>
             Start the quest
           </button>
         </form>
@@ -378,17 +411,18 @@ export function ClockQuest() {
       <div className="space-y-3">
         <style>{ANIM}</style>
         <div className="flex items-center justify-between text-sm">
-          <button type="button" className="rounded-full bg-surface-2 px-3 py-1.5 font-medium text-muted" onClick={() => setFight(null)}>
-            ‹ Run away
+          <button type="button" className="rpg-btn-light flex min-h-11 items-center gap-1.5 px-2 text-sm" onClick={() => setFight(null)}>
+            <Pic src="/games/art/ui/arrowBrown_left.png" className="h-4 w-auto" />
+            Run away
           </button>
-          <span className="rounded-full bg-surface-2 px-3 py-1.5 font-medium">
+          <span className="rpg-inset px-1 text-sm font-semibold">
             <Pic src={town.icon} className="mr-1 inline-block h-5 w-auto align-[-0.2em]" />
             {town.name} · Monster {fight.stage + 1} of {STAGES}
           </span>
         </div>
         <Arena townId={town.id} hero={s.hero} heroName={s.name} foe={town.foe} monster={town.monster} hearts={fight.hearts} hits={fight.hits} pets={pets} hit={fight.hit} />
-        <p key={fight.story} className="cq-m relative rounded-2xl border-2 border-[#e8d9b0] bg-[#fdf6e3] px-4 py-3 text-center text-lg font-semibold text-[#4a3b1f] shadow-sm" style={{ animation: "cq-pop .35s ease-out" }}>
-          <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#7a2b00] px-3 py-0.5 text-xs font-bold tracking-wide text-[#ffd84d]">
+        <p key={fight.story} className="cq-m rpg-panel relative mt-2 px-2 pb-1 pt-2 text-center text-lg font-semibold" style={{ animation: "cq-pop .35s ease-out" }}>
+          <span className="absolute -top-5 left-1/2 -translate-x-1/2 rounded-full bg-[#7a2b00] px-3 py-0.5 text-xs font-bold tracking-wide text-[#ffd84d] shadow">
             YOUR MOVE
           </span>
           {fight.story}
@@ -397,14 +431,14 @@ export function ClockQuest() {
         {q.kind === "set" ? (
           <>
             <ClockFace time={fight.set} onChange={(t) => setFight({ ...fight, set: t })} step={STEP[level]} size={230} />
-            <button type="button" className="btn-primary w-full" onClick={() => (same(fight.set, q.target) ? right(fight) : wrong(fight))}>
+            <button type="button" className="rpg-btn w-full text-xl" onClick={() => (same(fight.set, q.target) ? right(fight) : wrong(fight))}>
               Attack!
             </button>
           </>
         ) : q.kind === "read" || q.kind === "later" ? (
           <>
             <ClockFace time={q.kind === "read" ? q.time : q.start} size={q.kind === "read" ? 210 : 170} />
-            <Choices options={q.options} wrongPick={fight.wrongPick} onPick={(i) => (i === q.answer ? right(fight) : wrong(fight, i))} />
+            <RpgChoices options={q.options} wrongPick={fight.wrongPick} onPick={(i) => (i === q.answer ? right(fight) : wrong(fight, i))} />
           </>
         ) : q.kind === "between" ? (
           <>
@@ -422,7 +456,7 @@ export function ClockQuest() {
           <>
             <div className="grid grid-cols-2 gap-2 text-center">
               {[q.from, q.to].map((m, i) => (
-                <div key={i} className="rounded-2xl bg-surface-2 p-2">
+                <div key={i} className="rpg-inset-light px-1">
                   <p className="text-xs uppercase text-muted">{i ? (q.to <= q.from ? "Wakes · next day" : "Wakes") : "Sleeps"}</p>
                   <p className="text-3xl font-bold tabular-nums">{hhmm(m)}</p>
                   <p className="text-sm text-muted">
@@ -431,12 +465,12 @@ export function ClockQuest() {
                 </div>
               ))}
             </div>
-            <Choices options={q.options} wrongPick={fight.wrongPick} onPick={(i) => (i === q.answer ? right(fight) : wrong(fight, i))} />
+            <RpgChoices options={q.options} wrongPick={fight.wrongPick} onPick={(i) => (i === q.answer ? right(fight) : wrong(fight, i))} />
           </>
         )}
 
         {fight.wrong ? (
-          <p className="cq-m rounded-2xl bg-danger-soft p-3 text-center font-medium text-danger" style={{ animation: "cq-shake .4s" }}>
+          <p className="cq-m rpg-panel-light px-1 text-center font-medium text-[#b42318]" style={{ animation: "cq-shake .4s" }}>
             Ouch! {town.foe} hit you. {q.kind === "long" ? longHint(q) : clockHint(q)}
           </p>
         ) : null}
@@ -448,9 +482,9 @@ export function ClockQuest() {
   return (
     <div className="space-y-4">
       <style>{ANIM}</style>
-      <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-[#2b1d4a] to-[#4a2a6b] px-4 py-3 text-white shadow-md">
+      <div className="rpg-panel-brown flex items-center justify-between px-1 shadow-md">
         <span className="flex items-center gap-2 font-semibold">
-          <span className="grid h-12 w-12 place-items-center overflow-hidden rounded-xl bg-white/15 text-3xl" aria-hidden>
+          <span className="rpg-inset-light grid h-14 w-14 place-items-center overflow-hidden" aria-hidden>
             <HeroArt hero={s.hero} className="h-11 w-auto" />
           </span>
           <span>
@@ -473,7 +507,7 @@ export function ClockQuest() {
       </div>
 
       {result ? (
-        <div className={`cq-m rounded-3xl border-2 p-5 text-center shadow-lg ${result.won ? "border-[#e2c46a] bg-gradient-to-b from-[#fff8dc] to-[#ffe8a3] text-[#4a3410]" : "border-line bg-surface-2"}`} style={{ animation: "cq-pop .45s ease" }}>
+        <div className={`cq-m ${result.won ? "rpg-panel-light" : "rpg-panel"} px-3 py-2 text-center shadow-lg`} style={{ animation: "cq-pop .45s ease" }}>
           {result.won ? (
             <>
               <HeroArt hero={s.hero} pose="cheer1" className="mx-auto -mt-2 h-28 w-auto drop-shadow-[0_4px_4px_rgba(0,0,0,.25)]" />
@@ -509,10 +543,9 @@ export function ClockQuest() {
         <span className="absolute bottom-6 left-[2.35rem] top-6 border-l-4 border-dotted border-[#c9a96b]" aria-hidden />
         {TOWNS.map((t, ti) => {
           const open = townOpen(s, ti);
-          const th = THEME[t.id] ?? THEME.village;
           const done = townDone(s, ti);
           return (
-            <li key={t.id} className={`relative overflow-hidden rounded-3xl p-3 shadow-md ring-1 ring-black/5 ${open ? "" : "grayscale"}`} style={{ background: th.card, color: th.ink, opacity: open ? 1 : 0.6 }}>
+            <li key={t.id} className={`rpg-panel relative overflow-hidden px-1 py-0.5 shadow-md ${open ? "" : "opacity-60 grayscale"}`}>
               <Pic src={t.icon} className="absolute -right-3 -top-2 h-24 w-auto opacity-20" />
               <div className="relative flex items-center gap-3">
                 <span className="relative grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/80 shadow-md" aria-hidden>
@@ -538,7 +571,7 @@ export function ClockQuest() {
                         type="button"
                         disabled={!can}
                         onClick={() => begin(ti, si)}
-                        className={`min-h-[4.5rem] rounded-2xl px-2 text-center shadow-sm transition ${st ? "bg-white/85 text-[#3a2a0a]" : can ? "cq-m bg-[#ffd84d] text-[#4a2a00] shadow-[0_4px_0_#c99a12] hover:-translate-y-0.5" : "bg-black/15"}`}
+                        className={`min-h-[4.75rem] px-1 text-center ${st ? "rpg-inset-light" : can ? "rpg-btn" : "rounded-2xl bg-black/15"}`}
                       >
                         <span className={`mx-auto grid h-11 place-items-center ${can && !st ? "cq-m" : ""}`} style={can && !st ? { animation: "cq-bob 1.6s ease-in-out infinite" } : undefined} aria-hidden>
                           {can ? <Pic src={t.monster} className={`h-11 w-auto ${st ? "opacity-60 grayscale" : ""}`} /> : <LockIcon className="h-6 w-6" />}

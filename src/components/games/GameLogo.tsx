@@ -83,7 +83,7 @@ export function GameLogo({ id, className = "" }: { id: GameInfo["id"]; className
     <span className={`relative block aspect-[16/10] w-full overflow-hidden rounded-2xl shadow-[0_8px_18px_rgba(0,0,0,.3)] ring-2 ring-white/40 ${className}`} aria-hidden>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={`${ART}/logos/${id}.jpg`} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
-      {l.badge ? <span className="absolute left-2 top-2 flex items-center rounded-xl bg-white/95 px-2 py-1 text-[#1f2a44] shadow-md">{l.badge}</span> : null}
+      {l.badge ? <span className="absolute left-1.5 top-1.5 flex origin-top-left scale-[.78] items-center rounded-xl bg-white/95 px-2 py-1 text-[#1f2a44] shadow-md">{l.badge}</span> : null}
     </span>
   );
 }

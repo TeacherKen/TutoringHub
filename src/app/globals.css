@@ -1058,3 +1058,39 @@ html.board-full .page-enter {
 @media (prefers-reduced-motion: reduce) {
   .pz-anim { animation: none !important; }
 }
+
+/* 🛡️ RPG look for Clock Tower Quest (Kenney "UI Pack: RPG Expansion", CC0): parchment panels and
+   wooden buttons drawn from the pack's pictures, stretched to any size. */
+.rpg-panel,
+.rpg-panel-light,
+.rpg-panel-brown {
+  border: 14px solid transparent;
+  border-image: url(/games/art/ui/panel_beige.png) 16 fill stretch;
+  color: #4a3410;
+}
+.rpg-panel-light { border-image-source: url(/games/art/ui/panel_beigeLight.png); }
+.rpg-panel-brown { border-image-source: url(/games/art/ui/panel_brown.png); color: #fff7e6; }
+.rpg-inset {
+  border: 10px solid transparent;
+  border-image: url(/games/art/ui/panelInset_beige.png) 12 fill stretch;
+  color: #4a3410;
+}
+.rpg-inset-light { border: 10px solid transparent; border-image: url(/games/art/ui/panelInset_beigeLight.png) 12 fill stretch; color: #4a3410; }
+.rpg-btn,
+.rpg-btn-light {
+  border-style: solid;
+  border-color: transparent;
+  border-width: 10px 14px 14px;
+  border-image: url(/games/art/ui/buttonLong_brown.png) 10 14 14 fill stretch;
+  color: #fff7e6;
+  font-weight: 800;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  cursor: url(/games/art/ui/cursorSword_gold.png) 4 4, pointer;
+  transition: transform 80ms;
+}
+.rpg-btn-light { border-image-source: url(/games/art/ui/buttonLong_beige.png); color: #4a3410; text-shadow: none; }
+.rpg-btn:active:not(:disabled) { border-image-source: url(/games/art/ui/buttonLong_brown_pressed.png); transform: translateY(2px); }
+.rpg-btn-light:active:not(:disabled) { border-image-source: url(/games/art/ui/buttonLong_beige_pressed.png); transform: translateY(2px); }
+.rpg-btn:disabled,
+.rpg-btn-light:disabled { border-image-source: url(/games/art/ui/buttonLong_grey.png); color: #6b7280; text-shadow: none; cursor: not-allowed; }
+.rpg-sword { cursor: url(/games/art/ui/cursorSword_gold.png) 4 4, pointer; }
