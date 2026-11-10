@@ -81,7 +81,7 @@ function Burst({ color = "#ffd84d", className = "h-14 w-14" }: { color?: string;
   const pts = Array.from({ length: 16 }, (_, i) => {
     const a = (i / 16) * Math.PI * 2;
     const r = i % 2 ? 22 : 46;
-    return `${50 + Math.cos(a) * r},${50 + Math.sin(a) * r}`;
+    return `${(50 + Math.cos(a) * r).toFixed(1)},${(50 + Math.sin(a) * r).toFixed(1)}`;
   }).join(" ");
   return (
     <svg viewBox="0 0 100 100" className={className} aria-hidden>

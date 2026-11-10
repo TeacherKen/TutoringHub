@@ -11,7 +11,7 @@ import { ensureRoomToken } from "@/app/actions/rooms";
 import { startMatch } from "@/app/actions/match";
 import { KITS } from "./Stadium";
 import { GAMES, type GameInfo } from "@/lib/games";
-import { Glyph } from "./Arcade";
+import { GameLogo } from "./GameLogo";
 import { play } from "@/lib/sounds";
 
 type Kid = { id: string; name: string; token: string | null; tables: number[]; mode: GameMode; onsite: boolean };
@@ -296,13 +296,7 @@ function GamesCorner() {
                     }}
                   >
                     <span className="art">
-                      {g.id === "wolf-vs-sheep" ? (
-                        <WolfBoard />
-                      ) : (
-                        <span className="origin-center scale-[0.8] whitespace-nowrap text-white">
-                          <Glyph id={g.id} />
-                        </span>
-                      )}
+                      <GameLogo id={g.id} />
                     </span>
                     <span className="gt">{g.name}</span>
                     <span className="gs">{g.blurb}</span>
@@ -314,39 +308,6 @@ function GamesCorner() {
         );
       })}
     </section>
-  );
-}
-
-/** The small Wolf vs Sheep board (the wolf in dark, three sheep in white), from the design. */
-function WolfBoard() {
-  const empty = [
-    [12, 12],
-    [32, 12],
-    [52, 12],
-    [72, 12],
-    [12, 32],
-    [52, 32],
-    [72, 32],
-    [12, 52],
-    [32, 52],
-    [72, 52],
-    [12, 72],
-    [52, 72],
-  ];
-  return (
-    <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden>
-      <g fill="rgba(255,255,255,0.25)">
-        {empty.map(([x, y]) => (
-          <circle key={`${x}-${y}`} cx={x} cy={y} r="5" />
-        ))}
-      </g>
-      <circle cx="32" cy="32" r="9" fill="#1F2937" stroke="#FFFFFF" strokeWidth="2" />
-      <g fill="#FFFFFF">
-        <circle cx="52" cy="52" r="8" />
-        <circle cx="32" cy="72" r="8" />
-        <circle cx="72" cy="72" r="8" />
-      </g>
-    </svg>
   );
 }
 

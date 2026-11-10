@@ -5,11 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { GAMES, type GameInfo } from "@/lib/games";
-import { BallIcon } from "./Controls";
-import { ClockFace } from "./ClockRescue";
-import { Cash } from "./MoneyShop";
-import { ShapeIcon } from "./BalancePuzzles";
-import { FracText, Pie } from "./FractionShapes";
+import { GameLogo } from "./GameLogo";
 
 // 🎮 The games corner: for children on Mr Ken's iPad in an onsite lesson. Full screen, no
 // TutoringHub menu (so nobody wanders into Money or Settings); leaving needs a 2-second hold.
@@ -86,160 +82,6 @@ function HoldToExit() {
   );
 }
 
-/** The picture on each game's tile, drawn from the game itself. */
-export function Glyph({ id }: { id: GameInfo["id"] }) {
-  if (id === "football") return <BallIcon className="h-20 w-20 drop-shadow-lg sm:h-24 sm:w-24" />;
-  if (id === "wolf-vs-sheep")
-    return (
-      <span className="text-6xl leading-none drop-shadow sm:text-7xl" aria-hidden>
-        🐺<span className="-ml-3">🐑</span>
-      </span>
-    );
-  if (id === "bridge-torch")
-    return (
-      <span aria-hidden className="relative flex items-end gap-0.5 text-5xl leading-none drop-shadow-lg">
-        <span className="text-4xl">🔦</span>🌉<span className="text-3xl">🌊</span>
-      </span>
-    );
-  if (id === "magic-square")
-    return (
-      <span aria-hidden className="font-sport grid grid-cols-3 gap-1 text-2xl font-bold sm:text-3xl">
-        {[8, 1, 6, 3, 5, 7, 4, 9, 2].map((n) => (
-          <span key={n} className="grid h-9 w-9 place-items-center rounded-md bg-white/15 sm:h-11 sm:w-11">
-            {n}
-          </span>
-        ))}
-      </span>
-    );
-  if (id === "qm")
-    return (
-      <span aria-hidden className="font-sport grid grid-cols-2 gap-x-4 text-5xl font-bold leading-none sm:text-6xl">
-        <span>+</span>
-        <span>−</span>
-        <span>×</span>
-        <span>÷</span>
-      </span>
-    );
-  if (id === "fp")
-    return (
-      <span aria-hidden className="drop-shadow-lg">
-        <Pie parts={8} shaded={[0, 1, 2]} size={104} label="" />
-      </span>
-    );
-  if (id === "ff")
-    return (
-      <span aria-hidden className="font-sport flex items-center gap-3 text-5xl font-bold sm:text-6xl">
-        <FracText f={{ n: 3, d: 4 }} className="" />
-        <span className="text-4xl text-[#ffc629]">&gt;</span>
-        <FracText f={{ n: 2, d: 3 }} className="" />
-      </span>
-    );
-  if (id === "fc")
-    return (
-      <span aria-hidden className="font-sport flex items-center gap-3 text-5xl font-bold sm:text-6xl">
-        <FracText f={{ n: 1, d: 3 }} className="" />
-        <span className="text-4xl">of 12</span>
-      </span>
-    );
-  if (id === "sb")
-    return (
-      <span aria-hidden className="grid grid-cols-5 gap-0.5">
-        {["#e8173f", "#e8173f", "#e8173f", "", "#5ad60f", "#e8173f", "#f5c400", "#f5c400", "#5ad60f", "#5ad60f", "#e8173f", "#f5c400", "#17e0ff", "#17e0ff", "#5ad60f", "#8e24aa", "#f5c400", "#17e0ff", "#ff9a26", "#5ad60f", "#8e24aa", "#f5c400", "#17e0ff", "#ff9a26", "#ff9a26"].map((c, i) => (
-          <span key={i} className="h-7 w-7 rounded-sm sm:h-8 sm:w-8" style={{ background: c || "transparent", boxShadow: c ? "inset 0 0 0 1px rgba(0,0,0,.3)" : undefined }} />
-        ))}
-      </span>
-    );
-  if (id === "ck")
-    return (
-      <span aria-hidden className="drop-shadow-lg">
-        <ClockFace time={{ h: 10, m: 10 }} size={104} />
-      </span>
-    );
-  if (id === "cq")
-    return (
-      <span aria-hidden className="relative text-[64px] leading-none drop-shadow-lg">
-        🏰<span className="absolute -bottom-1 -right-5 text-[40px]">🐉</span>
-      </span>
-    );
-  if (id === "pb")
-    return (
-      <span aria-hidden className="relative text-[68px] leading-none drop-shadow-lg">
-        🐷
-        <span className="absolute -left-6 -top-3 scale-75">
-          <Cash m={{ value: 10, kind: "coin" }} c="THB" small />
-        </span>
-        <span className="absolute -right-5 -top-6 scale-75">
-          <Cash m={{ value: 5, kind: "coin" }} c="THB" small />
-        </span>
-      </span>
-    );
-  if (id === "bp")
-    return (
-      <span aria-hidden className="flex items-end gap-2 drop-shadow-lg">
-        <ShapeIcon s="triangle" size={52} />
-        <span className="text-5xl leading-none">⚖️</span>
-        <ShapeIcon s="circle" size={44} />
-      </span>
-    );
-  if (id === "pl")
-    return (
-      <span aria-hidden className="grid grid-cols-5 gap-0.5 rounded-md bg-white p-1">
-        {".#.#.##########.###...#..".split("").map((ch, i) => (
-          <span key={i} className="h-3.5 w-3.5 rounded-[2px] sm:h-4 sm:w-4" style={{ background: ch === "#" ? "#e11d48" : "#f1f5f9" }} />
-        ))}
-      </span>
-    );
-  if (id === "mn")
-    return (
-      <span aria-hidden className="font-sport flex items-center gap-2 text-4xl font-bold drop-shadow-lg sm:text-5xl">
-        <span className="grid h-14 w-11 place-items-center rounded-lg bg-white text-[#1f2a44]">6</span>
-        <span>×</span>
-        <span className="grid h-14 w-11 place-items-center rounded-lg bg-white text-[#1f2a44]">4</span>
-      </span>
-    );
-  if (id === "ns")
-    return (
-      <span aria-hidden className="grid grid-cols-3 gap-1 text-lg font-bold">
-        {[1, 2, 3, 6, 5, 4, 7, 8, 9].map((n) => (
-          <span key={n} className="grid h-9 w-9 place-items-center rounded-md sm:h-10 sm:w-10" style={{ background: `hsl(${150 + n * 8} 65% 45%)` }}>
-            {n}
-          </span>
-        ))}
-      </span>
-    );
-  if (id === "ls")
-    return (
-      <span aria-hidden className="relative text-[64px] leading-none drop-shadow-lg">
-        🏪<span className="absolute -bottom-1 -right-6 text-[40px]">🐼</span>
-      </span>
-    );
-  if (id === "ms")
-    return (
-      <span aria-hidden className="flex items-end gap-1.5 drop-shadow-lg">
-        <Cash m={{ value: 100, kind: "note" }} c="THB" />
-        <span className="flex flex-col items-center gap-1">
-          <Cash m={{ value: 10, kind: "coin" }} c="THB" />
-          <Cash m={{ value: 25, kind: "coin" }} c="USD" small />
-        </span>
-      </span>
-    );
-  if (id === "tt")
-    return (
-      <span aria-hidden className="font-sport text-7xl font-extrabold italic leading-none sm:text-8xl">
-        60<span className="text-4xl">s</span>
-      </span>
-    );
-  return (
-    <span aria-hidden className="font-sport grid grid-cols-4 gap-0.5 text-xl font-bold sm:text-2xl">
-      {[1, "", "", 4, "", 4, 1, "", 2, "", "", 3, "", 3, 2, ""].map((n, i) => (
-        <span key={i} className="grid h-8 w-8 place-items-center rounded-sm bg-white/15 sm:h-9 sm:w-9">
-          {n}
-        </span>
-      ))}
-    </span>
-  );
-}
-
 type Kid = { id: string; name: string; onsite: boolean };
 
 /** The games corner's front page: a big tile for each game. Football asks who's playing first. */
@@ -252,8 +94,8 @@ export function ArcadeHub({ kids, glass = false }: { kids: Kid[]; glass?: boolea
         {GAMES.map((g) => {
           const inner = (
             <>
-              <span className={`flex flex-1 items-center justify-center py-4 ${glass ? "art" : ""}`}>
-                <Glyph id={g.id} />
+              <span className={`flex flex-1 items-center justify-center pb-3 ${glass ? "art" : ""}`}>
+                <GameLogo id={g.id} />
               </span>
               <span className="block">
                 <span className="font-sport block text-[30px] font-extrabold italic leading-none">{g.name}</span>
