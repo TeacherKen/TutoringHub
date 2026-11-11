@@ -1,4 +1,5 @@
 "use client";
+import { parentNote } from "@/lib/parentNote";
 import { netFail } from "@/lib/netFail";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { saveFinalMessage, saveLessonNote, setSent, type NoteInput } from "@/app/actions/lessons";
@@ -268,7 +269,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
   // 📮 Send as a lesson update: save the message, tick it as sent (so it shows on the family page with this
   // lesson's topics, homework and work photos), then a short note with the link goes to the parent.
   const [updating, setUpdating] = useState(false);
-  async function sendUpdate() {
+  async function sendUpdate(how: "chat" | "copy" = "chat") {
     if (!family || !finalMsg.trim()) return;
     setUpdating(true);
     if (finalState !== "saved" && !(await saveFinal())) return setUpdating(false);
@@ -283,10 +284,9 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
     if (!r.ok) return setFlash("Couldn't mark the update as sent — try again before sending the link.");
     setSentAt(r.sent_at);
     if (!token) return setFlash("Couldn't make the family link. Try again.");
-    // Mr Ken's short note: the greeting and the link (the full feedback is on the family page).
-    const hello = promptContext.parentName?.trim() ? `Hi ${promptContext.parentName.trim()}!` : "Hi!";
-    const msg = `${hello} Here's the feedback for today: 😊\n\nYou can see ${family.names}'s lessons and progress anytime here: ${window.location.origin}/family/${token}`;
-    const link = contact ? chatLink(contact.app, contact.value, msg) : null;
+    // Mr Ken's short note: greeting, link and sign-off (the full feedback is on the family page).
+    const msg = parentNote(promptContext.parentName, family.names, `${window.location.origin}/family/${token}`);
+    const link = how === "chat" && contact ? chatLink(contact.app, contact.value, msg) : null;
     if (link) window.open(link.href, "_blank", "noopener");
     else {
       const ok = await copy(msg);
@@ -475,14 +475,14 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
             <p className="font-semibold">📮 Send as a lesson update</p>
             <p className="text-sm text-muted">
               Puts this message on {family.names}&apos;s family page with today&apos;s topics, homework and work photos, then{" "}
-              {contact && chatLink(contact.app, contact.value, "x") ? "opens the chat with" : "copies"} a short note for the parent: “Hi! Here&apos;s the feedback for today” and the link.
+              {contact && chatLink(contact.app, contact.value, "x") ? "opens the chat with" : "copies"} a short note for the parent: “Hi! Here&apos;s the feedback for today updated”, the link and “Best wishes, Kenneth”.
             </p>
-            <button type="button" className="btn-primary w-full" onClick={sendUpdate} disabled={updating}>
+            <button type="button" className="btn-primary w-full" onClick={() => void sendUpdate()} disabled={updating}>
               {updating ? "Getting it ready…" : sentAt ? "Send the update link again" : "Send lesson update"}
             </button>
           </div>
         ) : null}
-        {family && finalMsg.trim() ? <p className="text-xs text-muted">Or send the whole message yourself:</p> : null}
+        {family && finalMsg.trim() ? <p className="text-xs text-muted">{family.add ? "Or copy the short note yourself (untick to copy the whole message instead):" : "Or send the whole message yourself:"}</p> : null}
         {finalMsg.trim() ? <FamilyLinkTick /> : null}
         <div className="flex flex-col gap-2 sm:flex-row">
           <button type="button" className="btn-primary flex-1" onClick={saveFinal} disabled={finalState !== "idle"}>
@@ -493,6 +493,8 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
             className={`${flash?.startsWith("Message copied") ? "btn-primary" : "btn-secondary"} flex-1`}
             disabled={!finalMsg.trim()}
             onClick={async () => {
+              // With the family link ticked: save, mark as sent (so it shows on the family page) and copy the short note.
+              if (family?.add) return void sendUpdate("copy");
               const ok = await copy(withFamily(finalMsg));
               setFlash(ok ? "Message copied — paste it into the parent's chat." : "Couldn't copy.");
               setTimeout(() => setFlash(null), 4000);
@@ -500,7 +502,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
           >
             {flash?.startsWith("Message copied") ? "✓ Copied" : "Copy final message"}
           </button>
-          {contact ? <SendButton app={contact.app} contact={contact.value} text={finalMsg} className="btn-primary flex-1" /> : null}
+          {contact && !family?.add ? <SendButton app={contact.app} contact={contact.value} text={finalMsg} className="btn-primary flex-1" /> : null}
         </div>
         <label className="flex min-h-12 items-center gap-3 rounded-xl bg-surface-2 px-3">
           <input
