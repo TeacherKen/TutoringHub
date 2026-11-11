@@ -18,3 +18,4 @@ Game art by Kenney (www.kenney.nl), released as CC0 (free to use, no credit requ
 - garden/   Platformer Pack Remastered (sky, grass, bush, fence, plant, mushroom) - Piggy Bank Rain garden
 - cards/    Boardgame Pack (poker chips, card backs) - Make the Number card duel
 - aliens/   Physics Assets (aliens) - Balance Puzzles Alien Weigh Station
+- gems/     Platformer Pack Remastered (gems, star) - Number Snake gems

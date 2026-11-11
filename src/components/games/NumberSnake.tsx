@@ -2,12 +2,17 @@
 import { useEffect, useRef, useState } from "react";
 import { SNAKE_LEVELS, snakeDone, snakePuzzle, step, type SnakePuzzle, type SnakeSize } from "@/lib/games/numberSnake";
 import { useBest } from "./useBest";
-import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
+import { BigButton, GameHero, HowToPlay, LevelPicker, ResultCard, THEMES } from "./GameKit";
 
 const T = THEMES.snake;
 
-// 🐍 Number Snake: start at 1 and tap (or drag to) the next square to grow the snake 2, 3, 4 …
-// It must pass through the numbers already shown and fill every square. Tap the snake to go back.
+// Number Snake: Sammy the snake is hungry for gems! Start at 1 and tap (or drag to) the next square to
+// grow the snake 2, 3, 4 … The numbers already shown sit on gems: the snake must reach each gem on
+// exactly that number, and fill every square. Tap the snake to go back.
+// (Gems and grass: Kenney "Platformer Pack Remastered"; Sammy: "Animal Pack Remastered". CC0.)
+
+const GEM = ["gemBlue", "gemGreen", "gemYellow", "gemRed"];
+const gemOf = (v: number) => `/games/art/gems/${GEM[v % GEM.length]}.png`;
 
 const secs = (ms: number) => {
   const s = Math.round(ms / 1000);
@@ -82,9 +87,19 @@ export function NumberSnake() {
   if (phase === "setup")
     return (
       <div className="space-y-4">
-        <GameHero theme={T} art="🐍" title="NUMBER SNAKE">
-          Grow the snake 1, 2, 3 … through every square on the board!
+        <GameHero theme={T} art={null} title="NUMBER SNAKE">
+          Sammy the snake is hungry for gems! Grow Sammy 1, 2, 3 … through every square and gobble every gem on the way.
         </GameHero>
+        <HowToPlay
+          theme={T}
+          open
+          steps={[
+            <>Sammy starts on <strong>1</strong>. Tap the square next to Sammy&apos;s head for <strong>2</strong>, then <strong>3</strong>, and so on. You can also drag your finger.</>,
+            "Move up, down, left or right. No corner-to-corner jumps!",
+            <>A gem with a number (like <strong>7</strong>) must be eaten exactly when Sammy reaches 7.</>,
+            "Fill every square on the board to win. Went the wrong way? Tap the snake, or Back one.",
+          ]}
+        />
         <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-surface-2 p-3">
           <div className="grid w-max shrink-0 grid-cols-3 overflow-hidden rounded-xl ring-4 ring-[#5b9a4f]" aria-hidden>
             {[1, 2, 3, 6, 5, 4, 7, 8, 9].map((v, i) => (
@@ -98,7 +113,7 @@ export function NumberSnake() {
           </p>
         </div>
         <LevelPicker theme={T} levels={([4, 5, 6] as SnakeSize[]).map((k) => [String(k), SNAKE_LEVELS[k]] as [string, string])} value={String(size)} onChange={(k) => setSize(Number(k) as SnakeSize)} />
-        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best * 1000)}</p> : null}
+        {best != null ? <p className="text-center text-sm text-muted">Your fastest: {secs(best * 1000)}</p> : null}
         <BigButton theme={T} onClick={start}>
           ▶ Start
         </BigButton>
@@ -117,7 +132,15 @@ export function NumberSnake() {
   const [hx, hy] = centre(head);
   const dir = prev == null ? [0, 1] : [hx - centre(prev)[0], hy - centre(prev)[1]];
   const pts = path.map((c) => centre(c).join(",")).join(" ");
+  const gems = p.given.size;
+  const eaten = path.filter((c) => p.given.has(c)).length;
   const board = (
+      <div style={{ width: px * n }} className="relative mx-auto">
+      <style>{`@keyframes ns-glint{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}@keyframes ns-gulp{0%{transform:scale(.3) rotate(0);opacity:1}100%{transform:scale(1.8) rotate(90deg);opacity:0}}`}</style>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/games/art/garden/bush.png" alt="" aria-hidden className="pointer-events-none absolute -left-9 -top-8 z-10 h-10 w-12 object-contain" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/games/art/garden/plantPurple.png" alt="" aria-hidden className="pointer-events-none absolute -bottom-3 -right-6 z-10 h-10 w-10 object-contain" />
       <div
         className="relative mx-auto touch-none select-none overflow-hidden rounded-3xl shadow-[0_6px_0_#3f7d3a,0_10px_20px_rgba(0,0,0,.18)] ring-4 ring-[#5b9a4f]"
         style={{ width: px * n, height: px * n }}
@@ -139,6 +162,12 @@ export function NumberSnake() {
           {Array.from({ length: N }, (_, c) => (
             <rect key={c} x={c % n} y={Math.floor(c / n)} width="1" height="1" fill={((c % n) + Math.floor(c / n)) % 2 === 0 ? "#b7e4a0" : "#a6d98c"} />
           ))}
+          {/* little grass tufts */}
+          {Array.from({ length: N }, (_, c) =>
+            (c * 7 + 3) % 5 === 0 && !p.given.has(c) ? (
+              <path key={`t${c}`} d={`M${(c % n) + 0.2} ${Math.floor(c / n) + 0.85} l0.05 -0.14 l0.05 0.14 l0.05 -0.18 l0.05 0.18`} fill="none" stroke="#6fbf57" strokeWidth="0.03" strokeLinejoin="round" />
+            ) : null,
+          )}
           {/* the snake's body: one smooth tube with a dark outline, a lighter back and spots */}
           {path.length > 1 ? (
             <>
@@ -190,20 +219,27 @@ export function NumberSnake() {
                 data-sq={c}
                 role="button"
                 aria-label={i != null ? `Square ${i + 1}` : given != null ? `Square showing ${given}` : "Empty square"}
-                className="grid place-items-center font-black tabular-nums"
+                className="relative grid place-items-center font-black tabular-nums"
                 style={{ fontSize: px * (n === 4 ? 0.34 : 0.36) }}
               >
                 {i != null ? (
                   <span className={`text-white [text-shadow:0_0_3px_#1f5a24,0_1px_2px_rgba(0,0,0,.6)] ${isHead ? "pz-anim animate-[tt-pop_.25s_ease-out]" : ""}`}>{i + 1}</span>
                 ) : given != null ? (
-                  <span className="grid place-items-center rounded-full bg-white text-[#14532d] shadow-[0_3px_0_#d6d3c4]" style={{ width: px * 0.66, height: px * 0.66 }}>
-                    {given}
+                  <span className="relative grid place-items-center" style={{ width: px * 0.86, height: px * 0.7 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={gemOf(given)} alt="" aria-hidden className="absolute inset-0 h-full w-full object-contain drop-shadow-[0_3px_2px_rgba(0,0,0,.3)]" style={{ animation: "ns-glint 2.4s ease-in-out infinite", animationDelay: `${(given % 5) * 0.3}s` }} />
+                    <span className="relative text-white [text-shadow:0_0_3px_#0f172a,0_1px_2px_rgba(0,0,0,.7)]">{given}</span>
                   </span>
+                ) : null}
+                {i != null && given != null && i === path.length - 1 ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src="/games/art/gems/sparkle.png" alt="" aria-hidden className="pointer-events-none absolute h-1/2 w-1/2 object-contain" style={{ animation: "ns-gulp .6s ease-out forwards" }} />
                 ) : null}
               </span>
             );
           })}
         </div>
+      </div>
       </div>
   );
 
@@ -211,13 +247,13 @@ export function NumberSnake() {
     return (
       <ResultCard
         theme={T}
-        art="🐍"
-        label={`Snake complete: 1 to ${N} in`}
+        art={null}
+        label={`Sammy ate every gem! 1 to ${N} in`}
         big={secs(took)}
         newBest={newBest}
         bestText={best != null ? `Your fastest: ${secs(best * 1000)}` : undefined}
         onAgain={start}
-        againLabel="Next snake ▶"
+        againLabel="Next snake"
         onChange={() => setPhase("setup")}
         changeLabel="Change size"
       >
@@ -234,11 +270,13 @@ export function NumberSnake() {
               Next number: <strong className="text-lg tabular-nums text-ink">{next}</strong>
             </>
           ) : (
-            <strong className="text-ok">All done! 🎉</strong>
+            <strong className="text-ok">All done!</strong>
           )}
         </span>
-        <span className="tabular-nums">
-          {path.length} of {N} squares
+        <span className="flex items-center gap-1.5 tabular-nums">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={gemOf(1)} alt="" aria-hidden className="h-4 w-6 object-contain" />
+          {eaten} of {gems} gems · {path.length} of {N} squares
         </span>
       </div>
       {board}
@@ -247,7 +285,7 @@ export function NumberSnake() {
       </p>
       <div className="grid grid-cols-2 gap-2">
         <button type="button" className="btn-secondary" disabled={path.length <= 1} onClick={() => (setPath((q) => q.slice(0, -1)), setWhy(null))}>
-          ↩ Back one
+          Back one
         </button>
         <button type="button" className="btn-secondary" disabled={path.length <= 1} onClick={() => (setPath([p.path[0]]), setWhy(null))}>
           Start again
