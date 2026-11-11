@@ -20,7 +20,7 @@ const EXT_BY_TYPE: Record<string, string> = {
   "image/webp": "webp",
 };
 
-export function Materials({ lessonId, items, bare = false }: { lessonId: string; items: MaterialView[]; bare?: boolean }) {
+export function Materials({ lessonId, items, bare = false, kids = [] }: { lessonId: string; items: MaterialView[]; bare?: boolean; kids?: string[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +99,7 @@ export function Materials({ lessonId, items, bare = false }: { lessonId: string;
         <button type="button" className="btn-secondary" onClick={() => pdfRef.current?.click()} disabled={Boolean(busy)}>
           Upload PDF
         </button>
-        <WorksheetPhotos lessonId={lessonId} compact />
+        <WorksheetPhotos lessonId={lessonId} compact kids={kids} />
       </div>
       <input
         ref={pdfRef}

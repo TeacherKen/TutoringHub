@@ -21,11 +21,19 @@ export function WorksheetPhotos({
   lessonId,
   label = "Worksheet",
   compact = false,
+  kids = [],
 }: {
   lessonId: string;
   label?: string;
   compact?: boolean;
+  /** In a lesson with brothers and sisters: their names, so Mr Ken can say whose work the photos are. */
+  kids?: string[];
 }) {
+  const [who, setWho] = useState<string>(""); // "" = both / everyone
+  const [what, setWhat] = useState<"Worksheet" | "Homework">("Worksheet");
+  const many = kids.length > 1;
+  // e.g. "Jaian · Homework (2)"; one child (or the student page): the label given, as before
+  const base = many ? `${who ? `${who} · ` : ""}${what}` : label;
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -78,7 +86,7 @@ export function WorksheetPhotos({
           lessonId,
           path,
           "photo",
-          files.length > 1 ? `${label} (${n + 1})` : label,
+          files.length > 1 ? `${base} (${n + 1})` : base,
         );
         if (r.error) setError(r.error);
         else saved++;
@@ -98,13 +106,33 @@ export function WorksheetPhotos({
 
   return (
     <div className="space-y-1.5">
+      {many ? (
+        <div className="space-y-2 rounded-2xl bg-white/[0.04] p-2.5 ring-1 ring-white/10">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-sm text-muted">Whose?</span>
+            {["", ...kids].map((k) => (
+              <button key={k || "both"} type="button" aria-pressed={who === k} onClick={() => setWho(k)} className={`min-h-9 rounded-full px-3 text-sm font-semibold ${who === k ? "bg-accent text-white" : "bg-white/10"}`}>
+                {k || "Both"}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-sm text-muted">What?</span>
+            {(["Worksheet", "Homework"] as const).map((k) => (
+              <button key={k} type="button" aria-pressed={what === k} onClick={() => setWhat(k)} className={`min-h-9 rounded-full px-3 text-sm font-semibold ${what === k ? "bg-accent text-white" : "bg-white/10"}`}>
+                {k === "Worksheet" ? "Class work" : "Homework"}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <button
         type="button"
         className={compact ? "btn-secondary" : "btn-primary w-full sm:w-auto"}
         onClick={() => input.current?.click()}
         disabled={!!status?.startsWith("Saving")}
       >
-        📸 Add worksheet photos
+        {many ? `Add photos: ${who || "both"} · ${what === "Homework" ? "homework" : "class work"}` : "Add worksheet photos"}
       </button>
       <input
         ref={input}

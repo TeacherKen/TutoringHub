@@ -182,7 +182,7 @@ export default async function LessonPage({ params, searchParams }: PageProps<"/l
               </span>
             }
           >
-            <Materials lessonId={lesson.id} items={materials} bare />
+            <Materials lessonId={lesson.id} items={materials} bare kids={inLesson.map((ls) => ls.students?.first_name ?? "").filter(Boolean)} />
           </Fold>
         </>
         }
