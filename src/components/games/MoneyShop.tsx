@@ -62,7 +62,7 @@ export function Cash({ m, c, small = false }: { m: Money; c: Currency; small?: b
   );
 }
 
-/** 🏪 The adventure market: a shopkeeper at a stall with the gear on the counter, and what to do. */
+/** The adventure market: a shopkeeper at a stall with the gear on the counter, and what to do. */
 function Market({ q, c, level, n, happy }: { q: ShopQ; c: Currency; level: ShopLevel; n: number; happy: boolean }) {
   const keeper = KEEPERS[n % KEEPERS.length];
   const many = q.items.length > 1;
@@ -186,7 +186,7 @@ export function MoneyShop() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <GameHero theme={T} art="🛒" title="ADVENTURE MARKET">
+        <GameHero theme={T} art={null} title="ADVENTURE MARKET">
           Buy gear for your adventure at {COUNT} stalls. Tap coins and notes to pay. Wrong? You get a hint.
         </GameHero>
         <div className="grid grid-cols-2 gap-2" role="group" aria-label="Money">
@@ -214,7 +214,7 @@ export function MoneyShop() {
           ))}
         </div>
         <LevelPicker theme={T} levels={Object.entries(SHOP_LEVELS) as [ShopLevel, string][]} value={level} onChange={setLevel} />
-        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        {best != null ? <p className="text-center text-sm text-muted">Your fastest: {secs(best)}</p> : null}
         <BigButton theme={T} onClick={start}>
           ▶ Go to the market
         </BigButton>
@@ -224,7 +224,7 @@ export function MoneyShop() {
 
   if (phase === "done") {
     return (
-      <ResultCard theme={T} art="🛒" label={`All ${COUNT} stalls done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
+      <ResultCard theme={T} art={null} label={`All ${COUNT} stalls done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 

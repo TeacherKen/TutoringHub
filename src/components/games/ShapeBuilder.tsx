@@ -416,7 +416,7 @@ export function ShapeBuilder() {
           </div>
         ))}
         <LevelPicker theme={T} levels={(Object.keys(LEVELS) as Level[]).map((l) => [l, `${LEVELS[l].name} · ${levelBlurb(l, piecesOf(picture).length)}`] as [Level, string])} value={level} onChange={setLevel} />
-        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest for this picture and level: {secs(best)}</p> : null}
+        {best != null ? <p className="text-center text-sm text-muted">Your fastest for this picture and level: {secs(best)}</p> : null}
         <BigButton theme={T} onClick={start}>
           ▶ Start {picture.name}
         </BigButton>

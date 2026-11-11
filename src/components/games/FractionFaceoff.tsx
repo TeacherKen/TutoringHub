@@ -192,11 +192,11 @@ export function FractionFaceoff() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <GameHero theme={T} art="🤖" title="FRACTION FACE-OFF">
+        <GameHero theme={T} art={null} title="FRACTION FACE-OFF">
           Tap the bigger fraction. How many can you get in 60 seconds? A wrong tap costs a moment.
         </GameHero>
         <LevelPicker theme={T} levels={Object.entries(FACE_LEVELS) as [FaceLevel, string][]} value={level} onChange={setLevel} />
-        {best != null ? <p className="text-center text-sm text-muted">🏅 Your best on this level: {best}</p> : null}
+        {best != null ? <p className="text-center text-sm text-muted">Your best on this level: {best}</p> : null}
         <BigButton theme={T} onClick={start}>
           ▶ Start
         </BigButton>
@@ -206,10 +206,10 @@ export function FractionFaceoff() {
 
   if (phase === "done") {
     return (
-      <ResultCard theme={T} art="🤖" label="Time's up! You scored" big={score} newBest={newBest} bestText={`Your best: ${best ?? score}`} onAgain={start} onChange={() => setPhase("setup")}>
+      <ResultCard theme={T} art={null} label="Time's up! You scored" big={score} newBest={newBest} bestText={`Your best: ${best ?? score}`} onAgain={start} onChange={() => setPhase("setup")}>
         {missed.length ? (
           <div className="rounded-2xl border-2 border-dashed border-line bg-surface-2 p-3 text-left">
-            <p className="text-sm font-semibold">📝 Tricky ones:</p>
+            <p className="text-sm font-semibold">Tricky ones:</p>
             <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-3">
               {missed.map((m) => {
                 const c = compareFrac(m.left, m.right);

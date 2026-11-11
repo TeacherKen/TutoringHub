@@ -160,7 +160,7 @@ export function Board({ theme, children, className = "" }: { theme: Theme; child
 }
 
 /** A progress bar with a little runner (an emoji) moving along it. */
-export function Runner({ theme, value, max, icon = "🚀" }: { theme: Theme; value: number; max: number; icon?: string }) {
+export function Runner({ theme, value, max, icon = "•" }: { theme: Theme; value: number; max: number; icon?: string }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div className="relative h-8" aria-hidden>

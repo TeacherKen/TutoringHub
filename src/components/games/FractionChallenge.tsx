@@ -10,7 +10,7 @@ const T = THEMES.pirate;
 const PI = "/games/art/pirate"; // Kenney Pirate Pack, Block Pack, Platformer Pack (CC0)
 
 /**
- * 🏴‍☠️ The treasure voyage: each right answer sails the pirate ship one step to Treasure Island.
+ * The treasure voyage: each right answer sails the pirate ship one step to Treasure Island.
  * A wrong answer: a cannonball splashes next to the ship (and a hint shows).
  */
 function Voyage({ n, max, splash }: { n: number; max: number; splash: number }) {
@@ -142,11 +142,11 @@ export function FractionChallenge() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <GameHero theme={T} art="🏴‍☠️" title="FRACTION CHALLENGE">
+        <GameHero theme={T} art={null} title="FRACTION CHALLENGE">
           {COUNT} questions. A wrong answer gets a hint, then you try again.
         </GameHero>
         <LevelPicker theme={T} levels={Object.entries(CHALLENGE_LEVELS) as [ChallengeLevel, string][]} value={level} onChange={setLevel} />
-        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        {best != null ? <p className="text-center text-sm text-muted">Your fastest: {secs(best)}</p> : null}
         <BigButton theme={T} onClick={start}>
           ▶ Start
         </BigButton>
@@ -156,7 +156,7 @@ export function FractionChallenge() {
 
   if (phase === "done") {
     return (
-      <ResultCard theme={T} art="🏴‍☠️" label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
+      <ResultCard theme={T} art={null} label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 

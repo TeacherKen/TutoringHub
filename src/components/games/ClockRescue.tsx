@@ -508,7 +508,7 @@ function Tower({ n, oops, time }: { n: number; oops: number; time: string }) {
   const fl = "var(--fl)";
   return (
     <div
-      className="relative h-[calc(var(--fl)*14.6+48px)] overflow-hidden rounded-3xl shadow-[0_6px_18px_rgba(0,0,0,.18)] ring-2 ring-black/10 [--fl:17px] sm:[--fl:25px]"
+      className="relative h-[calc(var(--fl)*14.6+48px)] overflow-hidden rounded-3xl shadow-[0_6px_18px_rgba(0,0,0,.18)] ring-2 ring-black/10 [--fl:14px] sm:[--fl:25px]"
       style={{ background: `url(${TW}/colored_shroom.png) center bottom / auto 100% repeat-x, #d6eef8` }}
       role="img"
       aria-label={`Clock tower: ${n} of ${COUNT} clocks fixed`}

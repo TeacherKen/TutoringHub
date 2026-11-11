@@ -205,7 +205,7 @@ export function MiniSudoku() {
           Solved in {time}s!{best != null && time != null && time <= best ? " New best!" : best != null ? ` Best: ${best}s` : ""}
         </p>
       ) : checked === "wrong" ? (
-        <p className="pz-anim animate-[pz-shake_.35s] rounded-2xl bg-warn-soft p-3 text-center text-warn">🤔 Almost — something doesn&apos;t fit. Check each row, column and box.</p>
+        <p className="pz-anim animate-[pz-shake_.35s] rounded-2xl bg-warn-soft p-3 text-center text-warn">Almost — something doesn&apos;t fit. Check each row, column and box.</p>
       ) : best != null ? (
         <p className="text-center text-sm text-muted">Your best: {best}s</p>
       ) : null}

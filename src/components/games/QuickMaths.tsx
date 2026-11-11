@@ -8,7 +8,7 @@ const T = THEMES.space;
 const SP = "/games/art/space"; // Kenney Alien UFO Pack, Space Shooter, Planets (CC0)
 
 /**
- * 🛸 The space race: your UFO flies towards the planet, one hop for each right answer.
+ * The space race: your UFO flies towards the planet, one hop for each right answer.
  * The question glows in the middle; a laser burst flashes when you get one right.
  */
 function SpaceRace({ n, max, text, wrong }: { n: number; max: number; text: string; wrong: boolean }) {
@@ -166,11 +166,11 @@ export function QuickMaths() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <GameHero theme={T} art="🛸" title="QUICK MATHS">
+        <GameHero theme={T} art={null} title="QUICK MATHS">
           Answer {COUNT} questions as fast as you can. A wrong answer? Just try again.
         </GameHero>
         <LevelPicker theme={T} levels={Object.entries(LEVELS) as [Level, string][]} value={level} onChange={setLevel} />
-        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        {best != null ? <p className="text-center text-sm text-muted">Your fastest: {secs(best)}</p> : null}
         <BigButton theme={T} onClick={start}>
           ▶ Start
         </BigButton>
@@ -180,7 +180,7 @@ export function QuickMaths() {
 
   if (phase === "done") {
     return (
-      <ResultCard theme={T} art="🛸" label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
+      <ResultCard theme={T} art={null} label={`All ${COUNT} done in`} big={secs(Math.round(elapsed / 100))} newBest={newBest} bestText={`Your fastest: ${best != null ? secs(best) : "—"}`} onAgain={start} onChange={() => setPhase("setup")} />
     );
   }
 

@@ -60,8 +60,8 @@ export function FractionShow({ onBack, value, onChange, readOnly = false }: { on
       <div className="flex gap-2">
         {(
           [
-            ["pizza", "🍕 Pizza"],
-            ["bar", "🍫 Chocolate bar"],
+            ["pizza", "Pizza"],
+            ["bar", "Chocolate bar"],
           ] as const
         ).map(([k, label]) => (
           <button key={k} type="button" aria-pressed={shape === k} onClick={() => set({ shape: k })} className={`min-h-11 flex-1 rounded-xl border-2 font-semibold ${shape === k ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}>

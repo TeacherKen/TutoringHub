@@ -8,7 +8,7 @@ const T = THEMES.race;
 const RC = "/games/art/race"; // Kenney Racing Pack (CC0)
 
 /**
- * 🏎️ The race: your red car moves one step for each right answer. The blue "pace car" drives
+ * The race: your red car moves one step for each right answer. The blue "pace car" drives
  * steadily and reaches the flag when time runs out, at your best score (or 20) — beat it!
  */
 function RaceTrack({ score, goal, left, ready }: { score: number; goal: number; left: number; ready: number | null }) {
@@ -153,7 +153,7 @@ export function TimesTables() {
   if (phase === "setup") {
     return (
       <div className="space-y-5">
-        <GameHero theme={T} art="🏎️" title="TIMES TABLES SPRINT">
+        <GameHero theme={T} art={null} title="TIMES TABLES SPRINT">
           Pick your times tables, then answer as many as you can in 60 seconds!
         </GameHero>
         <p className="text-sm font-semibold">Which tables?</p>
@@ -174,7 +174,7 @@ export function TimesTables() {
             );
           })}
         </div>
-        {best != null ? <p className="text-center text-sm text-muted">🏅 Your best with these tables: {best}</p> : null}
+        {best != null ? <p className="text-center text-sm text-muted">Your best with these tables: {best}</p> : null}
         <BigButton theme={T} onClick={start}>
           ▶ Start
         </BigButton>
@@ -184,10 +184,10 @@ export function TimesTables() {
 
   if (phase === "done") {
     return (
-      <ResultCard theme={T} art="🏎️" label="Time's up! You scored" big={score} newBest={newBest} bestText={`Your best: ${best ?? score}`} onAgain={start} onChange={() => setPhase("setup")} changeLabel="Change tables">
+      <ResultCard theme={T} art={null} label="Time's up! You scored" big={score} newBest={newBest} bestText={`Your best: ${best ?? score}`} onAgain={start} onChange={() => setPhase("setup")} changeLabel="Change tables">
         {missed.length ? (
           <div className="rounded-2xl border-2 border-dashed border-line bg-surface-2 p-3 text-left">
-            <p className="text-sm font-semibold">📝 Practise these:</p>
+            <p className="text-sm font-semibold">Practise these:</p>
             <p className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-lg tabular-nums">
               {missed.map((m) => (
                 <span key={`${m.a}x${m.b}`}>{`${m.a} × ${m.b} = ${m.a * m.b}`}</span>
