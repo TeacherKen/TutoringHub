@@ -3,12 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { PICTURES, PIECES, piecesOf, fits, hintFor, isSolved, normalize, pictureById, pictureCells, pictureSize, rotate, flip, solutionsFor, type Cell, type PieceId, type Picture, type Placement } from "@/lib/pentomino";
 import { useBest } from "./useBest";
 import { useReport } from "./report";
-import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
+import { BigButton, GameHero, HowToPlay, LevelPicker, ResultCard, THEMES } from "./GameKit";
 
 const T = THEMES.blocks;
 import { sfx } from "@/lib/gameSound";
 
-// 🧩 Shape Builder: fit all 12 blocks into the picture. Built for the iPad.
+// Shape Builder: fit all the toy bricks into the picture. Built for the iPad.
 // Drag a block (from the tray or from the picture) and it rides under your finger as a real block; let go
 // over the picture and it snaps into the squares if it fits, or slides back if it doesn't. Tap a block to
 // select it, then Rotate / Flip. Any arrangement that fills the picture wins, not only the model answer.
@@ -366,12 +366,21 @@ export function ShapeBuilder() {
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <GameHero theme={T} art="🧩" title="SHAPE BUILDER">
-          Fit all the blocks into the picture. Drag them in, turn and flip them. Any way that fills the picture wins!
+        <GameHero theme={T} art={null} title="SHAPE BUILDER">
+          Build the picture with toy bricks! Drag them in, turn and flip them. Any way that fills the picture wins!
         </GameHero>
+        <HowToPlay
+          theme={T}
+          steps={[
+            "Pick a picture. Little pictures are a good start.",
+            "Drag a brick from the tray onto the picture. It snaps into place when it fits.",
+            "Tap a brick on the picture to turn it, flip it, or send it back to the tray.",
+            "Fill every square of the picture to finish. Stuck? Tap Hint (but fewer hints = more stars).",
+          ]}
+        />
         {resumable ? (
           <BigButton theme={T} onClick={() => resume(resumable)}>
-            ▶ Carry on: {pictureById(resumable.pictureId)!.emoji} {pictureById(resumable.pictureId)!.name} · {LEVELS[resumable.level].name} · {resumable.blocks.filter((b) => !b.at).length} to go
+            ▶ Carry on: {pictureById(resumable.pictureId)!.name} · {LEVELS[resumable.level].name} · {resumable.blocks.filter((b) => !b.at).length} to go
           </BigButton>
         ) : null}
         {[
@@ -394,9 +403,7 @@ export function ShapeBuilder() {
                     className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-1.5 transition ${on ? "-translate-y-0.5 border-transparent text-white" : "border-line bg-surface hover:border-[#1f7fa3]"}`}
                     style={on ? { background: `linear-gradient(${T.from}, ${T.to})`, boxShadow: `0 4px 0 color-mix(in srgb, ${T.to}, #000 35%)` } : undefined}
                   >
-                    <span className="text-3xl" aria-hidden>
-                      {p.emoji}
-                    </span>
+                    <Silhouette picture={p} size={40} />
                     <span className="text-sm font-medium leading-tight">
                       {p.name}
                       {p.pieces ? <span className="opacity-70"> · {p.pieces.length}</span> : null}
@@ -411,7 +418,7 @@ export function ShapeBuilder() {
         <LevelPicker theme={T} levels={(Object.keys(LEVELS) as Level[]).map((l) => [l, `${LEVELS[l].name} · ${levelBlurb(l, piecesOf(picture).length)}`] as [Level, string])} value={level} onChange={setLevel} />
         {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest for this picture and level: {secs(best)}</p> : null}
         <BigButton theme={T} onClick={start}>
-          ▶ Start {picture.emoji} {picture.name}
+          ▶ Start {picture.name}
         </BigButton>
       </div>
     );
@@ -421,7 +428,7 @@ export function ShapeBuilder() {
     return (
       <ResultCard
         theme={T}
-        art={picture.emoji}
+        art={null}
         label={`${picture.name} finished in`}
         big={secs(Math.round(elapsed / 100))}
         newBest={newBest}
@@ -457,7 +464,7 @@ export function ShapeBuilder() {
     <div className="select-none space-y-2">
       <div className="flex items-center justify-between text-sm text-muted">
         <span>
-          {picture.emoji} {picture.name} · <strong className="text-ink tabular-nums">{toGo}</strong> to go
+          {picture.name} · <strong className="text-ink tabular-nums">{toGo}</strong> to go
         </span>
         <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
       </div>
@@ -491,7 +498,11 @@ export function ShapeBuilder() {
                     top: r * px,
                     width: px,
                     height: px,
-                    background: snap ? (snapOk ? "rgba(47,107,98,.4)" : "rgba(200,40,40,.35)") : (r + c) % 2 ? "#e4e8ef" : "#dde2ea",
+                    background: snap
+                      ? snapOk
+                        ? "rgba(47,107,98,.4)"
+                        : "rgba(200,40,40,.35)"
+                      : `radial-gradient(circle, rgba(51,65,92,.10) 0 ${Math.round(px * 0.24)}px, transparent ${Math.round(px * 0.24) + 1}px), ${(r + c) % 2 ? "#e4e8ef" : "#dde2ea"}`,
                     borderTop: out(-1, 0) ? edge : "1px solid rgba(51,65,92,.12)",
                     borderLeft: out(0, -1) ? edge : "1px solid rgba(51,65,92,.12)",
                     borderBottom: out(1, 0) ? edge : undefined,
@@ -542,9 +553,7 @@ export function ShapeBuilder() {
         <div className="flex w-full flex-col gap-3 lg:shrink-0" style={side ? { width: colW } : undefined}>
           {/* What to beat, and how to play */}
           <div className="flex min-h-14 items-center gap-3 rounded-2xl bg-surface-2 px-4 py-2">
-            <span className="text-3xl" aria-hidden>
-              {picture.emoji}
-            </span>
+            <Silhouette picture={picture} size={44} />
             <span className="min-w-0 flex-1 text-sm leading-snug">
               <span className="block font-semibold">
                 {LEVELS[level].name}
@@ -596,7 +605,7 @@ export function ShapeBuilder() {
           ‹ Change picture
         </button>
         <button type="button" className="btn-secondary min-h-11" onClick={hint}>
-          💡 Hint
+          Hint
         </button>
       </div>
 
@@ -667,7 +676,14 @@ function Block({
             height: px,
             backgroundColor: tint ?? p.color,
             // a fixed (given) block wears a little pin in each square, so children see they can't move it
-            backgroundImage: locked ? "radial-gradient(circle at 50% 50%, rgba(255,255,255,.55) 0 3px, transparent 3.5px)" : undefined,
+            // a toy-brick stud on every square (a fixed block's studs also have a little pin)
+            backgroundImage: [
+              locked ? "radial-gradient(circle at 50% 50%, rgba(255,255,255,.75) 0 3px, transparent 3.5px)" : "",
+              `radial-gradient(circle at 44% 40%, rgba(255,255,255,.45) 0 ${Math.round(px * 0.09)}px, transparent ${Math.round(px * 0.09) + 1}px)`,
+              `radial-gradient(circle at 50% 50%, rgba(255,255,255,.14) 0 ${Math.round(px * 0.26)}px, rgba(0,0,0,.22) ${Math.round(px * 0.26)}px ${Math.round(px * 0.3)}px, transparent ${Math.round(px * 0.3) + 1}px)`,
+            ]
+              .filter(Boolean)
+              .join(", "),
             // rounded only on outside corners so the squares read as one piece
             borderTopLeftRadius: !has(r - 1, c) && !has(r, c - 1) ? 6 : 0,
             borderTopRightRadius: !has(r - 1, c) && !has(r, c + 1) ? 6 : 0,
@@ -857,5 +873,27 @@ function Board({ picture, placed, px }: { picture: Picture; placed: Placement[];
         ))}
       </div>
     </div>
+  );
+}
+
+/** A small brick picture of the shape to build (for the picture list). */
+function Silhouette({ picture, size }: { picture: Picture; size: number }) {
+  const rows = picture.rows.length;
+  const cols = Math.max(...picture.rows.map((r) => r.length));
+  const cell = size / Math.max(rows, cols);
+  const colour = TINT[picture.id] ?? "#2f6b62";
+  return (
+    <svg width={cols * cell} height={rows * cell} viewBox={`0 0 ${cols} ${rows}`} aria-hidden className="shrink-0 drop-shadow-[0_2px_1px_rgba(0,0,0,.25)]">
+      {picture.rows.flatMap((row, r) =>
+        row.split("").map((ch, c) =>
+          ch === "#" ? (
+            <g key={`${r},${c}`}>
+              <rect x={c} y={r} width="1.02" height="1.02" fill={colour} />
+              <circle cx={c + 0.5} cy={r + 0.5} r="0.28" fill="#fff" opacity=".22" />
+            </g>
+          ) : null,
+        ),
+      )}
+    </svg>
   );
 }

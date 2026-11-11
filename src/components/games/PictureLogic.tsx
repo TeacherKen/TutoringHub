@@ -2,11 +2,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cluesOf, lineDone, PIC_LEVELS, PICTURES, solved, type Picture, type PicLevel } from "@/lib/games/nonogram";
 import { useBest } from "./useBest";
-import { BigButton, GameHero, LevelPicker, ResultCard, THEMES } from "./GameKit";
+import { BigButton, GameHero, HowToPlay, LevelPicker, ResultCard, THEMES } from "./GameKit";
 
 const T = THEMES.pixel;
 
-// 🖼️ Picture Logic: the numbers say how many squares in a row (or column) are coloured, in order.
+// Picture Logic (pixel tiles from Kenney "Pixel Platformer", CC0): the numbers say how many squares in a row (or column) are coloured, in order.
 // Colour the right squares and a hidden picture appears. Drag to colour many at once.
 
 type Cell = 0 | 1 | 2; // empty, coloured, crossed out
@@ -116,8 +116,17 @@ export function PictureLogic() {
           }
           title="PICTURE LOGIC"
         >
-          Colour the right squares to find the hidden picture!
+          Pixel Pip has found a secret treasure map! Fill the right squares with blocks to uncover the hidden picture.
         </GameHero>
+        <HowToPlay
+          theme={T}
+          steps={[
+            <>The numbers beside each row (and above each column) say how many squares to fill <strong>in a row</strong>.</>,
+            <><strong>2 1</strong> means: 2 squares together, then at least one gap, then 1 more square.</>,
+            <>Tap <strong>Fill</strong> and tap squares to put a block in. Tap <strong>Mark empty</strong> to put an X where you know there&apos;s no block.</>,
+            "A clue turns green when its line is right. Make every clue green to see the picture!",
+          ]}
+        />
         <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-surface-2 p-3">
           <div className="grid grid-cols-[auto_repeat(3,2rem)] gap-1 text-sm font-bold tabular-nums" aria-hidden>
             <span className="grid h-8 w-10 place-items-center rounded-md bg-white text-ink shadow-sm">2 1</span>
@@ -130,7 +139,7 @@ export function PictureLogic() {
           </p>
         </div>
         <LevelPicker theme={T} levels={Object.entries(PIC_LEVELS) as [PicLevel, string][]} value={level} onChange={setLevel} />
-        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best * 1000)}</p> : null}
+        {best != null ? <p className="text-center text-sm text-muted">Your fastest: {secs(best * 1000)}</p> : null}
         <BigButton theme={T} onClick={() => start()}>
           ▶ Start
         </BigButton>
@@ -141,21 +150,27 @@ export function PictureLogic() {
   const n = pic.rows.length;
   const cell = n <= 5 ? "h-12 w-12 sm:h-14 sm:w-14" : "h-9 w-9 sm:h-11 sm:w-11";
   const group = n % 4 === 0 ? 4 : 5; // a darker line every 4 (8 × 8) or 5 squares, to help counting
+  const doneLines = clues.rows.filter((clue, r) => lineDone(filled[r], clue)).length + clues.cols.filter((clue, c) => lineDone(filled.map((row) => row[c]), clue)).length;
 
   if (phase === "won")
     return (
       <ResultCard
         theme={T}
-        art={pic.emoji}
+        art={null}
         label={`It's a ${pic.name}! Solved in`}
         big={secs(took)}
         newBest={newBest}
         bestText={best != null ? `Your fastest: ${secs(best * 1000)}` : undefined}
         onAgain={() => start()}
-        againLabel="Next picture ▶"
+        againLabel="Next picture"
         onChange={() => setPhase("setup")}
         changeLabel="Change size"
       >
+        <div className="flex items-end justify-center gap-2" aria-hidden>
+          <Px src="hero" className="h-16 w-16 animate-[gk-cheer_.8s_ease-in-out_infinite]" />
+          <Px src="chest" className="h-12 w-12" />
+          <Px src="diamond" className="h-10 w-10 animate-[pz-float_2s_ease-in-out_infinite]" />
+        </div>
         <div className="mx-auto inline-grid gap-1 rounded-2xl bg-white p-3 shadow-lg ring-1 ring-black/5 [perspective:600px]" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }} aria-hidden>
           {pic.rows.flatMap((row, r) =>
             [...row].map((ch, c) => (
@@ -178,15 +193,15 @@ export function PictureLogic() {
     <div className="space-y-4">
       <div className="flex gap-2">
         <button type="button" aria-pressed={mode === 1} onClick={() => setMode(1)} className={`min-h-12 flex-1 rounded-xl border-2 font-semibold ${mode === 1 ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}>
-          🖌️ Colour
+          <span className="inline-flex items-center gap-2"><Px src="block" className="h-6 w-6" /> Fill</span>
         </button>
         <button type="button" aria-pressed={mode === 2} onClick={() => setMode(2)} className={`min-h-12 flex-1 rounded-xl border-2 font-semibold ${mode === 2 ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface"}`}>
-          ✕ Mark empty
+          <span className="inline-flex items-center gap-2"><span className="text-[#f87171]">✕</span> Mark empty</span>
         </button>
       </div>
 
       <div className="overflow-x-auto">
-        <div className="mx-auto w-max select-none rounded-3xl bg-[#eef2f7] p-3 shadow-inner" style={{ display: "grid", gridTemplateColumns: `auto repeat(${n}, auto)` }}>
+        <div className="relative mx-auto w-max select-none rounded-3xl bg-[#eef2f7] p-3 shadow-inner" style={{ display: "grid", gridTemplateColumns: `auto repeat(${n}, auto)` }}>
           <span />
           {clues.cols.map((clue, c) => (
             <span
@@ -220,7 +235,7 @@ export function PictureLogic() {
                   className={`${cell} grid touch-none place-items-center border border-[#d5dde8] text-lg font-bold text-[#cbd5e1] transition-colors duration-100 ${c % group === group - 1 && c < n - 1 ? "border-r-2 border-r-[#94a3b8]" : ""} ${r % group === group - 1 && r < n - 1 ? "border-b-2 border-b-[#94a3b8]" : ""}`}
                   style={
                     v === 1
-                      ? { background: "linear-gradient(145deg, #3b4b66, #1e293b)", boxShadow: "inset 0 -3px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.12)" }
+                      ? { background: `url(${PX}/block.png) center / cover`, imageRendering: "pixelated" }
                       : { background: "#ffffff" }
                   }
                 >
@@ -231,10 +246,22 @@ export function PictureLogic() {
           ))}
         </div>
       </div>
-      <p className="text-center text-sm text-muted">Tap or drag across squares. A clue turns green when that line is right.</p>
+      <div className="flex items-center justify-center gap-2 text-sm text-muted">
+        <Px src={doneLines % 2 ? "hero2" : "hero"} className="h-10 w-10" />
+        <span>
+          <strong className="tabular-nums text-ink">{doneLines}</strong> of {n * 2} clues right. Tap or drag across squares.
+        </span>
+        <Px src="chest" className="h-8 w-8" />
+      </div>
       <button type="button" className="btn-secondary w-full" onClick={() => setGrid(grid.map((row) => row.map(() => 0 as Cell)))}>
         Start this picture again
       </button>
     </div>
   );
+}
+
+const PX = "/games/art/pixel";
+function Px({ src, className = "" }: { src: string; className?: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={`${PX}/${src}.png`} alt="" aria-hidden draggable={false} className={`pointer-events-none select-none object-contain [image-rendering:pixelated] ${className}`} />;
 }

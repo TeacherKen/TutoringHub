@@ -19,3 +19,4 @@ Game art by Kenney (www.kenney.nl), released as CC0 (free to use, no credit requ
 - cards/    Boardgame Pack (poker chips, card backs) - Make the Number card duel
 - aliens/   Physics Assets (aliens) - Balance Puzzles Alien Weigh Station
 - gems/     Platformer Pack Remastered (gems, star) - Number Snake gems
+- pixel/    Pixel Platformer (crate block, Pip, chest, diamond) - Picture Logic
