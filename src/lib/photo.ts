@@ -4,6 +4,13 @@
 // here in the browser first (the converter only downloads when a HEIC photo is actually picked).
 
 const HEIC = /\.(heic|heif)$/i;
+
+/**
+ * What a photo picker accepts: anything. Chrome on a Mac greys out iPhone HEIC photos when the picker
+ * is limited to images, so we let any file be picked and skip what isn't a photo. (iPhones and iPads
+ * still offer Photo Library and Take Photo.)
+ */
+export const PHOTO_ACCEPT: string | undefined = undefined;
 const PICTURE = /\.(heic|heif|jpe?g|png|webp|gif|bmp|avif)$/i;
 
 export const isHeic = (f: File | Blob) => /image\/hei[cf]/i.test(f.type) || ("name" in f && HEIC.test((f as File).name));

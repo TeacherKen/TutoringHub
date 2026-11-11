@@ -1,6 +1,6 @@
 "use client";
 import { BoardIcon, TOOL_LABELS } from "./BoardIcons";
-import { isHeic, isPhoto, readPhoto } from "@/lib/photo";
+import { isHeic, isPhoto, PHOTO_ACCEPT, readPhoto } from "@/lib/photo";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
@@ -1941,7 +1941,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       <input
         ref={fileInput}
         type="file"
-        accept="image/*,.heic,.heif"
+        accept={PHOTO_ACCEPT}
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];

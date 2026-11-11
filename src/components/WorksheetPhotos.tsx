@@ -1,5 +1,5 @@
 "use client";
-import { photoToJpeg } from "@/lib/photo";
+import { isPhoto, PHOTO_ACCEPT, photoToJpeg } from "@/lib/photo";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -47,11 +47,10 @@ export function WorksheetPhotos({
     try {
       for (const [n, file] of files.entries()) {
         setStatus(`Saving photo ${n + 1} of ${files.length}…`);
-        if (
-          !file.type.startsWith("image/") &&
-          !/\.(heic|heif)$/i.test(file.name)
-        )
+        if (!isPhoto(file)) {
+          setError(`"${file.name}" isn't a photo, so it was skipped.`);
           continue;
+        }
         const small = await shrink(file);
         const blob =
           small ??
@@ -137,7 +136,7 @@ export function WorksheetPhotos({
       <input
         ref={input}
         type="file"
-        accept="image/*,.heic,.heif"
+        accept={PHOTO_ACCEPT}
         multiple
         className="hidden"
         onChange={(e) => {

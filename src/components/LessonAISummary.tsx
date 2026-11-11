@@ -1,5 +1,5 @@
 "use client";
-import { isHeic, isPhoto, photoToJpeg } from "@/lib/photo";
+import { isHeic, isPhoto, PHOTO_ACCEPT, photoToJpeg } from "@/lib/photo";
 import { netFail } from "@/lib/netFail";
 import { reportPhotoProblem } from "@/app/actions/photoReport";
 import { useState } from "react";
@@ -247,7 +247,7 @@ export function LessonAISummary({
               <label key={who ?? "one"} className={`btn-secondary flex-1 cursor-pointer ${step ? "pointer-events-none opacity-50" : ""}`}>
                 📷 {who ? `${who}'s worksheet` : photos ? "Add another worksheet photo" : "Add worksheet photo"}
                 {who && savedLabels.some((l) => l.startsWith(`${who}'s worksheet`)) ? <span className="text-ok">✓</span> : null}
-                <input type="file" accept="image/*,.heic,.heif" multiple className="sr-only" onChange={(e) => void addPhotos(e.target.files, who).finally(() => (e.target.value = ""))} />
+                <input type="file" accept={PHOTO_ACCEPT} multiple className="sr-only" onChange={(e) => void addPhotos(e.target.files, who).finally(() => (e.target.value = ""))} />
               </label>
             ))}
             <button type="button" className="btn-primary w-full" onClick={run} disabled={!!step}>
