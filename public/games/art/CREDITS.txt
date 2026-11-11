@@ -13,3 +13,5 @@ Game art by Kenney (www.kenney.nl), released as CC0 (free to use, no credit requ
 - space/    Alien UFO Pack, Space Shooter Remastered, Planets · dice/ Boardgame Pack
 - robots/ weapons: Space Shooter Remastered (lasers), Space Shooter Extension (rockets), Tank Pack (shell, explosions)
 - tower/    Platformer Pack Remastered (bricks, window, torches, doors, flags, background) - Clock Rescue's clock tower
+- monsters/pizza/  Monster Builder Pack (put together into 10 monsters, plain and happy) - Pizza Fractions customers
+- pizza/    Donuts, Platformer Pack Remastered (coin, desert) - Pizza Fractions stall

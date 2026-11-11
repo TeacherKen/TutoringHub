@@ -32,6 +32,7 @@ export const THEMES = {
   pirate: { from: "#1f7fb8", to: "#0b3a5c", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: "/games/art/pirate/chest.png", game: "fc" },
   market: { from: "#c2643c", to: "#6b2f17", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: "/games/art/heroes/femalePerson_cheer0.png", game: "ms" },
   space: { from: "#3b2a6b", to: "#120c26", ink: "#ffffff", accent: "#ffd84d", accentInk: "#3b2a00", shadow: "#9c7a12", mascot: "/games/art/space/ufo.png", game: "qm" },
+  bakery: { from: "#c2412d", to: "#7f1d1d", ink: "#fff7ed", accent: "#facc15", accentInk: "#422006", shadow: "#a16207", mascot: "/games/art/monsters/pizza/m3_happy.png", game: "fp" },
   race: { from: "#2f3640", to: "#14181f", ink: "#ffffff", accent: "#ff4d3d", accentInk: "#ffffff", shadow: "#9e2316", mascot: "/games/art/race/car_red.png", game: "tt" },
 } satisfies Record<string, Theme & { mascot: string; game: GameInfo["id"] }>;
 
@@ -229,5 +230,32 @@ export function ResultCard(props: {
         </div>
       </div>
     </div>
+  );
+}
+
+/** "How to play": a few short numbered steps, folded away until a child (or Mr Ken) taps it. */
+export function HowToPlay({ theme, steps, open = false }: { theme: Theme; steps: ReactNode[]; open?: boolean }) {
+  return (
+    <details open={open} className="group rounded-2xl bg-surface p-3 shadow-sm ring-1 ring-line">
+      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 font-semibold [&::-webkit-details-marker]:hidden">
+        <span className="grid h-8 w-8 place-items-center rounded-full text-lg font-black" style={{ background: theme.accent, color: theme.accentInk }} aria-hidden>
+          ?
+        </span>
+        How to play
+        <span className="ml-auto text-sm text-muted transition-transform group-open:rotate-180" aria-hidden>
+          ▼
+        </span>
+      </summary>
+      <ol className="mt-3 space-y-2">
+        {steps.map((step, i) => (
+          <li key={i} className="flex gap-2.5 text-sm leading-snug">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold" style={{ background: theme.from, color: theme.ink }}>
+              {i + 1}
+            </span>
+            <span className="pt-0.5">{step}</span>
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }
