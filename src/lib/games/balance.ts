@@ -14,7 +14,8 @@ export const BALANCE_LEVELS: Record<BalanceLevel, string> = {
   hard: "Hard — swap shapes (P5)",
 };
 export const SHAPES: Shape[] = ["circle", "triangle", "square"];
-export const SHAPE_NAME: Record<Shape, string> = { circle: "circle", triangle: "triangle", square: "square" };
+// The shapes are drawn as aliens in the game (pink alien, green alien, blue square alien).
+export const SHAPE_NAME: Record<Shape, string> = { circle: "pink alien", triangle: "green alien", square: "blue alien" };
 
 const int = (r: Rand, lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1));
 const pick = <T>(r: Rand, a: readonly T[]): T => a[Math.floor(r() * a.length)];

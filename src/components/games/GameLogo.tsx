@@ -31,7 +31,8 @@ const LOGOS: Record<GameInfo["id"], Logo> = {
   pb: { badge: <span className="flex gap-1"><Coin n={10} /><Coin n={5} /></span> },
   ls: { badge: <span className={`${big} text-xl`}>Shop</span> },
   sb: { badge: <MiniBlocks /> },
-  bp: { badge: <span className="flex items-center gap-1"><svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden><path d="M10 2 L18 17 H2Z" fill="#3e63dd" /></svg><svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden><circle cx="10" cy="10" r="8" fill="#e5484d" /></svg><span className={`${big} text-lg`}>= 8</span></span> },
+  // eslint-disable-next-line @next/next/no-img-element
+  bp: { badge: <span className="flex items-center gap-1"><img src={`${ART}/aliens/alienGreen_round.png`} alt="" className="h-5 w-5" /><img src={`${ART}/aliens/alienGreen_round.png`} alt="" className="h-5 w-5" /><span className={`${big} text-lg`}>= 8</span></span> },
   pl: { badge: <MiniPixels /> },
   mn: { badge: <span className={`${big} text-2xl`}>6 × 4 = 24</span> },
   ns: { badge: <span className={`${big} text-xl tracking-wider`}>1 → 2 → 3</span> },
