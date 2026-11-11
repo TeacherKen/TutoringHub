@@ -4,12 +4,29 @@ import { fmt, type Currency } from "@/lib/moneyShop";
 import { nextDrop, piggyMoney, piggyTarget, PIGGY_LEVELS, type PiggyLevel } from "@/lib/games/piggy";
 import { Cash } from "./MoneyShop";
 import { useBest } from "./useBest";
-import { BigButton, GameHero, LevelPicker, ResultCard, THEMES, Toggle } from "./GameKit";
+import { BigButton, GameHero, HowToPlay, LevelPicker, ResultCard, THEMES, Toggle } from "./GameKit";
 
 const T = THEMES.piggy;
 
-// 🐷 Piggy Bank Rain (P1–P3): coins and notes float down; tap the right ones to fill the piggy to exactly
-// the amount. Too much? The coin bounces off. Fill 6 piggies as fast as you can.
+// Piggy Bank Rain (P1–P3): Pinky the pig is saving up for toys. Coins and notes float down; tap the
+// right ones to fill the piggy bank to exactly the amount, and Pinky gets the toy. Too much? The coin
+// bounces off. Fill 6 piggies as fast as you can.
+// (Garden: Kenney "Platformer Pack Remastered"; Pinky: "Animal Pack Remastered"; toys: Kenney packs. All CC0.)
+
+const G = "/games/art/garden";
+const PINKY = "/games/art/animals/pig.png";
+const WISHES: [string, string][] = [
+  ["/games/art/shop/kite.png", "toy UFO"],
+  ["/games/art/shop/teddy.png", "teddy bear"],
+  ["/games/art/shop/candy.png", "giant lollipop"],
+  ["/games/art/shop/car.png", "toy car"],
+  ["/games/art/shop/icecream.png", "ice cream"],
+  ["/games/art/shop/bubbletea.png", "chocolate sundae"],
+];
+function Pic({ src, className = "", style }: { src: string; className?: string; style?: React.CSSProperties }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" aria-hidden draggable={false} className={`pointer-events-none select-none object-contain ${className}`} style={style} />;
+}
 
 const PIGGIES = 6;
 
@@ -60,14 +77,6 @@ function PiggyBank({ pct, happy, size = 150 }: { pct: number; happy: boolean; si
   );
 }
 
-/** A soft cloud. */
-function Cloud({ className }: { className: string }) {
-  return (
-    <svg viewBox="0 0 120 50" className={`absolute ${className}`} aria-hidden>
-      <path d="M20 45 Q2 45 6 32 Q8 20 24 22 Q30 6 50 10 Q64 0 78 12 Q98 8 100 26 Q118 28 112 42 Q110 46 100 45Z" fill="#fff" opacity=".85" />
-    </svg>
-  );
-}
 const secs = (tenths: number) => `${(tenths / 10).toFixed(1)}s`;
 type Drop = { id: number; v: number; left: number; dur: number };
 
@@ -84,6 +93,8 @@ export function PiggyRain() {
   const [startedAt, setStartedAt] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [newBest, setNewBest] = useState(false);
+  const [wishes, setWishes] = useState<number[]>([0, 1, 2, 3, 4, 5]); // which toy Pinky saves for, piggy by piggy
+  const [plus, setPlus] = useState<{ id: number; text: string } | null>(null); // "+฿5" over the piggy
   const nextId = useRef(1);
   const left = useRef(0);
   const { best, offer } = useBest(`pb-${currency}-${level}`, (a, b) => a < b, "ds");
@@ -113,6 +124,8 @@ export function PiggyRain() {
   }, [phase, startedAt]);
 
   function start() {
+    setWishes([0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5));
+    setPlus(null);
     setTarget(piggyTarget(currency, level));
     setInPig(0);
     setFilled(0);
@@ -134,6 +147,7 @@ export function PiggyRain() {
         return;
       }
       setDrops((all) => all.filter((x) => x.id !== d.id));
+      setPlus({ id: d.id, text: `+${fmt(d.v, currency)}` });
       const now = inPig + d.v;
       setInPig(now);
       if (now === target) {
@@ -152,7 +166,7 @@ export function PiggyRain() {
           setInPig(0);
           setDrops([]);
           setHappy(false);
-        }, 1100);
+        }, 1700);
       }
     },
     [happy, inPig, target, currency, filled, startedAt, offer, level],
@@ -162,13 +176,22 @@ export function PiggyRain() {
     return (
       <div className="space-y-4">
         <GameHero theme={T} art={<PiggyBank pct={45} happy={false} size={70} />} title="PIGGY BANK RAIN">
-          Coins fall from the sky. Tap the right ones to fill the piggy with exactly the right amount. Fill {PIGGIES} piggies!
+          Pinky the pig is saving up for {PIGGIES} toys! Money is raining from the sky. Catch exactly the right amount for each toy.
         </GameHero>
+        <HowToPlay
+          theme={T}
+          steps={[
+            <>Look at the sign: it tells you how much to put in the piggy bank, like <strong>Fill me with ฿12</strong>.</>,
+            "Coins and notes fall from the sky. Tap one to drop it into the piggy bank.",
+            "Too much? It bounces off! Only exactly the right amount fills the piggy.",
+            <>Made a mistake? Tap <strong>Shake the piggy empty</strong> and start that piggy again.</>,
+          ]}
+        />
         <Toggle
           theme={T}
           options={[
-            ["THB", "🇹🇭 Thai baht"],
-            ["USD", "🇺🇸 US dollars"],
+            ["THB", "Thai baht"],
+            ["USD", "US dollars"],
           ]}
           value={currency}
           onChange={setCurrency}
@@ -179,7 +202,7 @@ export function PiggyRain() {
             <Cash key={m.value} m={m} c={currency} small />
           ))}
         </div>
-        {best != null ? <p className="text-center text-sm text-muted">⏱️ Your fastest: {secs(best)}</p> : null}
+        {best != null ? <p className="text-center text-sm text-muted">Your fastest: {secs(best)}</p> : null}
         <BigButton theme={T} onClick={start}>
           ▶ Start
         </BigButton>
@@ -197,36 +220,49 @@ export function PiggyRain() {
             <style>{`@keyframes pb-jump{0%,100%{transform:translateY(0)}40%{transform:translateY(-16px) scale(1.05)}}`}</style>
           </span>
         }
-        label={`All ${PIGGIES} piggies full in`}
+        label={`Pinky got all ${PIGGIES} toys in`}
         big={secs(Math.round(elapsed / 100))}
         newBest={newBest}
         bestText={`Your fastest: ${best != null ? secs(best) : "—"}`}
         onAgain={start}
         onChange={() => setPhase("setup")}
-      />
+      >
+        <div className="flex flex-wrap items-end justify-center gap-2" aria-hidden>
+          <Pic src={PINKY} className="h-16 w-16 animate-[gk-cheer_.9s_ease-in-out_infinite]" />
+          {WISHES.map(([src], i) => (
+            <Pic key={src} src={src} className="h-11 w-11 animate-[gk-cheer_.9s_ease-in-out_infinite]" style={{ animationDelay: `${(i + 1) * 110}ms` }} />
+          ))}
+        </div>
+      </ResultCard>
     );
   }
 
   const pct = Math.min(100, (inPig / target) * 100);
+  const [wishImg, wishName] = WISHES[wishes[filled % PIGGIES] ?? 0];
   return (
     <div className="space-y-3">
-      <style>{`@keyframes pb-fall{from{transform:translateY(-70px)}to{transform:translateY(430px)}}@keyframes pb-jump{0%,100%{transform:translateY(0)}40%{transform:translateY(-14px) scale(1.08)}}@keyframes pb-shake{0%,100%{transform:none}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}`}</style>
-      <div className="flex items-center justify-between text-sm text-muted">
-        <span>
-          Piggy <strong className="text-ink tabular-nums">{Math.min(filled + 1, PIGGIES)}</strong> of {PIGGIES}
-        </span>
-        <span className="tabular-nums">{secs(Math.round(elapsed / 100))}</span>
-      </div>
-      <div className="relative h-[430px] overflow-hidden rounded-3xl shadow-[0_8px_24px_rgba(0,0,0,.18)]" style={{ background: "linear-gradient(#7cc8f5, #c9ecff 72%)" }}>
-        <Cloud className="left-[6%] top-[8%] w-28 opacity-90" />
-        <Cloud className="right-[8%] top-[22%] w-20 opacity-70" />
-        <Cloud className="left-[42%] top-[3%] w-16 opacity-60" />
-        <div className="absolute inset-x-0 bottom-0 h-[30%]" style={{ background: "linear-gradient(#8ad46f, #5fae4c)" }} aria-hidden>
-          <span className="absolute left-[8%] top-1 text-2xl">🌷</span>
-          <span className="absolute right-[10%] top-3 text-2xl">🌼</span>
-          <span className="absolute left-[30%] top-6 text-lg">🌱</span>
-          <span className="absolute right-[32%] top-7 text-lg">🌱</span>
+      <style>{`@keyframes pb-fall{from{transform:translateY(-70px)}to{transform:translateY(470px)}}@keyframes pb-jump{0%,100%{transform:translateY(0)}40%{transform:translateY(-14px) scale(1.08)}}@keyframes pb-shake{0%,100%{transform:none}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}@keyframes pb-plus{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(-36px);opacity:0}}@keyframes pb-gift{0%{transform:translateY(30px) scale(.3);opacity:0}60%{transform:translateY(-10px) scale(1.15);opacity:1}100%{transform:none;opacity:1}}`}</style>
+      <div className="relative h-[470px] overflow-hidden rounded-3xl shadow-[0_8px_24px_rgba(0,0,0,.18)]" style={{ background: `url(${G}/sky.png) center bottom / cover, #cfe9f7` }}>
+        {/* the piggies to fill, and the time */}
+        <div className="pointer-events-none absolute inset-x-2 top-2 z-[1] flex items-center justify-between gap-2">
+          <div className="flex gap-0.5 rounded-xl bg-white/85 px-1.5 py-1 shadow" aria-label={`${filled} of ${PIGGIES} piggies full`}>
+            {Array.from({ length: PIGGIES }, (_, i) => (
+              <span key={i} className={i < filled ? "" : i === filled ? "" : "opacity-40 grayscale"}>
+                <PiggyBank pct={i < filled ? 100 : 0} happy={i < filled} size={30} />
+              </span>
+            ))}
+          </div>
+          <span className="rounded-xl bg-white/85 px-2 py-1 text-sm font-bold tabular-nums text-[#7a2a4b] shadow">{secs(Math.round(elapsed / 100))}</span>
         </div>
+
+        {/* the garden */}
+        <div className="absolute inset-x-0 bottom-0 h-[118px]" style={{ background: `url(${G}/grassMid.png) 0 0 / 48px 48px repeat-x, url(${G}/grassCenter.png) 0 48px / 48px 48px repeat` }} aria-hidden />
+        <Pic src={`${G}/fence.png`} className="absolute bottom-[112px] left-[2%] h-9 w-12" />
+        <Pic src={`${G}/bush.png`} className="absolute bottom-[110px] left-[16%] h-10 w-14" />
+        <Pic src={`${G}/plantPurple.png`} className="absolute bottom-[112px] right-[20%] h-9 w-9" />
+        <Pic src={`${G}/mushroomRed.png`} className="absolute bottom-[112px] right-[4%] h-8 w-8" />
+        <Pic src={`${G}/grass.png`} className="absolute bottom-[112px] right-[34%] h-7 w-7" />
+
         {drops.map((d) => (
           <button
             key={d.id}
@@ -234,18 +270,43 @@ export function PiggyRain() {
             aria-label={`Catch ${fmt(d.v, currency)}`}
             onClick={() => tap(d)}
             onAnimationEnd={() => setDrops((all) => all.filter((x) => x.id !== d.id))}
-            className="absolute top-0 p-1.5"
+            className="absolute top-0 z-[5] p-1.5"
             style={{ left: `${d.left}%`, animation: `pb-fall ${d.dur}s linear forwards`, translate: "-50% 0" }}
           >
             <Cash m={money.find((m) => m.value === d.v) ?? { value: d.v, kind: "coin" }} c={currency} />
           </button>
         ))}
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 flex flex-col items-center">
-          {bounce ? <p className="mb-1 rounded-full bg-white px-3 py-1 text-sm font-semibold text-danger shadow" style={{ animation: "pb-shake .35s" }}>{bounce}</p> : null}
-          {happy ? <p className="mb-1 rounded-full bg-white px-3 py-1 text-sm font-semibold text-ok shadow">Full! 🎉</p> : null}
-          <span className="leading-none" style={happy ? { animation: "pb-jump .5s ease 2" } : undefined}>
-            <PiggyBank pct={pct} happy={happy} size={160} />
-          </span>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 flex flex-col items-center">
+          {bounce ? <p className="mb-1 rounded-full bg-white px-3 py-1 text-sm font-semibold text-[#b42318] shadow" style={{ animation: "pb-shake .35s" }}>{bounce}</p> : null}
+          {happy ? (
+            <p className="mb-1 flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm font-semibold text-[#1d7a41] shadow">
+              Full! Pinky bought the {wishName}!
+            </p>
+          ) : null}
+          <div className="relative flex items-end gap-1">
+            {/* Pinky, dreaming of the toy */}
+            <div className="relative -mr-3 mb-3 w-16 sm:w-20">
+              <span className="block" style={happy ? { animation: "pb-jump .5s ease 3" } : undefined}>
+                <Pic src={PINKY} className="h-16 w-16 sm:h-20 sm:w-20" />
+              </span>
+              {!happy ? (
+                <span className="absolute -top-14 left-1 grid h-14 w-14 place-items-center rounded-full bg-white shadow-md sm:-top-16" title={`Saving for a ${wishName}`}>
+                  <Pic src={wishImg} className="h-9 w-9" />
+                  <span className="absolute -bottom-1.5 left-4 h-3 w-3 rounded-full bg-white shadow" />
+                </span>
+              ) : null}
+            </div>
+            <span className="relative leading-none" style={happy ? { animation: "pb-jump .5s ease 2" } : undefined}>
+              <PiggyBank pct={pct} happy={happy} size={150} />
+              {plus && !happy ? (
+                <span key={plus.id} className="absolute left-1/2 top-0 -translate-x-1/2 rounded-full bg-white/90 px-2 text-sm font-black text-[#c27c00] shadow" style={{ animation: "pb-plus .9s ease-out forwards" }}>
+                  {plus.text}
+                </span>
+              ) : null}
+              {happy ? <Pic src={wishImg} className="absolute -top-12 left-1/2 h-14 w-14 -translate-x-1/2" style={{ animation: "pb-gift .6s ease-out forwards" }} /> : null}
+            </span>
+          </div>
           <div className="mt-1 rounded-2xl bg-white/95 px-4 py-1.5 text-center text-[#1f2a36] shadow-lg">
             <p className="text-sm font-semibold">
               Fill me with <span className="text-lg text-[#c2410c]">{fmt(target, currency)}</span>
@@ -259,7 +320,7 @@ export function PiggyRain() {
           </div>
         </div>
       </div>
-      <button type="button" className="btn-secondary w-full text-sm" onClick={() => (setInPig(0), setBounce(null))}>
+      <button type="button" className="btn-secondary w-full text-sm" onClick={() => (setInPig(0), setBounce(null), setPlus(null))}>
         Shake the piggy empty and start again
       </button>
     </div>

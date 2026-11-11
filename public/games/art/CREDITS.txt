@@ -15,3 +15,4 @@ Game art by Kenney (www.kenney.nl), released as CC0 (free to use, no credit requ
 - tower/    Platformer Pack Remastered (bricks, window, torches, doors, flags, background) - Clock Rescue's clock tower
 - monsters/pizza/  Monster Builder Pack (put together into 10 monsters, plain and happy) - Pizza Fractions customers
 - pizza/    Donuts, Platformer Pack Remastered (coin, desert) - Pizza Fractions stall
+- garden/   Platformer Pack Remastered (sky, grass, bush, fence, plant, mushroom) - Piggy Bank Rain garden
