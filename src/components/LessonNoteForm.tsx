@@ -283,8 +283,9 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
     if (!r.ok) return setFlash("Couldn't mark the update as sent — try again before sending the link.");
     setSentAt(r.sent_at);
     if (!token) return setFlash("Couldn't make the family link. Try again.");
-    const hello = promptContext.parentName?.trim() ? `Hi ${promptContext.parentName.trim()}` : "Hi";
-    const msg = `${hello}, ${family.names}'s lesson update${promptContext.date ? ` for ${promptContext.date}` : ""} is ready — my feedback, what we worked on, homework and pictures of their work: ${window.location.origin}/family/${token}`;
+    // Mr Ken's short note: the greeting and the link (the full feedback is on the family page).
+    const hello = promptContext.parentName?.trim() ? `Hi ${promptContext.parentName.trim()}!` : "Hi!";
+    const msg = `${hello} Here's the feedback for today: 😊\n\nYou can see ${family.names}'s lessons and progress anytime here: ${window.location.origin}/family/${token}`;
     const link = contact ? chatLink(contact.app, contact.value, msg) : null;
     if (link) window.open(link.href, "_blank", "noopener");
     else {
@@ -474,7 +475,7 @@ export function LessonNoteForm({ lessonId, initial, defaultLength, isPast, aiEna
             <p className="font-semibold">📮 Send as a lesson update</p>
             <p className="text-sm text-muted">
               Puts this message on {family.names}&apos;s family page with today&apos;s topics, homework and work photos, then{" "}
-              {contact && chatLink(contact.app, contact.value, "x") ? "opens the chat with" : "copies"} a short note with the link for the parent.
+              {contact && chatLink(contact.app, contact.value, "x") ? "opens the chat with" : "copies"} a short note for the parent: “Hi! Here&apos;s the feedback for today” and the link.
             </p>
             <button type="button" className="btn-primary w-full" onClick={sendUpdate} disabled={updating}>
               {updating ? "Getting it ready…" : sentAt ? "Send the update link again" : "Send lesson update"}
