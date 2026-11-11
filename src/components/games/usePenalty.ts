@@ -81,7 +81,7 @@ export function usePenalty({ holdGoal = 1350, holdSave = 2400 }: { holdGoal?: nu
             setCheer((c) => c + 1);
             if (power) setPowers((p) => p + 1);
             const text = !counts ? "GOAL!" : nextStreak === 3 ? "HAT-TRICK!" : nextStreak >= 4 ? `${nextStreak} IN A ROW!` : "GOAL!";
-            setBanner({ key: Date.now(), tone: "goal", text, sub: power ? "⚡ Power shot" : counts && nextStreak === 3 ? "3 goals in a row" : undefined });
+            setBanner({ key: Date.now(), tone: "goal", text, sub: power ? "Power shot!" : counts && nextStreak === 3 ? "3 goals in a row" : undefined });
           } else {
             sfx.save();
             setBanner({ key: Date.now(), tone: "saved", text: "SAVED" });

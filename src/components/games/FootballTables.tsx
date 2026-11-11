@@ -29,7 +29,7 @@ import { ConfettiBurst, Controls, GLASS, makeConfetti, PANEL, Shirt, type Confet
 import { useKeys, usePenalty } from "./usePenalty";
 import type { KickLog, PracticeLive } from "@/lib/watch";
 
-// ⚽ Football Times Tables: a penalty shootout. Type the answer, tap the goal to aim, score!
+// Football Times Tables: a penalty shootout. Type the answer, tap the goal to aim, score!
 // Facts answered wrong or slowly come back sooner (see lib/facts.ts).
 
 type Data = {
@@ -239,6 +239,24 @@ export function FootballTables({ api, onLive }: { api: string; onLive?: (s: Prac
             <h2 className="font-sport text-[clamp(34px,6vw,52px)] font-extrabold italic leading-none">Football Times Tables</h2>
             <p className="mt-2 text-white/70">Every right answer is a goal. Choose your tables, your game and your kit.</p>
           </div>
+          <details className="group mx-auto max-w-xl rounded-2xl bg-white/10 p-3 text-left ring-1 ring-white/15">
+            <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 font-semibold [&::-webkit-details-marker]:hidden">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-[#ffc629] text-lg font-black text-[#0b1d42]" aria-hidden>
+                ?
+              </span>
+              How to play
+              <span className="ml-auto text-sm text-white/60 transition-transform group-open:rotate-180" aria-hidden>
+                ▼
+              </span>
+            </summary>
+            <ol className="mt-3 list-decimal space-y-1.5 pl-6 text-sm text-white/85">
+              <li>Pick the times tables you want to practise, then press Kick off.</li>
+              <li>Type the answer with the number buttons.</li>
+              <li>Tap a corner of the goal to aim (or press Kick). Right answer: GOAL! Wrong: the keeper saves it.</li>
+              <li>Answer really fast for a power shot. Missed one? It comes back so you can try again.</li>
+              <li>10 penalties. Score lots of goals to win stars and trophies!</li>
+            </ol>
+          </details>
           <div className="space-y-2.5">
             <p className="font-sport text-xl font-bold">Tables</p>
             <div className="flex flex-wrap justify-center gap-2">
@@ -377,7 +395,7 @@ export function FootballTables({ api, onLive }: { api: string; onLive?: (s: Prac
             {result.newHigh ? <span className="tt-pop rounded-full bg-[#ffc629] px-3 py-1 text-[#0b1d42]">New high score</span> : null}
             {pen.powers ? (
               <span className={`${GLASS} rounded-full px-3 py-1`}>
-                ⚡ {pen.powers} power {pen.powers === 1 ? "shot" : "shots"}
+                {pen.powers} power {pen.powers === 1 ? "shot" : "shots"}
               </span>
             ) : null}
             {pen.bestStreak >= 2 ? <span className={`${GLASS} rounded-full px-3 py-1`}>{pen.bestStreak} goals in a row</span> : null}
