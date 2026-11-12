@@ -29,8 +29,8 @@ export function MissionList({ missions, onPlay, playHref, title = "Missions from
       <ul className="space-y-2">
         {missions.map((m) => (
           <li key={m.id} className={`flex flex-wrap items-center gap-3 rounded-2xl p-3 ${m.done ? "bg-ok-soft" : "bg-surface-2"}`}>
-            <span aria-hidden className={`relative w-20 shrink-0 ${m.done ? "" : ""}`}>
-              <GameLogo id={m.game as GameInfo["id"]} />
+            <span aria-hidden className="relative w-20 shrink-0">
+              <GameLogo id={m.game as GameInfo["id"]} badge={false} />
               {m.done ? (
                 <span className="absolute -right-1.5 -top-1.5 grid h-7 w-7 place-items-center rounded-full bg-[#30a46c] text-sm font-black text-white shadow ring-2 ring-white">✓</span>
               ) : null}
