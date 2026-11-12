@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { MODE_NAMES } from "@/lib/facts";
 import { GAMES } from "@/lib/games";
-import { cleanView, secs, watchChannel, type PracticeLive, type WatchView } from "@/lib/watch";
+import { cleanView, secs, unpackHtml, watchChannel, type PracticeLive, type WatchView } from "@/lib/watch";
 
 type Screen = { game: string; html: string; updated_at: string } | null;
 const NAMES: Record<string, string> = Object.fromEntries(GAMES.map((g) => [g.id, g.name]));
@@ -38,15 +38,15 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
     }
     const ch = sb.channel(watchChannel(token), { config: { broadcast: { self: false, ack: false } } });
     let alive = true;
+    let joined = false; // only talk once the live connection is open (otherwise each message is a slow web request)
+    let newest = 0; // the newest picture number shown
     const ping = () => {
-      if (!alive || document.hidden) return; // Mr Ken isn't looking: the child's screen stops sending after a few seconds
+      if (!alive || !joined || document.hidden) return; // Mr Ken isn't looking: the child's screen stops sending after a few seconds
       const v = viewRef.current;
       const need = !v || (v.tab === "games" && !!v.game && !v.html); // ask for the full picture
       void ch.send({ type: "broadcast", event: "watch", payload: { on: true, need } });
     };
-    ch.on("broadcast", { event: "view" }, ({ payload }) => {
-      const v = cleanView(payload);
-      if (!v) return;
+    const take = (v: WatchView) => {
       const prev = viewRef.current;
       // Unchanged pictures aren't sent again: keep the one we have.
       const next = v.html === undefined && prev && prev.tab === v.tab && prev.game === v.game ? { ...v, html: prev.html } : v;
@@ -54,8 +54,23 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
       seenRef.current = Date.now();
       setView(next);
       setSeenAt(seenRef.current);
+    };
+    ch.on("broadcast", { event: "view" }, ({ payload }) => {
+      const v = cleanView(payload);
+      if (!v) return;
+      if (v.n != null) {
+        if (v.n < newest) return; // a late picture: a newer one is already here
+        newest = v.n;
+      }
+      if (!v.z) return take(v);
+      const n = v.n;
+      void unpackHtml(v.z).then((html) => {
+        if (!alive || (n != null && n < newest)) return;
+        take({ ...v, z: undefined, html: html ?? undefined });
+      });
     }).subscribe((status) => {
-      if (status === "SUBSCRIBED") ping();
+      joined = status === "SUBSCRIBED";
+      if (joined) ping();
     });
     const id = setInterval(ping, 4000);
     const onVisible = () => document.visibilityState === "visible" && ping();

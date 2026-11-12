@@ -8,6 +8,37 @@ export const watchChannel = (token: string) => `tutoringhub-watch-${token}`;
 
 /** Pictures bigger than this go the slower way (saved through the app every 2 seconds). */
 export const MAX_LIVE_HTML = 180_000;
+/** Biggest picture we squeeze and send live (squeezed, it's about 4 times smaller). */
+export const MAX_RAW_HTML = 600_000;
+
+/** Squeezes a picture (gzip, as text) so it travels about 4 times faster. null: this browser can't. */
+export async function packHtml(html: string): Promise<string | null> {
+  try {
+    if (typeof CompressionStream === "undefined") return null;
+    const stream = new Blob([html]).stream().pipeThrough(new CompressionStream("gzip"));
+    const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  } catch {
+    return null;
+  }
+}
+
+/** Opens a squeezed picture again. */
+export async function unpackHtml(z: string): Promise<string | null> {
+  try {
+    if (typeof DecompressionStream === "undefined") return null;
+    const bin = atob(z);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+    const html = await new Response(stream).text();
+    return html.length <= MAX_RAW_HTML ? html : null;
+  } catch {
+    return null;
+  }
+}
 
 /** One answer in a football round. */
 export type KickLog = { text: string; given: string; correct: boolean; ms: number; second: boolean };
@@ -37,6 +68,10 @@ export type WatchView = {
   practice: PracticeLive | null;
   /** A picture of the game screen (left out when it hasn't changed). */
   html?: string;
+  /** The same picture, squeezed (see packHtml). */
+  z?: string;
+  /** Counts pictures, so a late one never replaces a newer one. */
+  n?: number;
 };
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -83,6 +118,8 @@ export function cleanView(raw: unknown): WatchView | null {
     practice: tab === "practice" ? cleanPractice(v.practice) : null,
   };
   if (typeof v.html === "string" && v.html.length <= MAX_LIVE_HTML) view.html = v.html;
+  if (typeof v.z === "string" && v.z.length <= MAX_LIVE_HTML && /^[A-Za-z0-9+/=]+$/.test(v.z)) view.z = v.z;
+  if (typeof v.n === "number" && Number.isFinite(v.n)) view.n = v.n;
   return view;
 }
 

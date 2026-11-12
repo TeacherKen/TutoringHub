@@ -5,7 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { RoomData } from "@/lib/room";
 import { createClient } from "@/lib/supabase/client";
-import { MAX_LIVE_HTML, watchChannel, type PracticeLive, type WatchView } from "@/lib/watch";
+import { MAX_LIVE_HTML, MAX_RAW_HTML, packHtml, watchChannel, type PracticeLive, type WatchView } from "@/lib/watch";
 import { BuiltInGame } from "./games/BuiltInGame";
 import { snapshotDocument, snapshotElement } from "@/lib/snapshot";
 import { Whiteboard } from "./Whiteboard";
@@ -96,6 +96,9 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   const watchCh = useRef<RealtimeChannel | null>(null);
   const practiceNow = useRef<PracticeLive | null>(null);
   const lastLiveHtml = useRef("");
+  const joined = useRef(false); // the live connection is open (sending before that goes the slow way, by web request)
+  const picNo = useRef(0);
+  const packing = useRef(false);
   const viewRef = useRef({ tab, game });
   useLayoutEffect(() => {
     viewRef.current = { tab, game };
@@ -104,17 +107,28 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   const sendView = useCallback(
     (full: boolean, snap?: string) => {
       const ch = watchCh.current;
-      if (!ch || Date.now() > watchedUntil.current) return;
+      if (!ch || !joined.current || Date.now() > watchedUntil.current) return;
       const { tab: t, game: g } = viewRef.current;
       const view: WatchView = { tab: t, game: t === "games" ? g : null, practice: t === "practice" ? practiceNow.current : null };
-      if (t === "games" && g) {
-        const html = snap ?? snapGame();
-        if (html && html.length <= MAX_LIVE_HTML && (full || html !== lastLiveHtml.current)) {
-          view.html = html;
-          lastLiveHtml.current = html;
-        }
+      const html = t === "games" && g ? (snap ?? snapGame()) : "";
+      if (!html || html.length > MAX_RAW_HTML || (!full && html === lastLiveHtml.current)) {
+        void ch.send({ type: "broadcast", event: "view", payload: view });
+        return;
       }
-      void ch.send({ type: "broadcast", event: "view", payload: view });
+      // Squeeze the picture (about 4 times smaller, so it arrives much faster); one at a time.
+      if (packing.current) return;
+      packing.current = true;
+      lastLiveHtml.current = html;
+      view.n = picNo.current = Math.max(Date.now(), picNo.current + 1); // keeps going up, even after the page reloads
+      void packHtml(html)
+        .then((z) => {
+          if (z && z.length <= MAX_LIVE_HTML) view.z = z;
+          else if (html.length <= MAX_LIVE_HTML) view.html = html;
+          if (joined.current) void ch.send({ type: "broadcast", event: "view", payload: view });
+        })
+        .finally(() => {
+          packing.current = false;
+        });
     },
     [snapGame],
   );
@@ -136,7 +150,10 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
       watchedUntil.current = Date.now() + 12_000;
       setWatched(true);
       sendView(payload?.need === true);
-    }).subscribe();
+    }).subscribe((status) => {
+      joined.current = status === "SUBSCRIBED";
+      if (joined.current) sendView(true);
+    });
     watchCh.current = ch;
     // While watched: a new picture whenever the game changes, about 3 times a second (big pictures once a
     // second), so walking, moving and animations look smooth for Mr Ken instead of jumping.
@@ -156,6 +173,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
     }, 150);
     return () => {
       clearInterval(tick);
+      joined.current = false;
       watchCh.current = null;
       void sb.removeChannel(ch);
     };
