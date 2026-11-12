@@ -138,13 +138,22 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
       sendView(payload?.need === true);
     }).subscribe();
     watchCh.current = ch;
+    // While watched: a new picture whenever the game changes, about 3 times a second (big pictures once a
+    // second), so walking, moving and animations look smooth for Mr Ken instead of jumping.
+    let lastSent = 0;
+    let lastSize = 0;
     const tick = setInterval(() => {
       if (Date.now() > watchedUntil.current) return setWatched(false);
       const { tab: t, game: g } = viewRef.current;
       if (t !== "games" || !g || document.hidden) return; // nothing to show while the app is in the background
+      if (Date.now() - lastSent < (lastSize > 80_000 ? 1000 : 300)) return;
       const html = snapGame();
-      if (html && html !== lastLiveHtml.current) sendView(false, html);
-    }, 1000);
+      if (html && html !== lastLiveHtml.current) {
+        lastSent = Date.now();
+        lastSize = html.length;
+        sendView(false, html);
+      }
+    }, 150);
     return () => {
       clearInterval(tick);
       watchCh.current = null;
@@ -201,7 +210,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   /** After a tap in a game, send the new picture quickly (and again once any animation ends). */
   const quickPicture = useCallback(() => {
     if (Date.now() > watchedUntil.current) return;
-    for (const wait of [150, 700]) {
+    for (const wait of [80, 350, 800]) {
       setTimeout(() => {
         const html = snapGame();
         if (html && html !== lastLiveHtml.current) sendView(false, html);

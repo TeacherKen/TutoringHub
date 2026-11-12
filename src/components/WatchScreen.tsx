@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { MODE_NAMES } from "@/lib/facts";
 import { GAMES } from "@/lib/games";
@@ -165,15 +165,15 @@ function placeScroll(frame: HTMLIFrameElement | null, html: string) {
  * No blinking: each new picture loads in a hidden copy behind the one you see, and the two swap
  * only once it's completely ready (styles, pictures and scroll position).
  */
-function ScreenPicture({ html, title }: { html: string; title: string }) {
+export function ScreenPicture({ html, title }: { html: string; title: string }) {
   const [boxWidth, setBoxWidth] = useState(800);
   const [front, setFront] = useState<{ idx: 0 | 1; html: string }>({ idx: 0, html });
+  // The picture loading behind the one you see. It is never swapped mid-load (pictures can arrive
+  // several times a second): when it's ready it comes to the front, then the newest one loads.
+  const [next, setNext] = useState("");
+  if (!next && html !== front.html) setNext(html);
   const box = useRef<HTMLDivElement>(null);
   const frames = [useRef<HTMLIFrameElement>(null), useRef<HTMLIFrameElement>(null)] as const;
-  const latest = useRef(html);
-  useLayoutEffect(() => {
-    latest.current = html;
-  }, [html]);
   useEffect(() => {
     if (!box.current) return;
     const ro = new ResizeObserver(([e]) => setBoxWidth(e.contentRect.width));
@@ -183,7 +183,7 @@ function ScreenPicture({ html, title }: { html: string; title: string }) {
 
   const back = (1 - front.idx) as 0 | 1;
   // What each copy shows: the one in front keeps its picture; the hidden one loads the newest.
-  const docFor = (i: 0 | 1) => (i === front.idx ? front.html : html !== front.html ? html : "");
+  const docFor = (i: 0 | 1) => (i === front.idx ? front.html : next);
   // A game picture may show only part of the child's screen width (data-crop-x/-w); older pictures show it all.
   const size = (h: string) => {
     const vw = attr(h, "data-vw", 1024);
@@ -196,9 +196,10 @@ function ScreenPicture({ html, title }: { html: string; title: string }) {
     const el = frames[i].current;
     if (i === front.idx) return placeScroll(el, front.html);
     const doc = docFor(i);
-    if (!doc || doc !== latest.current) return; // an older picture, or the blank one
+    if (!doc) return; // the blank one
     placeScroll(el, doc);
     setFront({ idx: i, html: doc });
+    setNext("");
   }
 
   return (
