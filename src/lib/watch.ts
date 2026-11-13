@@ -72,6 +72,8 @@ export type WatchView = {
   z?: string;
   /** Counts pictures, so a late one never replaces a newer one. */
   n?: number;
+  /** The room is sending a live copy of its screen (see liveCopy.ts) instead of pictures. */
+  copy?: boolean;
 };
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -120,6 +122,7 @@ export function cleanView(raw: unknown): WatchView | null {
   if (typeof v.html === "string" && v.html.length <= MAX_LIVE_HTML) view.html = v.html;
   if (typeof v.z === "string" && v.z.length <= MAX_LIVE_HTML && /^[A-Za-z0-9+/=]+$/.test(v.z)) view.z = v.z;
   if (typeof v.n === "number" && Number.isFinite(v.n)) view.n = v.n;
+  if (v.copy === true) view.copy = true;
   return view;
 }
 

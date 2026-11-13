@@ -6,6 +6,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { RoomData } from "@/lib/room";
 import { createClient } from "@/lib/supabase/client";
 import { MAX_LIVE_HTML, MAX_RAW_HTML, packHtml, watchChannel, type PracticeLive, type WatchView } from "@/lib/watch";
+import { canLiveCopy, startCopy } from "@/lib/liveCopy";
 import { BuiltInGame } from "./games/BuiltInGame";
 import { snapshotDocument, snapshotElement } from "@/lib/snapshot";
 import { Whiteboard } from "./Whiteboard";
@@ -99,6 +100,8 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   const joined = useRef(false); // the live connection is open (sending before that goes the slow way, by web request)
   const picNo = useRef(0);
   const packing = useRef(false);
+  const copy = useRef<{ full: () => void; stop: () => void } | null>(null); // the live copy of this screen, while watched
+  const copyOn = useRef(false);
   const viewRef = useRef({ tab, game });
   useLayoutEffect(() => {
     viewRef.current = { tab, game };
@@ -110,6 +113,11 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
       if (!ch || !joined.current || Date.now() > watchedUntil.current) return;
       const { tab: t, game: g } = viewRef.current;
       const view: WatchView = { tab: t, game: t === "games" ? g : null, practice: t === "practice" ? practiceNow.current : null };
+      if (copyOn.current && t === "games") {
+        // The live copy shows the screen: no pictures needed.
+        void ch.send({ type: "broadcast", event: "view", payload: { ...view, copy: true } });
+        return;
+      }
       const html = t === "games" && g ? (snap ?? snapGame()) : "";
       if (!html || html.length > MAX_RAW_HTML || (!full && html === lastLiveHtml.current)) {
         void ch.send({ type: "broadcast", event: "view", payload: view });
@@ -149,6 +157,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
       }
       watchedUntil.current = Date.now() + 12_000;
       setWatched(true);
+      if (payload?.copyNeed === true) copy.current?.full();
       sendView(payload?.need === true);
     }).subscribe((status) => {
       joined.current = status === "SUBSCRIBED";
@@ -162,7 +171,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
     const tick = setInterval(() => {
       if (Date.now() > watchedUntil.current) return setWatched(false);
       const { tab: t, game: g } = viewRef.current;
-      if (t !== "games" || !g || document.hidden) return; // nothing to show while the app is in the background
+      if (t !== "games" || !g || document.hidden || copyOn.current) return; // nothing to show while the app is in the background
       if (Date.now() - lastSent < (lastSize > 80_000 ? 1000 : 300)) return;
       const html = snapGame();
       if (html && html !== lastLiveHtml.current) {
@@ -178,6 +187,30 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
       void sb.removeChannel(ch);
     };
   }, [token, sendView, snapGame]);
+
+  // The live copy: runs while Mr Ken watches a game, and stops when he stops (or the game closes).
+  useEffect(() => {
+    if (!watched || tab !== "games" || !game || !canLiveCopy()) return;
+    let cancelled = false;
+    void startCopy((m) => {
+      if (joined.current) void watchCh.current?.send({ type: "broadcast", event: "copy", payload: m });
+    })
+      .then((c) => {
+        if (cancelled) return c.stop();
+        copy.current = c;
+        copyOn.current = true;
+        sendView(false); // tell Mr Ken's screen to switch to the live copy
+      })
+      .catch(() => {
+        /* the pictures keep working */
+      });
+    return () => {
+      cancelled = true;
+      copyOn.current = false;
+      copy.current?.stop();
+      copy.current = null;
+    };
+  }, [watched, tab, game, sendView]);
 
   // A new tab or game: tell Mr Ken straight away.
   useEffect(() => {
@@ -227,7 +260,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
 
   /** After a tap in a game, send the new picture quickly (and again once any animation ends). */
   const quickPicture = useCallback(() => {
-    if (Date.now() > watchedUntil.current) return;
+    if (Date.now() > watchedUntil.current || copyOn.current) return;
     for (const wait of [80, 350, 800]) {
       setTimeout(() => {
         const html = snapGame();

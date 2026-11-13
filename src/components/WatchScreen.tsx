@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/client";
 import { MODE_NAMES } from "@/lib/facts";
 import { GAMES } from "@/lib/games";
 import { cleanView, secs, unpackHtml, watchChannel, type PracticeLive, type WatchView } from "@/lib/watch";
+import { canLiveCopy, copyReceiver, type CopyMsg } from "@/lib/liveCopy";
+import type { eventWithTime, Replayer } from "rrweb";
+import "rrweb/dist/style.css";
 
 type Screen = { game: string; html: string; updated_at: string } | null;
 const NAMES: Record<string, string> = Object.fromEntries(GAMES.map((g) => [g.id, g.name]));
@@ -26,6 +29,19 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
   const [screen, setScreen] = useState<Screen>(null);
   const viewRef = useRef<WatchView | null>(null);
   const seenRef = useRef(0);
+  // The live copy (smooth, like a shared Canva design): rebuilt here from the changes the room sends.
+  const copyBox = useRef<HTMLDivElement>(null);
+  const player = useRef<Replayer | null>(null);
+  const [copySize, setCopySize] = useState<{ w: number; h: number } | null>(null);
+  const [copyReady, setCopyReady] = useState(false);
+  const [copyBoxWidth, setCopyBoxWidth] = useState(800);
+  useEffect(() => {
+    const el = copyBox.current?.parentElement?.parentElement; // the whole watch panel (always visible)
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setCopyBoxWidth(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // The live connection: say "I'm watching" every 4 seconds, and take what the room sends.
   useEffect(() => {
@@ -40,12 +56,41 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
     let alive = true;
     let joined = false; // only talk once the live connection is open (otherwise each message is a slow web request)
     let newest = 0; // the newest picture number shown
+    let copyNeed = canLiveCopy(); // ask for a full live copy (at the start, or after missing something)
     const ping = () => {
       if (!alive || !joined || document.hidden) return; // Mr Ken isn't looking: the child's screen stops sending after a few seconds
       const v = viewRef.current;
-      const need = !v || (v.tab === "games" && !!v.game && !v.html); // ask for the full picture
-      void ch.send({ type: "broadcast", event: "watch", payload: { on: true, need } });
+      const need = !v || (v.tab === "games" && !!v.game && !v.html && !v.copy); // ask for the full picture
+      void ch.send({ type: "broadcast", event: "watch", payload: { on: true, need, copyNeed } });
     };
+    const play = async (events: eventWithTime[], fresh: boolean) => {
+      if (!alive) return;
+      copyNeed = false;
+      if (fresh || !player.current) {
+        const { Replayer: R } = await import("rrweb");
+        if (!alive || !copyBox.current) return;
+        player.current?.destroy();
+        copyBox.current.innerHTML = "";
+        const p = new R([], { root: copyBox.current, liveMode: true, mouseTail: false, showWarning: false, triggerFocus: false, UNSAFE_replayCanvas: false });
+        p.on("resize", (d) => {
+          const { width, height } = d as { width: number; height: number };
+          setCopySize({ w: width, h: height });
+        });
+        // Play the changes a moment after they happen (smooth, even if the internet hiccups).
+        p.startLive(events[0].timestamp - 250);
+        player.current = p;
+        setCopyReady(true);
+      }
+      for (const e of events) player.current?.addEvent(e);
+    };
+    const receive = copyReceiver(
+      (events, fresh) => void play(events, fresh),
+      () => {
+        copyNeed = true;
+        ping();
+      },
+    );
+    ch.on("broadcast", { event: "copy" }, ({ payload }) => receive(payload as CopyMsg));
     const take = (v: WatchView) => {
       const prev = viewRef.current;
       // Unchanged pictures aren't sent again: keep the one we have.
@@ -80,6 +125,8 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
     window.addEventListener("pagehide", stop);
     return () => {
       alive = false;
+      player.current?.destroy();
+      player.current = null;
       clearInterval(id);
       window.removeEventListener("pagehide", stop);
       document.removeEventListener("visibilitychange", onVisible);
@@ -114,6 +161,8 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
   }, [studentId]);
 
   const live = view && now - seenAt < FRESH_MS ? view : null;
+  const showCopy = !!live && live.tab === "games" && !!live.copy && copyReady && !!copySize;
+  const scale = copySize ? Math.min(1, copyBoxWidth / copySize.w) : 1;
   const oldAgo = screen && now ? Math.max(0, Math.round((now - new Date(screen.updated_at).getTime()) / 1000)) : null;
 
   return (
@@ -151,9 +200,13 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
           `Waiting for ${name}… They need their room link open.`
         )}
       </p>
+      {/* the live copy (always here, shown when it's running) */}
+      <div className={showCopy ? "overflow-hidden rounded-2xl border border-line bg-white shadow-inner" : "hidden"} style={copySize ? { height: Math.round(copySize.h * scale) } : undefined} aria-label={`${name}'s screen, live`}>
+        <div ref={copyBox} className="pointer-events-none origin-top-left [&_.replayer-wrapper]:!relative" style={{ transform: `scale(${scale})`, width: copySize?.w }} />
+      </div>
       {live?.tab === "practice" && live.practice ? (
         <PracticeWatch p={live.practice} />
-      ) : live?.tab === "games" && live.html ? (
+      ) : showCopy ? null : live?.tab === "games" && live.html ? (
         <ScreenPicture html={live.html} title={`${name}'s game screen`} />
       ) : !live && screen ? (
         <ScreenPicture html={screen.html} title={`${name}'s game screen`} />
