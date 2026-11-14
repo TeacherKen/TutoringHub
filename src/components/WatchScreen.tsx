@@ -32,6 +32,7 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
   // The live copy (smooth, like a shared Canva design): rebuilt here from the changes the room sends.
   const copyBox = useRef<HTMLDivElement>(null);
   const player = useRef<Replayer | null>(null);
+  const copyShowing = useRef(false);
   const [copySize, setCopySize] = useState<{ w: number; h: number } | null>(null);
   const [copyReady, setCopyReady] = useState(false);
   const [copyBoxWidth, setCopyBoxWidth] = useState(800);
@@ -141,7 +142,8 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
     const load = async () => {
       if (document.hidden) return;
       if (alive) setNow(Date.now());
-      if (Date.now() - seenRef.current < FRESH_MS) return; // live is working
+      // Live is working (and shows the screen): no need. If the live copy isn't showing yet, keep the pictures coming.
+      if (Date.now() - seenRef.current < FRESH_MS && (copyShowing.current || !!viewRef.current?.html)) return;
       try {
         const res = await fetch(`/api/watch/${studentId}`, { cache: "no-store" });
         if (res.ok && alive) {
@@ -162,6 +164,9 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
 
   const live = view && now - seenAt < FRESH_MS ? view : null;
   const showCopy = !!live && live.tab !== "lesson" && !!live.copy && copyReady && !!copySize;
+  useEffect(() => {
+    copyShowing.current = showCopy;
+  }, [showCopy]);
   const scale = copySize ? Math.min(1, copyBoxWidth / copySize.w) : 1;
   const oldAgo = screen && now ? Math.max(0, Math.round((now - new Date(screen.updated_at).getTime()) / 1000)) : null;
 
@@ -208,7 +213,7 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
         <PracticeWatch p={live.practice} />
       ) : live?.tab === "games" && live.html ? (
         <ScreenPicture html={live.html} title={`${name}'s game screen`} />
-      ) : !live && screen ? (
+      ) : screen && (!live || live.tab === "games") ? (
         <ScreenPicture html={screen.html} title={`${name}'s game screen`} />
       ) : null}
     </div>
