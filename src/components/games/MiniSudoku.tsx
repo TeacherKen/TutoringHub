@@ -64,6 +64,31 @@ const now = () => Date.now();
 
 type Game = { size: Size; start: (number | null)[][]; grid: (number | null)[][] };
 
+// A puzzle she's halfway through is kept on her device (per size), so closing the game to do
+// something else and coming back carries on where she left off. "New puzzle" starts a fresh one.
+const SAVE_KEY = "tutoringhub.sudoku";
+type Saved = { last: Size; games: Partial<Record<Size, { game: Game; secs: number }>> };
+function readSaved(): Saved | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(SAVE_KEY) ?? "null") as Saved | null;
+    return v && typeof v === "object" && v.games ? v : null;
+  } catch {
+    return null;
+  }
+}
+function writeSaved(fn: (s: Saved) => Saved) {
+  try {
+    const cur = readSaved() ?? { last: 4, games: {} };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(fn(cur)));
+  } catch {
+    /* private browsing: just don't keep it */
+  }
+}
+function savedGame(size: Size): { game: Game; secs: number } | null {
+  const g = readSaved()?.games[size];
+  return g && g.game?.size === size && Array.isArray(g.game.grid) && g.game.grid.length === size ? g : null;
+}
+
 function newGame(size: Size): Game {
   const { solution, given } = makePuzzle(size);
   const start = solution.map((row, r) => row.map((v, c) => (given[r][c] ? v : null)));
@@ -74,13 +99,20 @@ export function MiniSudoku() {
   // The puzzle is shuffled only in the browser (not while the page is prepared on the server),
   // so both sides agree and the board doesn't flash and redraw on load.
   const [game, setGame] = useState<Game | null>(null);
+  const [startedAt, setStartedAt] = useState(now);
   useEffect(() => {
-    const id = setTimeout(() => setGame(newGame(4)), 0);
+    const id = setTimeout(() => {
+      const last = readSaved()?.last ?? 4;
+      const kept = savedGame(last);
+      if (kept) {
+        setGame(kept.game);
+        setStartedAt(now() - kept.secs * 1000);
+      } else setGame(newGame(last));
+    }, 0);
     return () => clearTimeout(id);
   }, []);
   const [sel, setSel] = useState<[number, number] | null>(null);
   const [checked, setChecked] = useState<"no" | "wrong" | "solved">("no");
-  const [startedAt, setStartedAt] = useState(now);
   const [time, setTime] = useState<number | null>(null);
   const [confetti, setConfetti] = useState<Confetti[]>([]);
   const { size, grid, start } = game ?? { size: 4 as Size, grid: [] as (number | null)[][], start: [] as (number | null)[][] };
@@ -88,11 +120,22 @@ export function MiniSudoku() {
   const [br, bc] = BOX[size];
   const isGiven = (r: number, c: number) => start[r][c] != null;
 
-  function reset(nextSize: Size = size) {
-    setGame(newGame(nextSize));
+  // Keep the puzzle she's working on (and her time so far) whenever it changes.
+  useEffect(() => {
+    if (!game) return;
+    writeSaved((s) => ({
+      last: game.size,
+      games: { ...s.games, [game.size]: checked === "solved" ? undefined : { game, secs: Math.round((now() - startedAt) / 1000) } },
+    }));
+  }, [game, checked, startedAt]);
+
+  /** Switch size: carry on with that size's unfinished puzzle, if there is one. `fresh`: always a new puzzle. */
+  function reset(nextSize: Size = size, fresh = true) {
+    const kept = fresh ? null : savedGame(nextSize);
+    setGame(kept ? kept.game : newGame(nextSize));
     setSel(null);
     setChecked("no");
-    setStartedAt(now());
+    setStartedAt(kept ? now() - kept.secs * 1000 : now());
     setTime(null);
     setConfetti([]);
   }
@@ -145,7 +188,7 @@ export function MiniSudoku() {
           ["9", "9 × 9"],
         ]}
         value={String(size)}
-        onChange={(k) => reset(Number(k) as Size)}
+        onChange={(k) => reset(Number(k) as Size, false)}
       />
 
       <div className={`mx-auto w-full rounded-3xl p-3 shadow-[0_10px_28px_rgba(0,0,0,.28)] ${size === 9 ? "max-w-lg" : "max-w-sm"}`} style={{ background: `radial-gradient(130% 100% at 30% 0%, ${T.from}, ${T.to})`, boxShadow: "inset 0 2px 10px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.25)" }}>
