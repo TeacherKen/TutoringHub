@@ -1,4 +1,5 @@
 "use client";
+import { hello, SIGN_OFF } from "@/lib/parentNote";
 import { useMemo, useState } from "react";
 import { PromptPayQR } from "./PromptPayQR";
 import { SendButton } from "./SendButton";
@@ -46,13 +47,13 @@ export function renewalText(p: Props): string {
           : `Would you like to renew for another ${hrs(offers[0].hours)}?`
         : "Would you like to renew the package?";
   const pay = p.promptpayId && priced.length ? ` You can pay by scanning the PromptPay QR code${priced.length > 1 ? " for the package you choose" : ""}.` : "";
-  return `Hi ${p.parentName?.trim() || "there"},
+  return `${hello(p.parentName)}
 
 Just a quick update on lessons: ${status} ${offer}${pay}
 
 Please let me know, and I'll keep the same lesson times. Thank you!
 
-${p.tutorName}`;
+${SIGN_OFF}`;
 }
 
 /** Drafts a renewal message with the package options, PromptPay QR and a button to send it. */

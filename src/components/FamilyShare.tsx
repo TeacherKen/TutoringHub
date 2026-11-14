@@ -1,5 +1,5 @@
 "use client";
-import { parentNote } from "@/lib/parentNote";
+import { hello, parentNote, SIGN_OFF } from "@/lib/parentNote";
 import { useState } from "react";
 import { ensureFamilyToken } from "@/app/actions/family";
 import { chatLink, type ChatApp } from "@/lib/chat";
@@ -44,7 +44,7 @@ export function FamilyShare({
     // Weekly (or any time): the family page always has the latest lesson update, progress, hours and next lessons.
     const msg = opened || token
       ? parentNote(parentName, names, `${window.location.origin}/family/${t}`)
-      : `Hi ${parentName?.trim() || "there"}, here is ${names}'s private maths page — lesson updates after each lesson, progress, hours left and the next lessons: ${window.location.origin}/family/${t}`;
+      : `${hello(parentName)} Here is ${names}'s private maths page, with an update after each lesson, progress, hours left and the next lessons: ${window.location.origin}/family/${t}\n\n${SIGN_OFF}`;
     const link = chatLink(contactApp, contact, msg);
     if (link) window.open(link.href, "_blank", "noopener");
     else {

@@ -51,13 +51,15 @@ Length: 200–300 words. Plain, simple English that parents who speak English as
 ${i.allowEmoji ? "You may use one or two friendly emojis." : "Do not use emojis."}
 
 Structure:
-1. Greeting using the parent's name.
+1. Start with exactly "${i.parentName?.trim() ? `Hi ${i.parentName.trim()}!` : "Hi!"}" on its own line.
 2. A one-line overview: ${i.month.lessons.length} ${i.month.lessons.length === 1 ? "lesson" : "lessons"} this month and the main topics.
 3. What ${name} learned, grouped by topic, with specific maths examples from the notes.
 4. Strengths — what ${name} is now confident with.
 5. What to keep practising, explained kindly and specifically.
 6. The plan for next month.
-7. A short friendly sign-off from ${i.tutorName.trim() || "your tutor"}.
+7. End with exactly these two lines (nothing after them):
+Best wishes
+Kenneth
 
 Rules:
 - Only use the facts below. Do not invent anything.

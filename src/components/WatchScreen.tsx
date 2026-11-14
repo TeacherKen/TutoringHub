@@ -161,7 +161,7 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
   }, [studentId]);
 
   const live = view && now - seenAt < FRESH_MS ? view : null;
-  const showCopy = !!live && live.tab === "games" && !!live.copy && copyReady && !!copySize;
+  const showCopy = !!live && live.tab !== "lesson" && !!live.copy && copyReady && !!copySize;
   const scale = copySize ? Math.min(1, copyBoxWidth / copySize.w) : 1;
   const oldAgo = screen && now ? Math.max(0, Math.round((now - new Date(screen.updated_at).getTime()) / 1000)) : null;
 
@@ -204,9 +204,9 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
       <div className={showCopy ? "overflow-hidden rounded-2xl border border-line bg-white shadow-inner" : "hidden"} style={copySize ? { height: Math.round(copySize.h * scale) } : undefined} aria-label={`${name}'s screen, live`}>
         <div ref={copyBox} className="pointer-events-none origin-top-left [&_.replayer-wrapper]:!relative" style={{ transform: `scale(${scale})`, width: copySize?.w }} />
       </div>
-      {live?.tab === "practice" && live.practice ? (
+      {showCopy ? null : live?.tab === "practice" && live.practice ? (
         <PracticeWatch p={live.practice} />
-      ) : showCopy ? null : live?.tab === "games" && live.html ? (
+      ) : live?.tab === "games" && live.html ? (
         <ScreenPicture html={live.html} title={`${name}'s game screen`} />
       ) : !live && screen ? (
         <ScreenPicture html={screen.html} title={`${name}'s game screen`} />

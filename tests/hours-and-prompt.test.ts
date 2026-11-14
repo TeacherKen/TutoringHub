@@ -116,7 +116,7 @@ describe("renewal message", () => {
     expect(t).toContain("Hi Ms Aradhana");
     expect(t).toContain("Jaian and Nivaan have 1.5 hours left");
     expect(t).toContain("12 hours for ฿33,600");
-    expect(t).toContain("Mr Ken");
+    expect(t).toMatch(/Best wishes\nKenneth$/);
   });
   it("handles used-up packages", () => {
     expect(renewalText({ parentName: null, names: ["Alice"], hoursLeft: -1, lastHours: null, lastPrice: null, tutorName: "Mr Ken" })).toContain(

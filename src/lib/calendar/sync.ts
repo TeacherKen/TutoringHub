@@ -192,9 +192,11 @@ export async function syncCalendar(): Promise<SyncResult> {
   // 4. Events named like ones Mr Ken hid ("Not a lesson") stay hidden, e.g. a new week of his own classes.
   const { data: hiddenRows } = await admin.from("lessons").select("title").eq("ignored", true).order("start_at", { ascending: false }).limit(500);
   const hiddenNames = new Set(((hiddenRows ?? []) as { title: string | null }[]).map((r) => eventName(r.title)).filter(Boolean));
-  if (hiddenNames.size) {
+  // Flights from Mr Ken's travel plans aren't lessons either.
+  const flight = (t: string | null) => /\bflights?\b|✈/i.test(t ?? "");
+  {
     const linked = new Set(links.map((l) => l.lesson_id));
-    const toHide = unlocked.filter((s) => !linked.has(s.id) && hiddenNames.has(eventName(s.title))).map((s) => s.id);
+    const toHide = unlocked.filter((s) => !linked.has(s.id) && (hiddenNames.has(eventName(s.title)) || flight(s.title))).map((s) => s.id);
     if (toHide.length) await admin.from("lessons").update({ ignored: true }).in("id", toHide).eq("ignored", false);
   }
 

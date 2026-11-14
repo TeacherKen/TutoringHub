@@ -113,7 +113,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
       if (!ch || !joined.current || Date.now() > watchedUntil.current) return;
       const { tab: t, game: g } = viewRef.current;
       const view: WatchView = { tab: t, game: t === "games" ? g : null, practice: t === "practice" ? practiceNow.current : null };
-      if (copyOn.current && t === "games") {
+      if (copyOn.current && t !== "lesson") {
         // The live copy shows the screen: no pictures needed.
         void ch.send({ type: "broadcast", event: "view", payload: { ...view, copy: true } });
         return;
@@ -188,9 +188,11 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
     };
   }, [token, sendView, snapGame]);
 
-  // The live copy: runs while Mr Ken watches a game, and stops when he stops (or the game closes).
+  // The live copy: runs while Mr Ken watches the games or football practice (not the Lesson page:
+  // the writing there is drawn on a canvas, which he already sees live on the smart slides).
+  const copyTab = tab === "games" || tab === "practice";
   useEffect(() => {
-    if (!watched || tab !== "games" || !game || !canLiveCopy()) return;
+    if (!watched || !copyTab || !canLiveCopy()) return;
     let cancelled = false;
     void startCopy((m) => {
       if (joined.current) void watchCh.current?.send({ type: "broadcast", event: "copy", payload: m });
@@ -210,7 +212,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
       copy.current?.stop();
       copy.current = null;
     };
-  }, [watched, tab, game, sendView]);
+  }, [watched, copyTab, sendView]);
 
   // A new tab or game: tell Mr Ken straight away.
   useEffect(() => {

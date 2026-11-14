@@ -1,4 +1,5 @@
 "use client";
+import { addFamilyLine } from "@/lib/parentNote";
 import { netFail } from "@/lib/netFail";
 import { createContext, useContext, useEffect, useState } from "react";
 import { ensureFamilyToken } from "@/app/actions/family";
@@ -62,7 +63,7 @@ export function FamilyLinkProvider({ accountId, names, initialToken, children }:
 /** The message as it will be copied or sent: with the family link at the end when ticked. */
 export function useWithFamily(): (text: string) => string {
   const f = useContext(Ctx);
-  return (text) => (f?.add && f.token && text.trim() ? `${text.trimEnd()}\n\nYou can see ${f.names}'s lessons and progress anytime here: ${window.location.origin}/family/${f.token}` : text);
+  return (text) => (f?.add && f.token && text.trim() ? addFamilyLine(text, f.names, `${window.location.origin}/family/${f.token}`) : text);
 }
 
 /** "Add the family page link" tick box (shown only on pages that know the family). */

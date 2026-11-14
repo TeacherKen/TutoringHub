@@ -103,6 +103,7 @@ export function copyReceiver(onEvents: (events: eventWithTime[], fresh: boolean)
   let waitingFull = true;
   const parts = new Map<number, string[]>();
   let chain = Promise.resolve();
+  let askedAt = 0;
   return (m: CopyMsg) => {
     if (!m || typeof m.s !== "string" || typeof m.z !== "string" || !Number.isInteger(m.q) || !Number.isInteger(m.i) || !Number.isInteger(m.of) || m.of < 1 || m.of > 40) return;
     if (m.s !== session) {
@@ -130,7 +131,14 @@ export function copyReceiver(onEvents: (events: eventWithTime[], fresh: boolean)
         const events = JSON.parse(await unsqueeze(z)) as eventWithTime[];
         if (!Array.isArray(events) || !events.length) return;
         const hasFull = events.some((e) => e.type === 2); // 2 = a full copy of the page
-        if (waitingFull && !hasFull) return; // can't use changes without the page they change
+        if (waitingFull && !hasFull) {
+          // Can't use changes without the page they change: ask for it (at most every 2 seconds).
+          if (Date.now() - askedAt > 2000) {
+            askedAt = Date.now();
+            needFull();
+          }
+          return;
+        }
         const fresh = waitingFull;
         waitingFull = false;
         onEvents(events, fresh);
