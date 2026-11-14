@@ -72,7 +72,7 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
         if (!alive || !copyBox.current) return;
         player.current?.destroy();
         copyBox.current.innerHTML = "";
-        const p = new R([], { root: copyBox.current, liveMode: true, mouseTail: false, showWarning: false, triggerFocus: false, UNSAFE_replayCanvas: false });
+        const p = new R([], { root: copyBox.current, liveMode: true, pauseAnimation: false, mouseTail: false, showWarning: false, triggerFocus: false, UNSAFE_replayCanvas: false });
         p.on("resize", (d) => {
           const { width, height } = d as { width: number; height: number };
           setCopySize({ w: width, h: height });
