@@ -150,19 +150,25 @@ export async function syncCalendar(): Promise<SyncResult> {
   }
 
   // 2. Lessons no longer in a calendar that was read successfully: moved or cancelled, so hidden.
-  // (Lessons from a calendar that failed to load are left alone.) Only lessons that haven't ended:
-  // Preply's link stops listing lessons once they're over, and a lesson that was taught (and used
-  // package hours) must stay on Week, Home and the student page.
+  // (Lessons from a calendar that failed to load are left alone.) Preply lessons only before they end:
+  // Preply's link stops listing lessons once they're over. Other lessons (Google Calendar keeps past
+  // events) also after they end, if they were removed within 3 days and nobody marked them yet
+  // (Mr Ken deletes a cancelled class from his calendar, sometimes after its time). A lesson marked
+  // done, cancelled or no-show always stays (it used package hours).
   const seen = new Set(saved.map((s) => s.id));
   const okIds = okSources.map((x) => x.src.id);
   const { data: windowRows } = await admin
     .from("lessons")
-    .select("id, calendar_source_id, end_at")
+    .select("id, calendar_source_id, end_at, is_preply, status")
     .gte("start_at", from.toISOString())
     .lte("start_at", to.toISOString())
     .eq("in_calendar", true);
   const gone = (windowRows ?? [])
-    .filter((r) => Date.parse(r.end_at as string) > Date.now())
+    .filter((r) => {
+      const end = Date.parse(r.end_at as string);
+      if (end > Date.now()) return true;
+      return !r.is_preply && r.status === "scheduled" && end > Date.now() - 3 * 86_400_000;
+    })
     .filter((r) => !seen.has(r.id as string) && (r.calendar_source_id == null || okIds.includes(r.calendar_source_id as string)))
     .map((r) => r.id as string);
   if (gone.length) await admin.from("lessons").update({ in_calendar: false }).in("id", gone);
