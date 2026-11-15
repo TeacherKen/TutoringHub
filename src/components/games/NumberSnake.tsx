@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { readKept, writeKept } from "@/lib/games/keep";
 import { SNAKE_LEVELS, snakeDone, snakePuzzle, step, type SnakePuzzle, type SnakeSize } from "@/lib/games/numberSnake";
 import { useBest } from "./useBest";
 import { BigButton, GameHero, HowToPlay, LevelPicker, ResultCard, THEMES } from "./GameKit";
@@ -21,6 +22,12 @@ const secs = (ms: number) => {
 // From green to blue along the snake.
 const shade = (i: number, N: number) => `hsl(${95 + (i / Math.max(1, N - 1)) * 75} 62% ${44 - (i / N) * 8}%)`;
 
+type KeptSnake = { n: SnakeSize; solution: number[]; given: [number, number][]; path: number[]; secs: number };
+const keptSnake = (): KeptSnake | null => {
+  const k = readKept<KeptSnake>("ns");
+  return k && [4, 5, 6].includes(k.n) && Array.isArray(k.path) && Array.isArray(k.given) && Array.isArray(k.solution) && k.solution.length === k.n * k.n ? k : null;
+};
+
 export function NumberSnake() {
   const [size, setSize] = useState<SnakeSize>(4);
   const [phase, setPhase] = useState<"setup" | "play" | "won">("setup");
@@ -37,6 +44,25 @@ export function NumberSnake() {
     pathRef.current = path;
   }, [path]);
   const { best, offer } = useBest(`ns-${size}`, (a, b) => a < b, "s");
+  // A half-done snake from last time (read in the browser only).
+  const [kept, setKept] = useState<KeptSnake | null>(null);
+  useEffect(() => {
+    const id = setTimeout(() => setKept(keptSnake()), 0);
+    return () => clearTimeout(id);
+  }, [phase]);
+  useEffect(() => {
+    if (phase === "play" && p && path.length > 1 && !snakeDone(p, path))
+      writeKept("ns", { n: p.n, solution: p.path, given: [...p.given.entries()], path, secs: Math.round((Date.now() - startedAt) / 1000) });
+  }, [phase, p, path, startedAt]);
+
+  function carryOn(k: KeptSnake) {
+    setSize(k.n);
+    setP({ n: k.n, path: k.solution, given: new Map(k.given) });
+    setPath(k.path);
+    setWhy(null);
+    setStartedAt(Date.now() - k.secs * 1000);
+    setPhase("play");
+  }
 
   function start() {
     const puzzle = snakePuzzle(size);
@@ -75,6 +101,7 @@ export function NumberSnake() {
       const t = Date.now() - startedAt;
       setTook(t);
       setNewBest(offer(Math.round(t / 1000)));
+      writeKept("ns", null);
       setTimeout(() => setPhase("won"), 500);
     }
   }
@@ -114,6 +141,11 @@ export function NumberSnake() {
         </div>
         <LevelPicker theme={T} levels={([4, 5, 6] as SnakeSize[]).map((k) => [String(k), SNAKE_LEVELS[k]] as [string, string])} value={String(size)} onChange={(k) => setSize(Number(k) as SnakeSize)} />
         {best != null ? <p className="text-center text-sm text-muted">Your fastest: {secs(best * 1000)}</p> : null}
+        {kept ? (
+          <button type="button" className="btn-secondary min-h-14 w-full text-lg font-semibold" onClick={() => carryOn(kept)}>
+            ▶ Carry on: the half-done {kept.n} × {kept.n} snake
+          </button>
+        ) : null}
         <BigButton theme={T} onClick={start}>
           ▶ Start
         </BigButton>

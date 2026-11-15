@@ -2,6 +2,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cluesOf, lineDone, PIC_LEVELS, PICTURES, solved, type Picture, type PicLevel } from "@/lib/games/nonogram";
 import { useBest } from "./useBest";
+import { readKept, writeKept } from "@/lib/games/keep";
+
+type KeptPic = { level: PicLevel; name: string; grid: Cell[][]; secs: number };
+const keptPic = (): KeptPic | null => {
+  const k = readKept<KeptPic>("pl");
+  const p = k && PICTURES[k.level]?.find((x) => x.name === k.name);
+  return p && Array.isArray(k.grid) && k.grid.length === p.rows.length ? k : null;
+};
 import { BigButton, GameHero, HowToPlay, LevelPicker, ResultCard, THEMES } from "./GameKit";
 
 const T = THEMES.pixel;
@@ -30,7 +38,27 @@ export function PictureLogic() {
   const [took, setTook] = useState(0);
   const [newBest, setNewBest] = useState(false);
   const paint = useRef<Cell | null>(null);
+  // A half-done picture from last time (read in the browser only).
+  const [kept, setKept] = useState<KeptPic | null>(null);
+  useEffect(() => {
+    const id = setTimeout(() => setKept(keptPic()), 0);
+    return () => clearTimeout(id);
+  }, [phase]);
+  // Keep the picture she's working on.
+  useEffect(() => {
+    if (phase === "play" && pic && grid.length) writeKept("pl", { level, name: pic.name, grid, secs: Math.round((Date.now() - startedAt) / 1000) });
+  }, [phase, pic, grid, level, startedAt]);
   const { best, offer } = useBest(`pl-${level}`, (a, b) => a < b, "s");
+
+  function carryOn(k: KeptPic) {
+    const p = PICTURES[k.level].find((x) => x.name === k.name);
+    if (!p) return;
+    setLevel(k.level);
+    setPic(p);
+    setGrid(k.grid);
+    setStartedAt(Date.now() - k.secs * 1000);
+    setPhase("play");
+  }
 
   function start(lv = level) {
     const p = choosePicture(lv, pic?.name ?? null);
@@ -72,6 +100,7 @@ export function PictureLogic() {
         setTook(t);
         setNewBest(offer(Math.round(t / 1000)));
         setPhase("won");
+        writeKept("pl", null);
       }, 250);
       return () => clearTimeout(id);
     }
@@ -140,6 +169,11 @@ export function PictureLogic() {
         </div>
         <LevelPicker theme={T} levels={Object.entries(PIC_LEVELS) as [PicLevel, string][]} value={level} onChange={setLevel} />
         {best != null ? <p className="text-center text-sm text-muted">Your fastest: {secs(best * 1000)}</p> : null}
+        {kept ? (
+          <button type="button" className="btn-secondary min-h-14 w-full text-lg font-semibold" onClick={() => carryOn(kept)}>
+            ▶ Carry on: the half-done {PIC_LEVELS[kept.level].split(" ")[0].toLowerCase()} picture
+          </button>
+        ) : null}
         <BigButton theme={T} onClick={() => start()}>
           ▶ Start
         </BigButton>
