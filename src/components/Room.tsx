@@ -16,10 +16,14 @@ import { useWolfLink, WVS_SRC } from "./games/WolfOnline";
 import { SIDE_NAME, type Side } from "@/lib/wvs";
 import { ReportContext } from "./games/report";
 import { MissionList } from "./games/Missions";
+import { GameLogo } from "./games/GameLogo";
+import "@fontsource/barlow-condensed/700.css";
+import "@fontsource/barlow-condensed/800-italic.css";
 import type { GameResult, MissionView } from "@/lib/gameScore";
 
 // Break-time games (football is the Practice tab). Games with a `src` are Mr Ken's own games.
 const GAMES = ALL_GAMES.filter((g) => g.id !== "football");
+const TOPICS: GameInfo["topic"][] = ["Times tables", "Fractions", "Time & money", "Thinking"];
 type GameId = GameInfo["id"];
 const SCREEN_EVERY_MS = 2000;
 
@@ -555,20 +559,45 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
           </div>
         </section>
       ) : (
-        <section className="mx-auto grid w-full max-w-lg gap-3">
-          <MissionList missions={missions} onPlay={playMission} title="🎯 Your missions" />
-          <h2 className="text-xl font-semibold">Break time! Pick a game</h2>
-          {GAMES.map((g) => (
-            <button key={g.id} onClick={() => setGame(g.id)} className="card flex min-h-20 items-center justify-between text-left hover:border-accent">
-              <span>
-                <span className="block text-lg font-medium">{g.name}</span>
-                <span className="text-sm text-muted">{g.blurb}</span>
-              </span>
-              <span aria-hidden className="text-muted">
-                ›
-              </span>
-            </button>
-          ))}
+        <section className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+          <div className="mx-auto w-full max-w-lg">
+            <MissionList missions={missions} onPlay={playMission} title="🎯 Your missions" />
+          </div>
+          <div>
+            <p className="text-[13px] font-bold tracking-[0.2em] text-accent">{GAMES.length} GAMES</p>
+            <h2 className="font-sport text-[40px] font-extrabold italic leading-none sm:text-[48px]">Break time! Pick a game</h2>
+          </div>
+          {TOPICS.map((topic) => {
+            const games = GAMES.filter((g) => g.topic === topic);
+            if (!games.length) return null;
+            return (
+              <div key={topic} className="flex flex-col gap-3">
+                <h3 className="flex items-center gap-3 font-semibold text-muted">
+                  {topic}
+                  <span className="h-px flex-1 bg-current opacity-20" />
+                </h3>
+                <ul className="grid gap-3 grid-cols-2 sm:gap-4 sm:[grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]">
+                  {games.map((g) => (
+                    <li key={g.id}>
+                      <button
+                        type="button"
+                        onClick={() => setGame(g.id)}
+                        title={g.blurb}
+                        className="flex h-full min-h-44 w-full flex-col rounded-3xl p-3 text-left sm:min-h-52 sm:p-5 shadow-[0_12px_30px_rgba(0,0,0,.25)] transition hover:-translate-y-1 active:scale-[.98] focus-visible:outline-4 focus-visible:outline-[#ffc629]"
+                        style={{ background: g.bg, color: g.fg }}
+                      >
+                        <span className="flex flex-1 items-center justify-center pb-3">
+                          <GameLogo id={g.id} />
+                        </span>
+                        <span className="font-sport block text-[22px] font-extrabold italic leading-none sm:text-[28px]">{g.name}</span>
+                        <span className="mt-1 block text-[13px] leading-snug opacity-85 sm:text-[15px]">{g.blurb}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </section>
       )}
     </div>
