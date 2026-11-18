@@ -152,13 +152,35 @@
     .name{display:none}
     .hud .pill{padding:5px 9px}
   }
+
+  /* ---------- League 2: the raft (challenges 9 to 16) ---------- */
+  .tabs{display:flex;gap:6px;width:100%}
+  .tab{padding:7px 14px;border-radius:12px;font-size:.9rem;line-height:1.15;text-align:left}
+  .tab small{display:block;font-weight:700;font-size:.74rem;color:var(--muted)}
+  .tab.on{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#2a1700;border:0}
+  .tab.on small{color:#5a3a00}
+  .raft{position:absolute;z-index:4;width:16%;pointer-events:none;display:none;transition:left .3s ease-in-out,top .3s ease-in-out}
+  .raft svg{display:block;width:100%;overflow:visible;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45))}
+  body.raftmode .raft{display:block}
+  body.raftmode #bridgeSvg,body.raftmode #customBox{display:none}
+  .char.r{transition:left .45s ease-in-out,top .45s ease-in-out}
+  .char img.pic{width:100%;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.5))}
+  .char.idle-off img.pic{filter:drop-shadow(0 3px 3px rgba(0,0,0,.5)) brightness(.8)}
+  .char.thing .ring{height:30%;bottom:-10%}
+  .char.thing .badge{top:-46%}
+  .char.oops{animation:oops .36s ease-in-out 3}
+  @keyframes oops{25%{transform:translate(-62%,-100%) rotate(-7deg)}75%{transform:translate(-38%,-100%) rotate(7deg)}}
+  .sel{flex-wrap:wrap}
+  .sel .warn{color:#ffb199;font-weight:800}
+  .card{max-height:100%;overflow-y:auto}
+  @media (max-width:640px){.char.thing .badge{top:-40%}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div class="logo"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 2c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z" fill="#2a1700"/></svg></div>
-    <div><h1>Flood Escape: Bridge &amp; Torch</h1><div class="tag">Get all 4 villagers across before the flood arrives.</div></div>
+    <div><h1>Flood Escape: Bridge &amp; Torch</h1><div class="tag">Get everyone across before the flood arrives.</div></div>
   </header>
 
   <div class="levels" id="levels"></div>
@@ -202,7 +224,7 @@
     </svg>
 
     <!-- bridge -->
-    <svg class="layer" viewBox="0 0 100 100" preserveAspectRatio="none" style="pointer-events:none">
+    <svg class="layer" id="bridgeSvg" viewBox="0 0 100 100" preserveAspectRatio="none" style="pointer-events:none">
       <g fill="#3b2a1b">
         <rect x="35" y="59" width=".9" height="41"/><rect x="50" y="59" width=".9" height="41"/><rect x="65" y="59" width=".9" height="41"/>
       </g>
@@ -213,6 +235,15 @@
       <path d="M22.2 45 Q50 51 77.8 45" stroke="#c8a774" stroke-width="2" fill="none" vector-effect="non-scaling-stroke"/>
       <g stroke="#a48555" stroke-width="1" vector-effect="non-scaling-stroke" id="hangers"></g>
     </svg>
+
+    <!-- League 2: the raft (the bridge is hidden then) -->
+    <div class="raft" id="raft"><svg viewBox="0 0 160 34">
+      <g fill="#6b4a2c" stroke="#3b2a1b" stroke-width="1.5"><circle cx="14" cy="21" r="8"/><circle cx="36" cy="21" r="8"/><circle cx="58" cy="21" r="8"/><circle cx="80" cy="21" r="8"/><circle cx="102" cy="21" r="8"/><circle cx="124" cy="21" r="8"/><circle cx="146" cy="21" r="8"/></g>
+      <g fill="none" stroke="#8a6238" stroke-width="1.5"><circle cx="14" cy="21" r="4"/><circle cx="36" cy="21" r="4"/><circle cx="58" cy="21" r="4"/><circle cx="80" cy="21" r="4"/><circle cx="102" cy="21" r="4"/><circle cx="124" cy="21" r="4"/><circle cx="146" cy="21" r="4"/></g>
+      <rect x="3" y="6" width="154" height="9" rx="3" fill="#a9783f" stroke="#3b2a1b" stroke-width="1.5"/>
+      <g stroke="#7a5634" stroke-width="1.2"><line x1="30" y1="7" x2="30" y2="14"/><line x1="58" y1="7" x2="58" y2="14"/><line x1="86" y1="7" x2="86" y2="14"/><line x1="114" y1="7" x2="114" y2="14"/><line x1="138" y1="7" x2="138" y2="14"/></g>
+      <g stroke="#e3c98f" stroke-width="2.4"><line x1="20" y1="5" x2="20" y2="16"/><line x1="140" y1="5" x2="140" y2="16"/></g>
+    </svg></div>
 
     <div class="flood" id="flood"></div>
     <canvas class="fx" id="rain"></canvas>
@@ -225,7 +256,7 @@
         <div class="meter"><b id="meter"></b></div>
       </div>
       <div class="pill stat">
-        <div class="clockLbl">Time used</div>
+        <div class="clockLbl" id="usedLbl">Time used</div>
         <div class="v" id="used">0 min</div>
       </div>
     </div>
@@ -265,7 +296,7 @@
     <div class="box"><h3>Your moves</h3><div class="steps" id="log"></div><div class="empty" id="logEmpty">No moves yet. Tap villagers on the side with the torch.</div></div>
     <div class="box">
       <h3>Hints</h3><div class="hint" id="hint">Stuck? Tap <b>💡 Hint</b> for a clue.</div>
-      <details>
+      <details id="customBox">
         <summary>Change the puzzle</summary>
         <div class="settings">
           <label>Mia<input type="number" min="1" max="60" id="s0" value="1"></label>
@@ -467,7 +498,7 @@ function check(){
   const canNext=!custom&&!watched&&stars>=2&&level<LEVELS.length-1;
   const allDone=!custom&&!watched&&stars>=2&&level===LEVELS.length-1;
   setTimeout(()=>showCard(`<h2>${title}</h2><div class="stars">${[0,1,2].map(k=>`<span class="${k<stars?'on':''}">★</span>`).join('')}</div>
-    <p>${text}${allDone?'<br><br>🏆 <b>You finished every challenge!</b> Try "Change the puzzle" to make your own.':''}</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    <p>${text}${canNext&&LEVELS[level+1].raft?'<br><br>🏆 <b>You finished League 1!</b> But the storm has washed the bridge away. League 2: the raft!':''}</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
     ${canNext?`<button class="go" onclick="loadLevel(${level+1})">Next challenge ▶</button><button onclick="reset()">Try again</button>`:'<button class="go" onclick="reset()">Play again</button>'}
     ${stars<3?'<button onclick="hideCard()">Look at my moves</button>':''}</div>`),500);
 }
@@ -490,6 +521,7 @@ function hints(){
   ];
 }
 document.getElementById('hintBtn').onclick=()=>{
+  if(mode==='raft'){rHint();return;}
   const H=hints();
   document.getElementById('hint').innerHTML='<b>Hint '+(hintStep+1)+' of 3:</b> '+H[hintStep];hintStep=Math.min(hintStep+1,2);
 };
@@ -508,16 +540,24 @@ const LEVELS=[
 let level=0,custom=false,progress={},watched=false;
 try{progress=JSON.parse(localStorage.getItem('bt-progress')||'{}')||{};}catch(e){progress={};}
 const saveProgress=()=>{try{localStorage.setItem('bt-progress',JSON.stringify(progress));}catch(e){}};
-const unlocked=i=>i===0||(progress[i-1]||0)>=2;
+// Two leagues of 8: the bridge (1 to 8), then the raft (9 to 16). The first one of each league is always open.
+const LEAGUES=[{name:'League 1',sub:'Bridge',from:0},{name:'League 2',sub:'Raft',from:8}];
+const unlocked=i=>i===0||i===8||(progress[i-1]||0)>=2;
 function drawLevels(){
-  const el=document.getElementById('levels');
-  el.innerHTML='<div class="lt">'+(custom?'Your own puzzle':'Challenge '+(level+1)+' of '+LEVELS.length+': '+LEVELS[level].name)+'<small>Flood comes at '+limit+' min</small></div>'+
-    LEVELS.map((L,i)=>`<button class="lv ${!custom&&i===level?'on':''} ${unlocked(i)?'':'lock'}" data-i="${i}" ${unlocked(i)?'':'disabled'} aria-label="Challenge ${i+1}">
-      <b>${unlocked(i)?i+1:'🔒'}</b><span class="st">${'★'.repeat(progress[i]||0)}${'☆'.repeat(3-(progress[i]||0))}</span></button>`).join('');
+  const el=document.getElementById('levels'),cur=LEVELS[level],lg=level>=8?1:0,from=LEAGUES[lg].from;
+  el.innerHTML='<div class="tabs">'+LEAGUES.map((g,k)=>`<button class="tab ${k===lg?'on':''}" data-l="${k}">${g.name}<small>${g.sub} · ${g.from+1} to ${g.from+8}</small></button>`).join('')+'</div>'+
+    '<div class="lt">'+(custom?'Your own puzzle':'Challenge '+(level+1)+' of '+LEVELS.length+': '+cur.name)+'<small>'+(cur.raft&&!custom?'Flood comes after '+cur.lim+' raft trips':'Flood comes at '+limit+' min')+'</small></div>'+
+    LEVELS.slice(from,from+8).map((L,k)=>{const i=from+k;return `<button class="lv ${!custom&&i===level?'on':''} ${unlocked(i)?'':'lock'}" data-i="${i}" ${unlocked(i)?'':'disabled'} aria-label="Challenge ${i+1}">
+      <b>${unlocked(i)?i+1:'🔒'}</b><span class="st">${'★'.repeat(progress[i]||0)}${'☆'.repeat(3-(progress[i]||0))}</span></button>`;}).join('');
   el.querySelectorAll('.lv').forEach(b=>b.onclick=()=>{if(!busy)loadLevel(+b.dataset.i);});
+  el.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+    const k=+b.dataset.l,f=LEAGUES[k].from;if(busy||(k===lg&&!custom))return;
+    let i=f;while(i<f+7&&(progress[i]||0)>=2)i++;loadLevel(i);});
 }
 function loadLevel(i,intro=true){
-  level=i;custom=false;speeds=[...LEVELS[i].sp];limit=LEVELS[i].lim;
+  level=i;custom=false;
+  if(LEVELS[i].raft){rLoad(LEVELS[i]);drawLevels();if(intro)rRules('Challenge '+(i+1)+': '+LEVELS[i].name,LEVELS[i].tip,"Let's go!");return;}
+  setMode('bridge');speeds=[...LEVELS[i].sp];limit=LEVELS[i].lim;
   document.getElementById('lim').value=limit;build();drawLevels();
   if(intro)showCard(`<h2>Challenge ${i+1}: ${LEVELS[i].name}</h2><p>${LEVELS[i].tip}</p>
     <div class="mini">${PEOPLE.map((p,k)=>`<div>${p.name} · <b>${speeds[k]} min</b></div>`).join('')}</div>
@@ -532,20 +572,274 @@ function howTo(){showCard(`<h2>How to play 🔦</h2><ol class="howto">
   <li>Get everyone across before the flood clock runs out. The fastest answer gets ⭐⭐⭐.</li></ol>
   <p>Made a mistake? Tap <b>↶ Undo</b>. Stuck? Tap <b>💡 Hint</b>.</p>
   <button class="go" onclick="hideCard()">Got it!</button>`);}
-document.getElementById('howBtn').onclick=howTo;
+document.getElementById('howBtn').onclick=()=>mode==='raft'?rRules('How to play',null,'Got it!'):howTo();
+
+// =====================================================================================
+// League 2: the raft (challenges 9 to 16). The bridge has washed away, so everyone
+// crosses on a small raft. Four kinds of puzzle: someone must be guarded, the raft has
+// a weight limit, monkeys must not outnumber villagers, and babies need their own mum.
+// The flood now counts raft trips, not minutes.
+// =====================================================================================
+const ART='../art/';
+const RP=(i,o={})=>({p:i,name:PEOPLE[i].name,col:PEOPLE[i].coat,row:true,...o});
+const RA=(img,name,col,o={})=>({img:'animals/'+img+'.png',name,col,...o});
+const RI=(img,name,col,o={})=>({img:'items/'+img+'.png',name,col,item:true,...o});
+const MONKEY=n=>RA('monkey',n,'#a5673f',{team:'B',row:true});
+const MUM=(img,n,col)=>RA(img,'Mama '+n,col,{fam:n,row:true});
+const BABY=(img,n,col)=>RA(img,'Baby '+n,col,{fam:n,baby:true,row:true});
+LEVELS.push(
+  {raft:true,name:'The little raft',cap:2,lim:9,
+    ents:[RP(0),RA('dog','Dog','#85858c'),RA('chick','Chick','#d99a00'),RI('wheat','Wheat','#b8923a')],
+    rule:{type:'eats',guard:0,pairs:[[1,2,'The dog chased the chick away!'],[2,3,'The chick ate the wheat!']]},
+    tip:'The bridge has washed away! Only a little raft is left.',
+    rules:['Tap who gets on the raft, then tap <b>Row across</b>. It holds <b>Mia and 1 more</b>.','Only <b>Mia</b> can paddle, so she is on every trip.','When Mia is not there, the <b>dog chases the chick</b> and the <b>chick eats the wheat</b>.'],
+    hints:['Which one causes trouble with <b>both</b> of the others? Take that one across first.','Mia is allowed to bring something <b>back</b> with her. That is the trick!']},
+  {raft:true,name:'Too heavy!',cap:2,maxKg:100,lim:7,
+    ents:[RP(0,{kg:40}),RP(1,{kg:50}),RP(2,{kg:90})],
+    tip:'The raft sinks if it carries more than 100 kg.',
+    rules:['The raft holds up to 2 people, but <b>no more than 100 kg</b>. Add the numbers on their heads.','Somebody must always <b>paddle the raft back</b> for the others.'],
+    hints:['Uncle is so heavy that he must ride <b>alone</b>. But then who brings the raft back to the village?','Send the two children over first, so one of them is waiting on the safe side to paddle back.']},
+  {raft:true,name:'Cheeky monkeys',cap:2,lim:7,
+    ents:[RP(0,{team:'A'}),RP(1,{team:'A'}),MONKEY('Momo'),MONKEY('Kiki')],
+    rule:{type:'more'},
+    tip:'Two monkeys want to come along. They love to grab bags!',
+    rules:['The raft holds <b>2</b>. Everyone can paddle, even the monkeys.','If a side has <b>more monkeys than villagers</b>, the monkeys grab the bags.','Monkeys on a side with <b>no villagers</b> are no trouble.'],
+    hints:['Before every trip, count both sides. Will any villager be left with more monkeys than people?','Monkeys alone on a side cannot cause trouble. Try sending a villager across <b>with a monkey</b> first.']},
+  {raft:true,name:'Mums and babies',cap:2,lim:7,
+    ents:[MUM('bear','Bear','#9a5b2e'),BABY('bear','Bear','#9a5b2e'),MUM('rabbit','Rabbit','#8f959c'),BABY('rabbit','Rabbit','#8f959c')],
+    rule:{type:'family'},
+    tip:'Two animal families need saving too.',
+    rules:['The raft holds <b>2</b>. Everyone can paddle, even the babies.','A baby <b>cries</b> if another family\'s mum is on its side and its <b>own mum is not</b>.','Babies together with no mums around are happy.'],
+    hints:['The two babies are happy together when no mum is around.','A mum can cross with her own baby. The two mums can also cross together.']},
+  {raft:true,name:'Heavy load',cap:2,maxKg:100,lim:11,r0:4,
+    ents:[RP(0,{kg:40}),RP(1,{kg:50}),RP(2,{kg:90}),RP(3,{kg:80}),RI('wheat','Wheat','#b8923a',{kg:20})],
+    tip:'Everyone must cross now, and the wheat too.',
+    rules:['The raft holds up to 2, but <b>no more than 100 kg</b>.','The <b>wheat cannot paddle</b>. It must ride with a person.','Somebody must always paddle the raft back.'],
+    hints:['The wheat is 20 kg. Which grown-up has exactly 20 kg to spare?','This is Challenge 10 done twice: the two children do all the paddling back.']},
+  {raft:true,name:'The big raft',cap:3,lim:9,r0:3,
+    ents:[RP(0),RI('wheat','Wheat','#b8923a'),RA('chick','Chick','#d99a00'),RA('dog','Dog','#85858c'),RA('rabbit','Rabbit','#8f959c'),RI('apple','Apple','#d9531e')],
+    rule:{type:'eats',guard:0,pairs:[[3,2,'The dog chased the chick away!'],[2,1,'The chick ate the wheat!'],[3,4,'The dog chased the rabbit away!'],[4,5,'The rabbit ate the apple!']]},
+    tip:'A bigger raft, but a lot more trouble!',
+    rules:['Only Mia can paddle. This raft holds <b>Mia and 2 more</b>.','When Mia is not there, the <b>dog chases the chick and the rabbit</b>.','When Mia is not there, the <b>chick eats the wheat</b> and the <b>rabbit eats the apple</b>.'],
+    hints:['The chick and the rabbit never bother each other. The dog, the wheat and the apple are calm together too.','Take the chick and the rabbit first. Later, Mia must bring one of them <b>back</b>.']},
+  {raft:true,name:'Monkey business',cap:2,lim:13,r0:3,
+    ents:[RP(0,{team:'A'}),RP(1,{team:'A'}),RP(2,{team:'A'}),MONKEY('Momo'),MONKEY('Kiki'),MONKEY('Bobo')],
+    rule:{type:'more'},
+    tip:'Three villagers and three monkeys. This one is famous for being hard!',
+    rules:['The raft holds <b>2</b>. Everyone can paddle, even the monkeys.','If a side has <b>more monkeys than villagers</b>, the monkeys grab the bags.','Monkeys on a side with no villagers are no trouble.'],
+    hints:['Monkeys alone on the safe side are no trouble. Get monkeys over there first.','In the middle of the puzzle, a villager and a monkey must come <b>back together</b>. It feels wrong, but it works!']},
+  {raft:true,name:'Master raft',cap:2,lim:13,r0:3,
+    ents:[MUM('bear','Bear','#9a5b2e'),MUM('rabbit','Rabbit','#8f959c'),MUM('pig','Pig','#c76fc0'),BABY('bear','Bear','#9a5b2e'),BABY('rabbit','Rabbit','#8f959c'),BABY('pig','Pig','#c76fc0')],
+    rule:{type:'family'},
+    tip:'Three families. The hardest rescue of all!',
+    rules:['The raft holds <b>2</b>. Everyone can paddle, even the babies.','A baby <b>cries</b> if another family\'s mum is on its side and its <b>own mum is not</b>.','Babies together with no mums around are happy.'],
+    hints:['Babies with no mums around are always happy. Use that to get babies over to the safe side early.','Halfway through, a mum and her own baby must come <b>back together</b>.']}
+);
+
+let mode='bridge',RL=null,rEls=[],rSide=[],rRaft='L',rOn=[],rTrips=0,rHist=[],rMoves=[],rBroken=null,rNote='',rAuto=false,rRun=0;
+const raftEl=document.getElementById('raft');
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+function setMode(m){
+  mode=m;rRun++;rAuto=false;document.body.classList.toggle('raftmode',m==='raft');
+  if(m==='raft'){els.forEach(e=>e.remove());els=[];}else{rEls.forEach(e=>e.remove());rEls=[];RL=null;}
+  document.getElementById('usedLbl').textContent=m==='raft'?'Raft trips used':'Time used';
+  document.getElementById('logEmpty').textContent=m==='raft'?'No trips yet. Tap who gets on the raft.':'No moves yet. Tap villagers on the side with the torch.';
+}
+
+// Which rule is broken with everyone standing like this? (null = all fine)
+function rWhy(L,sd){
+  const r=L.rule||{},E=L.ents;
+  for(const s of ['L','R']){
+    const here=E.map((e,i)=>i).filter(i=>sd[i]===s),has=i=>here.includes(i),where=s==='L'?'village side':'safe side';
+    if(r.type==='eats'&&!has(r.guard)){for(const [a,b,t] of r.pairs)if(has(a)&&has(b))return {who:[a,b],text:`${E[r.guard].name} left them alone on the ${where}. <b>${t}</b>`};}
+    if(r.type==='more'){const A=here.filter(i=>E[i].team==='A'),B=here.filter(i=>E[i].team==='B');
+      if(A.length&&B.length>A.length)return {who:B,text:`On the ${where} there are <b>${B.length} monkeys</b> but only <b>${A.length} villager${A.length>1?'s':''}</b>. The monkeys grabbed the bags!`};}
+    if(r.type==='family'){for(const i of here){const e=E[i];if(!e.baby||here.some(j=>!E[j].baby&&E[j].fam===e.fam))continue;
+      const o=here.find(j=>!E[j].baby&&E[j].fam!==e.fam);
+      if(o!==undefined)return {who:[i],text:`${e.name} is on the ${where} with ${E[o].name}, but without its own mum. <b>${e.name} started to cry!</b>`};}}
+  }
+  return null;
+}
+const rKg=g=>g.reduce((s,i)=>s+(RL.ents[i].kg||0),0);
+
+// Fewest trips (tries every way, shortest first)
+function rSolve(L){
+  if(L._sol)return L._sol;
+  const n=L.ents.length,full=(1<<n)-1,prev=new Map([['0|0',null]]),q=[[0,0]];
+  const arr=m=>L.ents.map((e,i)=>((m>>i)&1)?'R':'L');
+  while(q.length){
+    const [m,t]=q.shift(),k=m+'|'+t;
+    if(m===full&&t===1){const path=[];let c=k;while(prev.get(c)){path.unshift(prev.get(c)[1]);c=prev.get(c)[0];}return L._sol={best:path.length,path};}
+    const here=[];for(let i=0;i<n;i++)if(((m>>i)&1)===t)here.push(i);
+    const gs=[];(function rec(s,g){if(g.length)gs.push(g);if(g.length===L.cap)return;for(let i=s;i<here.length;i++)rec(i+1,[...g,here[i]]);})(0,[]);
+    for(const g of gs){
+      if(!g.some(i=>L.ents[i].row))continue;
+      if(L.maxKg&&g.reduce((s,i)=>s+L.ents[i].kg,0)>L.maxKg)continue;
+      let nm=m;g.forEach(i=>nm^=1<<i);const nk=nm+'|'+(1-t);
+      if(prev.has(nk)||rWhy(L,arr(nm)))continue;
+      prev.set(nk,[k,g]);q.push([nm,1-t]);
+    }
+  }
+  return L._sol={best:0,path:[]};
+}
+
+// ---------- where everyone stands (percent of the stage) ----------
+const rTall=e=>e.p!==undefined;
+function rWidth(e){const s=small();return rTall(e)?(s?9:5.2):e.baby?(s?5.6:3.3):e.item?(s?7:4):(s?7.8:4.6);}
+const rWater=()=>66-Math.min(1,rTrips/RL.lim)*6;
+const rRaftW=()=>small()?24:16;
+const rRaftX=s=>small()?(s==='L'?23:53):(s==='L'?23.5:60.5);
+function rSeat(k,s){return [rRaftX(s)+rRaftW()*(.1+.8*(k+.5)/RL.cap),rWater()-1.5];}
+function rBank(i,s){
+  const E=RL.ents,n=E.length;
+  if(small()){ // phones: 2 in a row, rows going down the bank
+    let y=FEET;for(let r=1;r<=(i>>1);r++)y+=(rTall(E[r*2])||(r*2+1<n&&rTall(E[r*2+1])))?20:12.5;
+    return [s==='L'?[6,16.5][i&1]:[83.5,94][i&1],y];
+  }
+  const r0=RL.r0||n,row=i<r0?0:1,col=row?i-r0:i,count=row?n-r0:r0;
+  return [(s==='L'?11.5:88.5)+(col-(count-1)/2)*(count>3?5.5:6.6),row?(E.slice(r0).some(rTall)?78.5:74.5):FEET];
+}
+function rLayout(ms){
+  const E=RL.ents,d=(ms||0)+'ms';
+  raftEl.style.transitionDuration=d;raftEl.style.width=rRaftW()+'%';raftEl.style.left=rRaftX(rRaft)+'%';raftEl.style.top=(rWater()-2.7)+'%';
+  rEls.forEach((el,i)=>{el.style.transitionDuration=d;el.style.width=rWidth(E[i])+'%';
+    const k=rOn.indexOf(i);place(el,...(k>=0?rSeat(k,rRaft):rBank(i,rSide[i])));});
+}
+
+// ---------- build / reset ----------
+function rLoad(L){
+  setMode('raft');rEls.forEach(e=>e.remove());rEls=[];RL=L;limit=L.lim;
+  L.ents.forEach((e,i)=>{
+    const d=document.createElement('div');d.className='char r'+(rTall(e)?'':' thing');
+    d.innerHTML=`<div class="ring"></div>${rTall(e)?figure(PEOPLE[e.p]):`<img class="pic" src="${ART+e.img}" alt="">`}
+      ${e.kg?`<div class="badge" style="background:${e.col}">${e.kg}</div>`:''}
+      <div class="name">${e.fam?(e.baby?'Baby':'Mama')+`<i>${e.fam}</i>`:e.name}${e.kg?`<i>${e.kg} kg</i>`:''}</div>`;
+    d.onclick=()=>rToggle(i);stage.insertBefore(d,document.getElementById('flood'));rEls.push(d);
+  });
+  rReset(true);
+}
+function rReset(keepIntro){
+  rRun++;rAuto=false;watched=false;busy=false;
+  rSide=RL.ents.map(()=>'L');rRaft='L';rOn=[];rTrips=0;rHist=[];rMoves=[];rBroken=null;rNote='';hintStep=0;
+  rEls.forEach(e=>e.classList.remove('oops'));
+  document.getElementById('flood').classList.remove('on');
+  if(!keepIntro)hideCard();
+  document.getElementById('hint').innerHTML='Stuck? Tap <b>💡 Hint</b> for a clue.';
+  rLayout(0);rRender();
+}
+
+// ---------- playing ----------
+function rToggle(i,auto){
+  if(busy||rBroken||(rAuto&&!auto))return;
+  const k=rOn.indexOf(i),L=RL;rNote='';
+  if(k>=0)rOn.splice(k,1);
+  else if(rSide[i]!==rRaft)rNote='The raft is on the other side.';
+  else if(rOn.length>=L.cap)rNote=`The raft is full. It only holds ${L.cap}.`;
+  else if(L.maxKg&&rKg([...rOn,i])>L.maxKg)rNote=`Too heavy! ${[...rOn,i].map(j=>L.ents[j].kg).join(' + ')} = ${rKg([...rOn,i])} kg. The raft only holds ${L.maxKg} kg.`;
+  else rOn.push(i);
+  rLayout(350);rRender();
+}
+function rChip(i){const e=RL.ents[i];return `<span class="chip"><i style="background:${e.col}">${e.kg||e.name.replace(/^(Mama|Baby) /,'')[0]}</i>${e.name}</span>`;}
+function rRender(){
+  const L=RL,off=busy||!!rBroken;
+  rEls.forEach((e,i)=>{e.classList.toggle('picked',rOn.includes(i));e.classList.toggle('idle-off',off||(rSide[i]!==rRaft&&!rOn.includes(i)));});
+  const go=document.getElementById('go'),canRow=rOn.some(i=>L.ents[i].row);
+  go.disabled=off||!canRow;go.textContent=rRaft==='L'?'Row across':'Row back';
+  document.getElementById('undo').disabled=busy||!rHist.length;
+  ['reset','solve','hintBtn'].forEach(id=>document.getElementById(id).disabled=busy);
+  const sb=document.getElementById('selBox'),strong=t=>`<b style="color:var(--text);margin:0 3px">${t}</b>`;
+  if(busy)sb.innerHTML='Rowing…';
+  else if(rNote)sb.innerHTML=`<span class="warn">${rNote}</span>`;
+  else if(!rOn.length)sb.innerHTML=`<span>The raft is on the ${strong(rRaft==='L'?'village':'safe')} side. Tap who gets on. It holds ${L.cap}${L.maxKg?', up to '+L.maxKg+' kg':''}.</span>`;
+  else sb.innerHTML=rOn.map(rChip).join('<span>+</span>')+(L.maxKg?`<span>= ${strong(rKg(rOn)+' kg')} of ${L.maxKg} kg</span>`:'')+(canRow?'':'<span class="warn">Nobody on the raft can paddle.</span>');
+  document.getElementById('log').innerHTML=rMoves.map(m=>`<div class="step ${m.dir==='R'?'fwd':'back'}"><span class="arrow">${m.dir==='R'?'→':'←'}</span>
+    <span>${m.who.map(rChip).join(' ')}</span><span class="t">trip ${m.n}</span></div>`).join('');
+  document.getElementById('logEmpty').style.display=rMoves.length?'none':'block';
+  const left=Math.max(0,L.lim-rTrips),c=document.getElementById('clock');
+  c.textContent=left+(left===1?' trip':' trips');c.className='clock'+(left===0?' over':left<=2?' warn':'');
+  document.getElementById('meter').style.width=Math.min(100,rTrips/L.lim*100)+'%';
+  document.getElementById('used').textContent=rTrips;
+  document.getElementById('river').style.top=rWater()+'%';
+}
+function rGo(){
+  return new Promise(res=>{
+    if(busy||rBroken||!rOn.some(i=>RL.ents[i].row)){res();return;}
+    busy=true;rNote='';const run=rRun,to=rRaft==='L'?'R':'L',group=[...rOn];
+    rHist.push({side:[...rSide],raft:rRaft,trips:rTrips,moves:rMoves.length});
+    const ms=5*+document.getElementById('speed').value;
+    rRaft=to;rRender();rLayout(ms);
+    setTimeout(()=>{
+      if(run!==rRun){res();return;}
+      group.forEach(i=>rSide[i]=to);rOn=[];rTrips++;rMoves.push({who:group,dir:to,n:rTrips});
+      rLayout(450);
+      setTimeout(()=>{if(run!==rRun){res();return;}busy=false;rRender();rCheck();res();},480);
+    },ms+60);
+  });
+}
+function rUndo(){
+  const h=rHist.pop();if(!h)return;
+  rRun++;rAuto=false;rSide=h.side;rRaft=h.raft;rTrips=h.trips;rMoves.length=h.moves;rOn=[];rBroken=null;rNote='';
+  rEls.forEach(e=>e.classList.remove('oops'));
+  document.getElementById('flood').classList.remove('on');hideCard();rLayout(300);rRender();
+}
+function rCheck(){
+  const L=RL,f=rWhy(L,rSide),done=rSide.every(s=>s==='R'),{best}=rSolve(L),run=rRun;
+  const row=b=>`<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">${b}</div>`;
+  if(f){ // a rule is broken: show what happened, then offer to take the move back
+    rBroken=f;rRender();f.who.forEach(i=>rEls[i].classList.add('oops'));
+    setTimeout(()=>{if(run!==rRun)return;showCard(`<h2>Oh no!</h2><p>${f.text}</p>${row('<button class="go" onclick="rUndo()">↶ Take that move back</button><button onclick="rReset()">Start again</button>')}`);},1200);
+    return;
+  }
+  if(!done&&rTrips<L.lim)return;
+  let stars=0,title,text;
+  if(done){stars=rTrips===best?3:2;
+    title=rTrips===best?'Perfect rescue! 🎉':'Everyone is safe! 🙌';
+    text=rTrips===best?`Everyone crossed in <b>${rTrips} raft trips</b>, the fewest possible!`:`You made it in <b>${rTrips} raft trips</b>. Can you do it in ${best} for 3 stars?`;
+    confetti();}
+  else{document.getElementById('flood').classList.add('on');title='The flood arrived! 🌊';text=`All ${L.lim} raft trips are used up and not everyone is across yet.`;}
+  if(watched&&done){stars=0;title='That\'s the best answer! 👀';text='Now it\'s your turn: tap <b>Play again</b> and do it yourself to earn the stars.';}
+  if(!watched&&stars>(progress[level]||0)){progress[level]=stars;saveProgress();}
+  drawLevels();
+  const canNext=!watched&&stars>=2&&level<LEVELS.length-1,allDone=!watched&&stars>=2&&level===LEVELS.length-1;
+  setTimeout(()=>{if(run!==rRun)return;showCard(`<h2>${title}</h2><div class="stars">${[0,1,2].map(k=>`<span class="${k<stars?'on':''}">★</span>`).join('')}</div>
+    <p>${text}${allDone?'<br><br>🏆 <b>You finished every challenge in both leagues!</b> You are a master rescuer.':''}</p>${row(
+    (canNext?`<button class="go" onclick="loadLevel(${level+1})">Next challenge ▶</button><button onclick="rReset()">Try again</button>`:'<button class="go" onclick="rReset()">Play again</button>')+
+    (stars<3?'<button onclick="hideCard()">Look at my moves</button>':''))}`);},500);
+}
+function rRules(title,tip,btn){const L=RL;showCard(`<h2>${title}</h2>${tip?`<p>${tip}</p>`:''}<ol class="howto">${L.rules.map(r=>`<li>${r}</li>`).join('')}</ol>
+  <div class="goal">Get everyone across in <b>${L.lim} raft trips</b> or fewer. The fewest trips gets ⭐⭐⭐.</div>
+  <button class="go" onclick="hideCard()">${btn}</button>`);}
+function rHint(){
+  const {path}=rSolve(RL),nm=g=>g.map(i=>RL.ents[i].name).join(' and ');
+  const say=(g,k)=>nm(g)+(g.length>1?' row':' rows')+(k%2===0?' across':' back');
+  const H=[...RL.hints,'The first moves: '+path.slice(0,3).map(say).join(', then ')+'.'];
+  document.getElementById('hint').innerHTML='<b>Hint '+(hintStep+1)+' of 3:</b> '+H[hintStep];hintStep=Math.min(hintStep+1,2);
+}
+async function rShowBest(){
+  rReset();watched=true;rAuto=true;const run=rRun,{path}=rSolve(RL);
+  for(const g of path){
+    for(const i of g){rToggle(i,true);await wait(380);if(run!==rRun)return;}
+    await wait(250);if(run!==rRun)return;await rGo();if(run!==rRun)return;await wait(300);if(run!==rRun)return;
+  }
+  rAuto=false;
+}
+
 
 // ---------- buttons ----------
 document.getElementById('startBtn').onclick=()=>{started=true;
   let i=0;while(i<LEVELS.length-1&&(progress[i]||0)>=2)i++;loadLevel(i);};
-document.getElementById('go').onclick=()=>{if(selected.length)cross([...selected]);};
+document.getElementById('go').onclick=()=>{if(mode==='raft')rGo();else if(selected.length)cross([...selected]);};
 document.getElementById('undo').onclick=()=>{
+  if(mode==='raft'){rUndo();return;}
   const h=history.pop();if(!h)return;
   side=h.side;holder=h.holder;time=h.time;moves.length=h.moves;selected=[];
   els.forEach((e,i)=>{place(e,...slot(i,side[i]));e.classList.remove('flip');});
   document.getElementById('flood').classList.toggle('on',time>limit);hideCard();setClock(time);render();
 };
-document.getElementById('reset').onclick=()=>reset();
+document.getElementById('reset').onclick=()=>mode==='raft'?rReset():reset();
 document.getElementById('solve').onclick=async()=>{
+  if(mode==='raft'){rShowBest();return;}
   reset();watched=true;const {path}=solve(speeds);
   for(const g of path){selected=[...g];render();await new Promise(r=>setTimeout(r,700));await cross(g);await new Promise(r=>setTimeout(r,250));}
 };
@@ -574,7 +868,7 @@ function confetti(){
     ps.forEach(p=>{p.vy+=.45;p.x+=p.vx;p.y+=p.vy;p.a+=.2;cx.save();cx.translate(p.x,p.y);cx.rotate(p.a);cx.fillStyle=p.c;cx.fillRect(-p.r,-p.r/2,p.r*2,p.r);cx.restore();});
     if(++f<150)requestAnimationFrame(draw);else cx.clearRect(0,0,cc.width,cc.height);})();
 }
-window.addEventListener('resize',()=>{initRain();if(!busy)els.forEach((e,i)=>place(e,...slot(i,side[i])));});
+window.addEventListener('resize',()=>{initRain();if(busy)return;if(mode==='raft')rLayout(0);else els.forEach((e,i)=>place(e,...slot(i,side[i])));});
 initRain();rain();
 speeds=[...LEVELS[0].sp];limit=LEVELS[0].lim;
 build();drawLevels();

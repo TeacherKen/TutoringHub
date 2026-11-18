@@ -38,7 +38,7 @@ export const GAMES: GameInfo[] = [
   { id: "pl", name: "Picture Logic", topic: "Thinking", blurb: "Use the number clues to find the hidden picture", players: "1 player · ages 7–12", wide: true, bg: "#334155", fg: "#ffffff" },
   { id: "mn", name: "Make the Number", topic: "Thinking", blurb: "Join cards with + − × ÷ to hit the target", players: "1 player · ages 7–12", bg: "#1f2a44", fg: "#ffffff" },
   { id: "ns", name: "Number Snake", topic: "Thinking", blurb: "Draw the path 1, 2, 3 … through every square", players: "1 player · ages 6–12", bg: "#0f766e", fg: "#ffffff" },
-  { id: "bridge-torch", name: "Flood Escape: Bridge & Torch", topic: "Thinking", blurb: "Get all 4 villagers across before the flood", players: "1 player · ages 8–12", src: "/games/bridge-torch/index.html", bg: "#1b2c45", fg: "#ffc94a" },
+  { id: "bridge-torch", name: "Flood Escape: Bridge & Torch", topic: "Thinking", blurb: "Bridge puzzles, then raft puzzles: beat the flood", players: "1 player · ages 8–12", src: "/games/bridge-torch/index.html", bg: "#1b2c45", fg: "#ffc94a" },
 ];
 
 /** Games built into TutoringHub (not Mr Ken's own pages in /public/games): what a screen picture may show. */
