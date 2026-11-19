@@ -44,9 +44,10 @@ export const canLiveCopy = () => typeof window !== "undefined" && typeof Compres
  * The student's side: start recording and sending. `full()` sends a fresh complete copy
  * (when Mr Ken starts watching, or missed something). `stop()` ends it.
  */
-export async function startCopy(send: (m: CopyMsg) => void): Promise<{ full: () => void; stop: () => void }> {
+export async function startCopy(send: (m: CopyMsg) => void, pageId = ""): Promise<{ full: () => void; stop: () => void }> {
   const { record } = await import("rrweb");
-  const s = Math.random().toString(36).slice(2, 10);
+  // Starts with the page's id, so Mr Ken's screen can tell two open pages apart.
+  const s = `${pageId}.${Math.random().toString(36).slice(2, 10)}`;
   let q = 0;
   let buf: eventWithTime[] = [];
   let chain = Promise.resolve();

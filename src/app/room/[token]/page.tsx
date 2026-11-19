@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: PageProps<"/room/[token]">): 
 
 export default async function RoomPage({ params, searchParams }: PageProps<"/room/[token]">) {
   const { token } = await params;
-  const { tab } = await searchParams;
+  const { tab, preview } = await searchParams;
   const room = await getRoom(token);
   if (!room) {
     return (
@@ -35,7 +35,7 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/roo
   }
   return (
     <Glass>
-      <Room token={token} initial={room} initialTab={tab === "practice" ? "practice" : tab === "games" ? "games" : undefined} />
+      <Room token={token} initial={room} initialTab={tab === "practice" ? "practice" : tab === "games" ? "games" : undefined} preview={preview === "1"} />
     </Glass>
   );
 }

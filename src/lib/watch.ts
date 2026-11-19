@@ -74,7 +74,27 @@ export type WatchView = {
   n?: number;
   /** The room is sending a live copy of its screen (see liveCopy.ts) instead of pictures. */
   copy?: boolean;
+  /** Which open room page this is (a child can have the room open twice: two tabs, or a tablet and a computer). */
+  id?: string;
+  /** How long since this page was last touched, in ms. Mr Ken sees the page being used. */
+  idle?: number;
+  /** This page is in the background (another tab or app is in front). */
+  hid?: boolean;
 };
+
+/** One open room page, as Mr Ken's screen last heard from it. */
+export type Sender = { view: WatchView; seen: number };
+
+/**
+ * A room can be open in more than one place at once. Show the one the child is using:
+ * a page in front beats one in the background, then the one touched most recently.
+ */
+export function pickSender(all: Sender[], now: number, freshMs: number): Sender | null {
+  const usedAt = (s: Sender) => s.seen - (s.view.idle ?? 3_600_000); // no "idle" = an old page: goes last
+  const fresh = all.filter((s) => now - s.seen < freshMs);
+  fresh.sort((a, b) => Number(!!a.view.hid) - Number(!!b.view.hid) || usedAt(b) - usedAt(a));
+  return fresh[0] ?? null;
+}
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
 const int = (v: unknown, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : lo);
@@ -123,6 +143,9 @@ export function cleanView(raw: unknown): WatchView | null {
   if (typeof v.z === "string" && v.z.length <= MAX_LIVE_HTML && /^[A-Za-z0-9+/=]+$/.test(v.z)) view.z = v.z;
   if (typeof v.n === "number" && Number.isFinite(v.n)) view.n = v.n;
   if (v.copy === true) view.copy = true;
+  if (typeof v.id === "string" && /^[a-z0-9]{1,12}$/.test(v.id)) view.id = v.id;
+  if (typeof v.idle === "number" && Number.isFinite(v.idle)) view.idle = Math.max(0, v.idle);
+  if (v.hid === true) view.hid = true;
   return view;
 }
 

@@ -80,7 +80,7 @@ export function RoomControls({ students, showGames = true, lessonId, bare = fals
 
   async function preview(s: S) {
     const token = await getToken(s);
-    if (token) window.open(linkFor(token), "_blank", "noopener");
+    if (token) window.open(`${linkFor(token)}?preview=1`, "_blank", "noopener"); // marked, so it never shows as the child's screen
   }
 
   async function reset(s: S) {

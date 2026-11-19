@@ -33,7 +33,10 @@ const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) =>
 type Tab = "lesson" | "practice" | "games";
 const noSubscribe = () => () => {};
 
-export function Room({ token, initial, initialTab }: { token: string; initial: RoomData; initialTab?: Tab }) {
+/** This open page (a room can be open twice: two tabs, or a tablet and a computer). */
+const PAGE_ID = Math.random().toString(36).slice(2, 10);
+
+export function Room({ token, initial, initialTab, preview = false }: { token: string; initial: RoomData; initialTab?: Tab; /** Mr Ken looking at the room himself: never shown as the child's screen. */ preview?: boolean }) {
   const onDevice = useSyncExternalStore(noSubscribe, () => true, () => false);
   const [room, setRoom] = useState(initial);
   const [tab, setTab] = useState<Tab>(initialTab ?? (initial.gamesOpen ? "games" : "lesson"));
@@ -107,16 +110,30 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   const copy = useRef<{ full: () => void; stop: () => void } | null>(null); // the live copy of this screen, while watched
   const copyOn = useRef(false);
   const viewRef = useRef({ tab, game });
+  const usedAt = useRef(0); // when this page was last touched (Mr Ken sees the page being used)
   useLayoutEffect(() => {
     viewRef.current = { tab, game };
+    usedAt.current = Date.now();
   }, [tab, game]);
+  const touched = useCallback(() => {
+    usedAt.current = Date.now();
+  }, []);
+  useEffect(() => {
+    window.addEventListener("pointerdown", touched, true);
+    window.addEventListener("keydown", touched, true);
+    return () => {
+      window.removeEventListener("pointerdown", touched, true);
+      window.removeEventListener("keydown", touched, true);
+    };
+  }, [touched]);
 
   const sendView = useCallback(
     (full: boolean, snap?: string) => {
       const ch = watchCh.current;
       if (!ch || !joined.current || Date.now() > watchedUntil.current) return;
       const { tab: t, game: g } = viewRef.current;
-      const view: WatchView = { tab: t, game: t === "games" ? g : null, practice: t === "practice" ? practiceNow.current : null };
+      const view: WatchView = { tab: t, game: t === "games" ? g : null, practice: t === "practice" ? practiceNow.current : null, id: PAGE_ID, idle: Date.now() - usedAt.current };
+      if (document.hidden) view.hid = true;
       if (copyOn.current && t !== "lesson") {
         // The live copy shows the screen: no pictures needed.
         void ch.send({ type: "broadcast", event: "view", payload: { ...view, copy: true } });
@@ -146,6 +163,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
   );
 
   useEffect(() => {
+    if (preview) return; // Mr Ken's own look at the room must not show up as the child's screen
     let sb: ReturnType<typeof createClient>;
     try {
       sb = createClient();
@@ -190,7 +208,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
       watchCh.current = null;
       void sb.removeChannel(ch);
     };
-  }, [token, sendView, snapGame]);
+  }, [token, sendView, snapGame, preview]);
 
   // The live copy: runs while Mr Ken watches the games or football practice (not the Lesson page:
   // the writing there is drawn on a canvas, which he already sees live on the smart slides).
@@ -200,7 +218,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
     let cancelled = false;
     void startCopy((m) => {
       if (joined.current) void watchCh.current?.send({ type: "broadcast", event: "copy", payload: m });
-    })
+    }, PAGE_ID)
       .then((c) => {
         if (cancelled) return c.stop();
         copy.current = c;
@@ -515,6 +533,7 @@ export function Room({ token, initial, initialTab }: { token: string; initial: R
             onLoad={(e) => {
               // Mr Ken's games are on this site, so taps inside them can be noticed.
               try {
+                e.currentTarget.contentDocument?.addEventListener("pointerdown", touched);
                 e.currentTarget.contentDocument?.addEventListener("pointerup", quickPicture);
                 e.currentTarget.contentDocument?.addEventListener("keyup", quickPicture);
               } catch {
