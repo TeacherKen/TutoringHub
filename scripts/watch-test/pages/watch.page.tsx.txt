@@ -1,0 +1,4 @@
+import { WatchScreen } from "@/components/WatchScreen";
+export default function P() {
+  return <main className="mx-auto max-w-3xl p-4"><WatchScreen studentId="x" name="Angela" token="hxhxhxhxhxhxhxhxhxhxhxhxhxhxhxhx" /></main>;
+}

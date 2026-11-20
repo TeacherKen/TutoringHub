@@ -115,17 +115,6 @@ export function Room({ token, initial, initialTab, preview = false }: { token: s
     viewRef.current = { tab, game };
     usedAt.current = Date.now();
   }, [tab, game]);
-  const touched = useCallback(() => {
-    usedAt.current = Date.now();
-  }, []);
-  useEffect(() => {
-    window.addEventListener("pointerdown", touched, true);
-    window.addEventListener("keydown", touched, true);
-    return () => {
-      window.removeEventListener("pointerdown", touched, true);
-      window.removeEventListener("keydown", touched, true);
-    };
-  }, [touched]);
 
   const sendView = useCallback(
     (full: boolean, snap?: string) => {
@@ -161,6 +150,24 @@ export function Room({ token, initial, initialTab, preview = false }: { token: s
     },
     [snapGame],
   );
+  // A touch after a quiet moment: tell Mr Ken's screen straight away, so it shows the page being used.
+  const toldAt = useRef(0);
+  const touched = useCallback(() => {
+    const quiet = Date.now() - usedAt.current > 1500;
+    usedAt.current = Date.now();
+    if (quiet && Date.now() - toldAt.current > 1500) {
+      toldAt.current = Date.now();
+      sendView(false);
+    }
+  }, [sendView]);
+  useEffect(() => {
+    window.addEventListener("pointerdown", touched, true);
+    window.addEventListener("keydown", touched, true);
+    return () => {
+      window.removeEventListener("pointerdown", touched, true);
+      window.removeEventListener("keydown", touched, true);
+    };
+  }, [touched]);
 
   useEffect(() => {
     if (preview) return; // Mr Ken's own look at the room must not show up as the child's screen
@@ -183,7 +190,10 @@ export function Room({ token, initial, initialTab, preview = false }: { token: s
       sendView(payload?.need === true);
     }).subscribe((status) => {
       joined.current = status === "SUBSCRIBED";
-      if (joined.current) sendView(true);
+      if (!joined.current) return;
+      // Just opened (or reloaded): if Mr Ken is watching, his screen answers straight away.
+      void ch.send({ type: "broadcast", event: "here", payload: {} });
+      sendView(true);
     });
     watchCh.current = ch;
     // While watched: a new picture whenever the game changes, about 3 times a second (big pictures once a
@@ -218,8 +228,9 @@ export function Room({ token, initial, initialTab, preview = false }: { token: s
     let cancelled = false;
     void startCopy((m) => {
       if (joined.current) void watchCh.current?.send({ type: "broadcast", event: "copy", payload: m });
-    }, PAGE_ID)
+    }, PAGE_ID, () => cancelled)
       .then((c) => {
+        if (!c) return;
         if (cancelled) return c.stop();
         copy.current = c;
         copyOn.current = true;

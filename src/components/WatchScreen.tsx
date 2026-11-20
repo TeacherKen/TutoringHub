@@ -86,13 +86,15 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
       }
       for (const e of events) player.current?.addEvent(e);
     };
-    const receive = copyReceiver(
-      (events, fresh) => void play(events, fresh),
-      () => {
-        copyNeed = true;
-        ping();
-      },
-    );
+    const newReceiver = () =>
+      copyReceiver(
+        (events, fresh) => void play(events, fresh),
+        () => {
+          copyNeed = true;
+          ping();
+        },
+      );
+    let receive = newReceiver();
     ch.on("broadcast", { event: "copy" }, ({ payload }) => {
       const m = payload as CopyMsg;
       // Only the live copy from the page being shown (another open page would fight with it).
@@ -111,15 +113,27 @@ export function WatchScreen({ studentId, name, token }: { studentId: string; nam
       const bestId = best.view.id ?? "";
       if (bestId !== showing) {
         // The child moved to their other page: wait for that page's own live copy.
+        // (Start its copy from scratch, and ask for a full one straight away.)
+        const first = showing === "" && pages.size === 1;
         showing = bestId;
-        setCopyReady(false);
-        copyNeed = canLiveCopy();
+        if (!first) {
+          receive = newReceiver();
+          setCopyReady(false);
+          copyNeed = canLiveCopy();
+        }
+        viewRef.current = best.view;
+        seenRef.current = best.seen;
+        setView(best.view);
+        setSeenAt(best.seen);
+        if (!first) ping();
+        return;
       }
       viewRef.current = best.view;
       seenRef.current = best.seen;
       setView(best.view);
       setSeenAt(best.seen);
     };
+    ch.on("broadcast", { event: "here" }, () => ping()); // the room just opened or reloaded: no waiting for the next "I'm watching"
     ch.on("broadcast", { event: "view" }, ({ payload }) => {
       const v = cleanView(payload);
       if (!v) return;

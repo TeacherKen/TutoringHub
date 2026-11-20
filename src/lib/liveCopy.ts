@@ -44,8 +44,10 @@ export const canLiveCopy = () => typeof window !== "undefined" && typeof Compres
  * The student's side: start recording and sending. `full()` sends a fresh complete copy
  * (when Mr Ken starts watching, or missed something). `stop()` ends it.
  */
-export async function startCopy(send: (m: CopyMsg) => void, pageId = ""): Promise<{ full: () => void; stop: () => void }> {
+export async function startCopy(send: (m: CopyMsg) => void, pageId = "", cancelled: () => boolean = () => false): Promise<{ full: () => void; stop: () => void } | null> {
   const { record } = await import("rrweb");
+  // Only one recording at a time: one that was called off never starts (stopping a second one would break the first).
+  if (cancelled()) return null;
   // Starts with the page's id, so Mr Ken's screen can tell two open pages apart.
   const s = `${pageId}.${Math.random().toString(36).slice(2, 10)}`;
   let q = 0;

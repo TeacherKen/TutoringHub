@@ -1,0 +1,5 @@
+import { Room } from "@/components/Room";
+export default async function P({ searchParams }: { searchParams: Promise<{ tab?: string; preview?: string }> }) {
+  const { tab, preview } = await searchParams;
+  return <Room token="hxhxhxhxhxhxhxhxhxhxhxhxhxhxhxhx" initialTab={tab === "lesson" ? "lesson" : "games"} preview={preview === "1"} initial={{ firstName: "Angela", lesson: null, materials: [], gamesOpen: true, hasBoard: false, missions: [] }} />;
+}
