@@ -152,7 +152,7 @@ export function ArcadeGame({ id, children }: { id: GameInfo["id"]; children?: Re
       {g.src ? (
         <iframe src={g.src} title={g.name} className="w-full flex-1 rounded-2xl border-0 bg-white" style={{ minHeight: "80dvh" }} />
       ) : (
-        <div className={`mx-auto my-3 w-full rounded-3xl bg-surface p-5 text-ink shadow-xl sm:p-7 ${g.wide ? "max-w-5xl" : "max-w-xl"}`}>{children}</div>
+        <div className={`@container mx-auto my-3 w-full rounded-3xl bg-surface p-5 text-ink shadow-xl sm:p-7 ${g.wide ? "max-w-5xl" : "max-w-xl"}`}>{children}</div>
       )}
     </ArcadeShell>
   );

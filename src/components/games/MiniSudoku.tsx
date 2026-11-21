@@ -166,9 +166,11 @@ export function MiniSudoku() {
   const selVal = sel ? grid[sel[0]][sel[1]] : null;
   const sameBox = (r: number, c: number) => sel != null && Math.floor(r / br) === Math.floor(sel[0] / br) && Math.floor(c / bc) === Math.floor(sel[1] / bc);
   return (
-    <div className="relative space-y-4">
+    // On a big screen (a computer, an iPad on its side) the board fills the height of the screen and the
+    // title, sizes and number keys sit in a column beside it. Phones keep everything stacked.
+    <div className="relative mx-auto flex w-full max-w-lg flex-col gap-4 @3xl:grid @3xl:w-fit @3xl:max-w-none @3xl:grid-cols-[16rem_auto] @3xl:grid-rows-[auto_auto_auto_1fr] @3xl:items-start @3xl:gap-x-5">
       <ConfettiBurst pieces={confetti} className="left-1/2 top-40" />
-      <div className="flex flex-wrap items-center gap-3 rounded-3xl p-3 text-white shadow-[0_8px_24px_rgba(0,0,0,.18)]" style={{ background: `radial-gradient(120% 100% at 30% 0%, ${T.from}, ${T.to} 85%)` }}>
+      <div className="flex flex-wrap items-center gap-3 rounded-3xl p-3 text-white shadow-[0_8px_24px_rgba(0,0,0,.18)] @3xl:col-start-1" style={{ background: `radial-gradient(120% 100% at 30% 0%, ${T.from}, ${T.to} 85%)` }}>
         <span className="w-20 shrink-0 sm:w-28">
           <GameLogo id="sd" />
         </span>
@@ -180,6 +182,7 @@ export function MiniSudoku() {
           New puzzle
         </button>
       </div>
+      <div className="@3xl:col-start-1">
       <Toggle
         theme={T}
         options={[
@@ -190,9 +193,10 @@ export function MiniSudoku() {
         value={String(size)}
         onChange={(k) => reset(Number(k) as Size, false)}
       />
+      </div>
 
-      <div className={`mx-auto w-full rounded-3xl p-3 shadow-[0_10px_28px_rgba(0,0,0,.28)] ${size === 9 ? "max-w-lg" : "max-w-sm"}`} style={{ background: `radial-gradient(130% 100% at 30% 0%, ${T.from}, ${T.to})`, boxShadow: "inset 0 2px 10px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.25)" }}>
-        <div className="grid w-full overflow-hidden rounded-xl border-[3px] border-[#123f2d] bg-[#fffaf0]" style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }} role="grid" aria-label="Sudoku">
+      <div className={`mx-auto w-full rounded-3xl p-3 shadow-[0_10px_28px_rgba(0,0,0,.28)] @3xl:col-start-2 @3xl:row-span-4 @3xl:row-start-1 @3xl:mx-0 @3xl:max-w-none ${size === 9 ? "max-w-lg @3xl:w-[clamp(440px,min(100dvh-150px,100cqw-290px),860px)]" : "max-w-sm @3xl:w-[clamp(400px,min(100dvh-150px,100cqw-290px),680px)]"}`} style={{ background: `radial-gradient(130% 100% at 30% 0%, ${T.from}, ${T.to})`, boxShadow: "inset 0 2px 10px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.25)" }}>
+        <div className="grid w-full overflow-hidden rounded-xl border-[3px] border-[#123f2d] bg-[#fffaf0] [container-type:inline-size]" style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }} role="grid" aria-label="Sudoku">
           {grid.map((row, r) =>
             row.map((v, c) => {
               const given = isGiven(r, c);
@@ -208,7 +212,7 @@ export function MiniSudoku() {
                   role="gridcell"
                   aria-label={`Row ${r + 1} column ${c + 1}${v ? `, ${v}` : ", empty"}`}
                   onClick={() => setSel([r, c])}
-                  className={`relative aspect-square border-[#d6e3d8] p-[3px] font-black tabular-nums transition-colors ${size === 9 ? "text-lg sm:text-2xl" : "text-2xl sm:text-3xl"} ${thickR ? "border-r-[3px] border-r-[#123f2d]" : "border-r"} ${thickB ? "border-b-[3px] border-b-[#123f2d]" : "border-b"}`}
+                  className={`relative aspect-square border-[#d6e3d8] p-[3px] font-black tabular-nums transition-colors ${size === 9 ? "text-lg sm:text-2xl @3xl:text-[5.4cqw]" : size === 6 ? "text-2xl sm:text-3xl @3xl:text-[7.5cqw]" : "text-2xl sm:text-3xl @3xl:text-[10cqw]"} ${thickR ? "border-r-[3px] border-r-[#123f2d]" : "border-r"} ${thickB ? "border-b-[3px] border-b-[#123f2d]" : "border-b"}`}
                   style={{ background: isSel ? "#ffe9a8" : same ? "#fff1b8" : lit ? "#eaf5ec" : "transparent", boxShadow: isSel ? "inset 0 0 0 3px #f59e0b" : undefined }}
                 >
                   {v != null ? (
@@ -226,31 +230,31 @@ export function MiniSudoku() {
         </div>
       </div>
 
-      <div className={`mx-auto grid gap-2 ${size === 9 ? "max-w-lg" : "max-w-sm"}`} style={{ gridTemplateColumns: `repeat(${size === 9 ? 5 : size + 1}, minmax(0, 1fr))` }}>
+      <div className={`mx-auto grid w-full gap-2 @3xl:max-w-none @3xl:!grid-cols-3 @3xl:gap-3 @3xl:col-start-1 ${size === 9 ? "max-w-lg" : "max-w-sm"}`} style={{ gridTemplateColumns: `repeat(${size === 9 ? 5 : size + 1}, minmax(0, 1fr))` }}>
         {[...Array(size).keys()].map((i) => (
           <button
             key={i}
             type="button"
-            className="min-h-14 rounded-2xl text-2xl font-black text-white transition active:translate-y-0.5"
+            className="min-h-14 rounded-2xl text-2xl font-black text-white transition active:translate-y-0.5 @3xl:min-h-[4.25rem] @3xl:text-3xl"
             style={{ background: `linear-gradient(color-mix(in srgb, ${NUM_COLOUR[i + 1]}, #fff 15%), ${NUM_COLOUR[i + 1]})`, boxShadow: `0 4px 0 color-mix(in srgb, ${NUM_COLOUR[i + 1]}, #000 30%)` }}
             onClick={() => place(i + 1)}
           >
             {i + 1}
           </button>
         ))}
-        <button type="button" className="btn-secondary min-h-14 px-0 text-lg" onClick={() => place(null)} aria-label="Clear">
+        <button type="button" className="btn-secondary min-h-14 px-0 text-lg @3xl:min-h-[4.25rem] @3xl:text-2xl" onClick={() => place(null)} aria-label="Clear">
           ⌫
         </button>
       </div>
 
       {checked === "solved" ? (
-        <p className="pz-anim animate-[tt-pop_.4s_ease-out] rounded-2xl bg-ok-soft p-4 text-center text-lg font-semibold text-ok">
+        <p className="pz-anim animate-[tt-pop_.4s_ease-out] rounded-2xl bg-ok-soft p-4 text-center text-lg font-semibold text-ok @3xl:col-start-1">
           Solved in {time}s!{best != null && time != null && time <= best ? " New best!" : best != null ? ` Best: ${best}s` : ""}
         </p>
       ) : checked === "wrong" ? (
-        <p className="pz-anim animate-[pz-shake_.35s] rounded-2xl bg-warn-soft p-3 text-center text-warn">Almost — something doesn&apos;t fit. Check each row, column and box.</p>
+        <p className="pz-anim animate-[pz-shake_.35s] rounded-2xl bg-warn-soft p-3 text-center text-warn @3xl:col-start-1">Almost — something doesn&apos;t fit. Check each row, column and box.</p>
       ) : best != null ? (
-        <p className="text-center text-sm text-muted">Your best: {best}s</p>
+        <p className="text-center text-sm text-muted @3xl:col-start-1">Your best: {best}s</p>
       ) : null}
     </div>
   );

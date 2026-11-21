@@ -109,6 +109,13 @@ export function Room({ token, initial, initialTab, preview = false }: { token: s
   const packing = useRef(false);
   const copy = useRef<{ full: () => void; stop: () => void } | null>(null); // the live copy of this screen, while watched
   const copyOn = useRef(false);
+  // A game just opened: bring it to the top of the screen, so it gets the whole screen (the greeting scrolls away).
+  useEffect(() => {
+    if (!game) return;
+    // A moment later: the game has drawn itself by then, so the page is tall enough to scroll.
+    const t = setTimeout(() => gameBox.current?.parentElement?.scrollIntoView({ block: "start", behavior: "smooth" }), 400);
+    return () => clearTimeout(t);
+  }, [game]);
   const viewRef = useRef({ tab, game });
   const usedAt = useRef(0); // when this page was last touched (Mr Ken sees the page being used)
   useLayoutEffect(() => {
@@ -581,7 +588,7 @@ export function Room({ token, initial, initialTab, preview = false }: { token: s
                 </p>
               ))
           )}
-          <div ref={gameBox} className="card" onPointerUp={quickPicture} onKeyUp={quickPicture}>
+          <div ref={gameBox} className="card @container" onPointerUp={quickPicture} onKeyUp={quickPicture}>
             <h2 className="mb-4 text-xl font-semibold">{gameInfo?.name}</h2>
             <ReportContext.Provider value={report}>
               <BuiltInGame id={game} />

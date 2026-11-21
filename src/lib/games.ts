@@ -24,7 +24,7 @@ export const GAMES: GameInfo[] = [
   { id: "magic-square", name: "Magic Square Academy", topic: "Thinking", blurb: "Make every line add up the same", players: "1 player", src: "/games/magic-square/index.html", bg: "#4b3a9a", fg: "#ffffff" },
   { id: "qm", name: "Quick Maths", topic: "Thinking", blurb: "10 questions, beat your time", players: "1 player", bg: "#d9622b", fg: "#ffffff" },
   { id: "tt", name: "Times Tables Sprint", topic: "Times tables", blurb: "How many in 60 seconds?", players: "1 player", bg: "#0f6b62", fg: "#ffffff" },
-  { id: "sd", name: "Mini Sudoku", topic: "Thinking", blurb: "Fill the grid with 1 to 4, or 1 to 6", players: "1 player", bg: "#2c5aa8", fg: "#ffffff" },
+  { id: "sd", name: "Mini Sudoku", topic: "Thinking", blurb: "Fill the grid with 1 to 4, 6 or 9", players: "1 player", wide: true, bg: "#2c5aa8", fg: "#ffffff" },
   { id: "fp", name: "Pizza Fractions", topic: "Fractions", blurb: "Shade slices, name fractions, make the same amount", players: "1 player · ages 6–9", bg: "#b8322a", fg: "#ffffff" },
   { id: "ff", name: "Fraction Face-off", topic: "Fractions", blurb: "Which fraction is bigger? 60 seconds", players: "1 player · ages 8–12", bg: "#7d2a6b", fg: "#ffffff" },
   { id: "fc", name: "Fraction Challenge", topic: "Fractions", blurb: "3/4 of 20, adding, equivalent fractions", players: "1 player · ages 9–12", bg: "#e8b23a", fg: "#2b1a08" },
