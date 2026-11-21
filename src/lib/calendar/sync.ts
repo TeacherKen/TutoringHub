@@ -177,10 +177,10 @@ export async function syncCalendar(): Promise<SyncResult> {
   // that the tutor hasn't edited by hand are re-matched, so finished lessons
   // never lose their student (or their hours) when keywords change.
   const unlocked = saved.filter((s) => !s.students_locked && s.status === "scheduled");
+  // Only what changed is touched: a lesson never stands without its students while the calendar
+  // is being read (a page opened in that moment used to show the lesson with nobody in it), and
+  // a child's own topics on a lesson that hasn't changed are kept.
   const ids = unlocked.map((s) => s.id);
-  for (let i = 0; i < ids.length; i += 200) {
-    await admin.from("lesson_students").delete().in("lesson_id", ids.slice(i, i + 200)).eq("match_source", "auto");
-  }
   const links = unlocked.flatMap((s) =>
     matchStudents(s.title ?? "", studentList).map((student_id) => ({
       lesson_id: s.id,
@@ -189,10 +189,22 @@ export async function syncCalendar(): Promise<SyncResult> {
       uses_hours: true,
     })),
   );
-  for (let i = 0; i < links.length; i += 500) {
+  const want = new Set(links.map((l) => `${l.lesson_id}|${l.student_id}`));
+  const have = new Set<string>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: rows } = await admin.from("lesson_students").select("lesson_id, student_id, match_source").in("lesson_id", ids.slice(i, i + 200));
+    for (const r of (rows ?? []) as { lesson_id: string; student_id: string; match_source: string }[]) {
+      const key = `${r.lesson_id}|${r.student_id}`;
+      have.add(key);
+      // An automatic match that no longer fits (the event was renamed, or a keyword changed).
+      if (r.match_source === "auto" && !want.has(key)) await admin.from("lesson_students").delete().eq("lesson_id", r.lesson_id).eq("student_id", r.student_id).eq("match_source", "auto");
+    }
+  }
+  const missing = links.filter((l) => !have.has(`${l.lesson_id}|${l.student_id}`));
+  for (let i = 0; i < missing.length; i += 500) {
     await admin
       .from("lesson_students")
-      .upsert(links.slice(i, i + 500), { onConflict: "lesson_id,student_id", ignoreDuplicates: true });
+      .upsert(missing.slice(i, i + 500), { onConflict: "lesson_id,student_id", ignoreDuplicates: true });
   }
 
   // 4. Events named like ones Mr Ken hid ("Not a lesson") stay hidden, e.g. a new week of his own classes.
