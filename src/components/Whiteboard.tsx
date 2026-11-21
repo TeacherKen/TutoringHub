@@ -50,6 +50,10 @@ const LIVE_RT_MS = 70;
 const HEARTBEAT_MS = 8000;
 const HL_WIDTH = 0.022;
 const TEXT_SIZE = 0.03;
+/** Sizes for typed words (a share of the slide's width), small to huge. */
+const TEXT_SIZES = [0.02, 0.03, 0.045, 0.065, 0.09];
+const TEXT_SIZE_NAMES = ["Small", "Medium", "Big", "Bigger", "Huge"];
+const nearestTextSize = (s: number) => TEXT_SIZES.reduce((best, v) => (Math.abs(v - s) < Math.abs(best - s) ? v : best), TEXT_SIZES[0]);
 const ERASE_R = 0.015;
 
 type Props = {
@@ -297,6 +301,10 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
   const [follow, setFollow] = useState(true);
   const [textAt, setTextAt] = useState<{ x: number; y: number } | null>(null);
   const [textValue, setTextValue] = useState("");
+  const [textSize, setTextSize] = useState(TEXT_SIZE);
+  /** The typed words being changed (tapped with the Text tool, or double-clicked with Move). */
+  const [editing, setEditing] = useState<Mark | null>(null);
+  const stepTextSize = (by: number) => setTextSize((v) => TEXT_SIZES[Math.min(TEXT_SIZES.length - 1, Math.max(0, TEXT_SIZES.indexOf(nearestTextSize(v)) + by))]);
   const [confirmClear, setConfirmClear] = useState(false);
   const [full, setFull] = useState(false);
   const [stage, setStage] = useState({ w: 0, h: 0 });
@@ -606,6 +614,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
         if (isTutor || payload?.who !== "tutor" || !Number.isInteger(payload.page)) return;
         setPage(payload.page as number);
         setTextAt(null);
+        setEditing(null);
       })
       .subscribe((status) => {
         rtOk.current = status === "SUBSCRIBED";
@@ -1201,8 +1210,14 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
       return;
     }
     if (tool === "text") {
-      setTextAt({ x, y });
-      setTextValue("");
+      // Tapping words that are already there opens them again, to change the words, colour or size.
+      const hit = pickAt(x, y);
+      if (hit && hit.data.t === "text") editText(hit);
+      else {
+        setEditing(null);
+        setTextAt({ x, y });
+        setTextValue("");
+      }
       return;
     }
     capture(e);
@@ -1356,11 +1371,30 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
     }
   }
 
-  function addText() {
-    const text = textValue.trim();
-    if (textAt && text) addMark({ t: "text", c: color, s: TEXT_SIZE, x: textAt.x, y: Math.max(TEXT_SIZE, textAt.y), text: text.slice(0, 200) });
+  /** Open typed words again in the typing box. */
+  function editText(m: Mark) {
+    if (m.data.t !== "text") return;
+    setEditing(m);
+    setTextAt({ x: m.data.x, y: m.data.y });
+    setTextValue(m.data.text);
+    setTextSize(nearestTextSize(m.data.s));
+    setColor(m.data.c);
+  }
+
+  function closeText() {
     setTextAt(null);
     setTextValue("");
+    setEditing(null);
+  }
+
+  function addText() {
+    const text = textValue.trim().slice(0, 200);
+    const old = editing && marks.current.get(editing.id);
+    if (old && old.data.t === "text") {
+      // Changed words take the place of the old ones (Undo brings the old ones back).
+      if (text && (text !== old.data.text || color !== old.data.c || textSize !== old.data.s)) replaceMarks([[old, { ...old.data, text, c: color, s: textSize }]]);
+    } else if (textAt && text) addMark({ t: "text", c: color, s: textSize, x: textAt.x, y: Math.max(textSize, textAt.y), text });
+    closeText();
   }
 
   /** Reverse one step: take away what it added, put back (as copies) what it took away. Returns the opposite step. */
@@ -1627,6 +1661,13 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
             onPointerUp={onUp}
             onPointerCancel={onUp}
             onPointerLeave={() => tool === "pointer" && broadcast("point", { hide: true })}
+            onDoubleClick={(e) => {
+              // With Move: double-click typed words to change them.
+              if (tool !== "select" || !canvas.current) return;
+              const r = canvas.current.getBoundingClientRect();
+              const hit = pickAt((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+              if (hit && hit.data.t === "text") editText(hit);
+            }}
           />
           {pointer && pointer.page === page ? (
             <div
@@ -1655,7 +1696,7 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
           {textAt ? (
             <form
               className="absolute z-10 flex gap-1 rounded-xl border border-accent bg-surface p-1 shadow-lg"
-              style={{ left: `min(${textAt.x * 100}%, calc(100% - 17rem))`, top: `min(${textAt.y * 100}%, calc(100% - 3.5rem))` }}
+              style={{ left: `min(${textAt.x * 100}%, calc(100% - 23rem))`, top: `min(${textAt.y * 100}%, calc(100% - 3.5rem))` }}
               onSubmit={(e) => {
                 e.preventDefault();
                 addText();
@@ -1665,14 +1706,20 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
                 autoFocus
                 value={textValue}
                 onChange={(e) => setTextValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Escape" && setTextAt(null)}
+                onKeyDown={(e) => e.key === "Escape" && closeText()}
                 maxLength={200}
                 placeholder="Type here"
                 className="input h-11 w-40"
                 style={{ color }}
               />
-              <button className="btn-primary h-11 px-3">Add</button>
-              <button type="button" className="btn-quiet h-11 px-2" onClick={() => setTextAt(null)} aria-label="Cancel">
+              <button type="button" className="btn-quiet h-11 px-2 text-sm font-bold" onClick={() => stepTextSize(-1)} disabled={textSize <= TEXT_SIZES[0]} aria-label="Smaller words" title="Smaller">
+                A−
+              </button>
+              <button type="button" className="btn-quiet h-11 px-2 text-lg font-bold" onClick={() => stepTextSize(1)} disabled={textSize >= TEXT_SIZES[TEXT_SIZES.length - 1]} aria-label="Bigger words" title="Bigger">
+                A+
+              </button>
+              <button className="btn-primary h-11 px-3">{editing ? "Save" : "Add"}</button>
+              <button type="button" className="btn-quiet h-11 px-2" onClick={closeText} aria-label="Cancel">
                 ✕
               </button>
             </form>
@@ -1865,6 +1912,17 @@ export function Whiteboard({ api, me, otherName, empty, saveLessonId }: Props) {
               <button type="button" className={btn(false)} onClick={() => setSize(size === "thin" ? "thick" : "thin")} title="Line size">
                 {size === "thin" ? "Thin" : "Thick"}
               </button>
+            ) : null}
+            {tool === "text" ? (
+              <>
+                <button type="button" className={btn(false)} onClick={() => stepTextSize(-1)} disabled={textSize <= TEXT_SIZES[0]} aria-label="Smaller words" title="Smaller words">
+                  A−
+                </button>
+                <span className="min-w-16 text-center text-sm font-semibold">{TEXT_SIZE_NAMES[TEXT_SIZES.indexOf(nearestTextSize(textSize))]}</span>
+                <button type="button" className={btn(false)} onClick={() => stepTextSize(1)} disabled={textSize >= TEXT_SIZES[TEXT_SIZES.length - 1]} aria-label="Bigger words" title="Bigger words">
+                  A+
+                </button>
+              </>
             ) : null}
           </div>
         ) : null}
