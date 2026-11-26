@@ -287,9 +287,12 @@ export function ShapeBuilder() {
 
   // ---- Dragging --------------------------------------------------------------------------------
   const boardTopLeftFor = (d: Drag): Cell | null => {
-    // the block's own top-left corner is at (x - dx, y - dy); snap to the nearest square
-    const c = Math.round((d.x - d.dx - d.bx) / px);
-    const r = Math.round((d.y - d.dy - d.by) / px);
+    // the block's own top-left corner is at (x - dx, y - dy); snap to the nearest square.
+    // Where the picture is *now* (not where it was when the drag began): the page can shift under the
+    // finger (a message above the picture goes away, the page scrolls), which put the shadow a row off.
+    const g = gridRef.current?.getBoundingClientRect();
+    const c = Math.round((d.x - d.dx - (g?.left ?? d.bx)) / px);
+    const r = Math.round((d.y - d.dy - (g?.top ?? d.by)) / px);
     const h = Math.max(...d.shape.map((s) => s[0])) + 1;
     const w = Math.max(...d.shape.map((s) => s[1])) + 1;
     return r > -h && c > -w && r < rows && c < cols ? [r, c] : null;
