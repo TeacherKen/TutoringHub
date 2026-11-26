@@ -288,11 +288,10 @@ export function ShapeBuilder() {
   // ---- Dragging --------------------------------------------------------------------------------
   const boardTopLeftFor = (d: Drag): Cell | null => {
     // the block's own top-left corner is at (x - dx, y - dy); snap to the nearest square.
-    // Where the picture is *now* (not where it was when the drag began): the page can shift under the
-    // finger (a message above the picture goes away, the page scrolls), which put the shadow a row off.
-    const g = gridRef.current?.getBoundingClientRect();
-    const c = Math.round((d.x - d.dx - (g?.left ?? d.bx)) / px);
-    const r = Math.round((d.y - d.dy - (g?.top ?? d.by)) / px);
+    // (bx, by: where the picture is now. It's measured again on every move and scroll, because the page can
+    // shift under the finger while dragging, which used to put the shadow a row off.)
+    const c = Math.round((d.x - d.dx - d.bx) / px);
+    const r = Math.round((d.y - d.dy - d.by) / px);
     const h = Math.max(...d.shape.map((s) => s[0])) + 1;
     const w = Math.max(...d.shape.map((s) => s[1])) + 1;
     return r > -h && c > -w && r < rows && c < cols ? [r, c] : null;
@@ -314,12 +313,17 @@ export function ShapeBuilder() {
   }
   useEffect(() => {
     if (!drag) return;
-    const move = (e: PointerEvent) => setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
+    const where = () => {
+      const g = gridRef.current?.getBoundingClientRect();
+      return g ? { bx: g.left, by: g.top } : {};
+    };
+    const move = (e: PointerEvent) => setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY, ...where() } : d));
+    const scrolled = () => setDrag((d) => (d ? { ...d, ...where() } : d));
     const up = (e: PointerEvent) => {
       // `drag` is this render's value (the effect re-subscribes every render). A quick flick can lift the
       // finger before the last move is drawn, so drop where the finger actually lifted (not on a cancel,
       // which has no real position).
-      const d = e.type === "pointerup" ? { ...drag, x: e.clientX, y: e.clientY } : drag;
+      const d = e.type === "pointerup" ? { ...drag, x: e.clientX, y: e.clientY, ...where() } : drag;
       setDrag(null);
       // A tap (the finger hardly moved): put it back, and if it was already chosen, turn it.
       if (Math.hypot(d.x - d.sx, d.y - d.sy) < 8) {
@@ -336,10 +340,12 @@ export function ShapeBuilder() {
       }
     };
     window.addEventListener("pointermove", move);
+    window.addEventListener("scroll", scrolled, true);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
     return () => {
       window.removeEventListener("pointermove", move);
+      window.removeEventListener("scroll", scrolled, true);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
     };
